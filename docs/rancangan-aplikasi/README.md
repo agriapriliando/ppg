@@ -4,6 +4,8 @@ Tanggal penyusunan: **18 Oktober 2026**, zona waktu bisnis **Asia/Jakarta**. Sta
 
 Tujuan aplikasi adalah menangani peserta yang telah ditetapkan dalam SK: memperoleh akses, mencocokkan kepesertaan, mengisi formulir, memperbaiki data, diperiksa operator, dan mendapat keputusan **diterima lengkap**. Integrasi Neo Feeder merupakan rilis terpisah sesudah proses PMB stabil.
 
+**Keputusan tampilan:** seluruh halaman produksi menggunakan **Bootstrap 5**, Blade, Livewire 4, dan CSS khusus identitas PPG, mengikuti prototipe `docs/ppgui`. Tailwind tidak digunakan untuk tampilan produksi. Penggantian dependensi dan konfigurasi bawaan proyek termasuk pekerjaan fase F02.
+
 ## Susunan dokumen
 
 | Urutan | Dokumen | Isi dan pemakai utama |
@@ -36,4 +38,4 @@ Jika ada pertentangan, kebutuhan bisnis dalam rancangan MVP sebelumnya menjadi b
 
 ## Batas hasil pekerjaan ini
 
-Pekerjaan ini menghasilkan dokumentasi. Belum ada autentikasi PMB, migrasi domain PMB, integrasi aktif, pengujian fitur PMB, atau deployment yang dilakukan sebagai bagian penyusunan ini. Dokumen asal dan prototipe dipertahankan.
+Paket ini merupakan baseline rancangan, bukan laporan penyelesaian implementasi. Pengembangan aplikasi telah dimulai pada pekerjaan berikutnya; lihat [fitur dan hasil pengujian aktual](../implementasi/README.md) serta [status tiap fase dan pekerjaan tersisa](../implementasi/kemajuan.md). Dokumen asal dan prototipe dipertahankan. Status rilis produksi hanya berubah setelah gate operasional dan penerimaan benar-benar dipenuhi.

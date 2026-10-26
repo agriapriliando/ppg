@@ -2,7 +2,7 @@
 
 ## 1. Aturan pelaksanaan
 
-Semua kotak di bawah sengaja belum dicentang: pekerjaan ini menyusun rancangan, bukan menyatakan implementasi telah selesai. Satu tiket dapat menjadi satu atau beberapa commit yang koheren. Setiap tiket memuat perubahan domain beserta tes relevan, bukan menunda semua pengujian sampai akhir.
+Daftar di bawah adalah baseline tiket rancangan. Implementasi telah dimulai; hasil dan sisa pekerjaan dicatat pada [kemajuan implementasi](../implementasi/kemajuan.md). Kotak fase tidak dicentang massal hanya karena sebagian fitur telah dibuat. Satu tiket dapat menjadi satu atau beberapa commit yang koheren. Setiap tiket memuat perubahan domain beserta tes relevan, bukan menunda semua pengujian sampai akhir.
 
 Urutan utama R1: **F00 → F01 → F02 → F03 → F04 → F05 → F06 → F07 → F08 → F09 → F10 → F11 → F12 → F13 → F14**. Ini urutan aman untuk satu pelaksana. F02 dapat menyiapkan layout sambil skema dibangun; jangan menghubungkan tombol ke data palsu yang kemudian dianggap fitur selesai. R2 F15 dimulai sesudah fondasi R1 stabil dan kontrak Neo tersedia.
 
@@ -59,15 +59,15 @@ Jumlah R1 **54–79 hari-orang**, kira-kira 11–16 minggu kerja satu pengembang
 
 ## 5. F02 — Shell visual dan komponen
 
-**Berkas sasaran:** `resources/views/layouts/`, `components/`, `pages/`, `resources/css/app.css`, `resources/js/app.js`.
+**Berkas sasaran:** `package.json` dan lock frontend, `vite.config.js`, `resources/views/layouts/`, `components/`, `pages/`, `resources/css/app.css`, `resources/js/app.js`, konfigurasi/view pagination Laravel dan Livewire.
 
-- [ ] **F02.1** Bentuk layout publik dan portal dari prototipe: warna ungu/emas, tipografi, ornamen, navbar/sidebar/topbar/breadcrumb. Gunakan pipeline frontend proyek.
-- [ ] **F02.2** Buat komponen badge lima status tersimpan + belum_ada turunan, status WA/Neo terpisah, metric card, table, pagination, input/select/error, dialog konfirmasi, timeline.
+- [ ] **F02.1** Tetapkan Bootstrap 5 dan Bootstrap Icons sebagai fondasi seluruh tampilan. Ganti dependensi/plugin/import Tailwind starter pada `package.json`, lock, `vite.config.js`, dan CSS; audit halaman Blade bawaan yang tetap dipakai. Pertahankan Vite untuk build aset lokal Bootstrap dan CSS khusus. Bentuk layout publik/portal mengikuti warna ungu/emas, tipografi, ornamen, navbar/sidebar/topbar/breadcrumb prototipe.
+- [ ] **F02.2** Buat komponen Bootstrap untuk badge lima status tersimpan + belum_ada turunan, status WA/Neo terpisah, metric card, table, pagination, input/select/error, dialog konfirmasi, timeline. Atur pagination Laravel dan tema/view pagination Livewire agar sama-sama memakai Bootstrap.
 - [ ] **F02.3** Buat shell seluruh halaman UI-P/D/O/A pada 03. Tiap route yang belum mempunyai backend diberi keadaan belum tersedia pada development; tidak memakai aksi simulasi sukses.
-- [ ] **F02.4** Implementasikan drawer ponsel, fokus modal, keyboard/Escape, loading, toast error/sukses, empty/error state, dan gaya cetak awal.
+- [ ] **F02.4** Implementasikan drawer ponsel, fokus modal, keyboard/Escape, loading, toast error/sukses, empty/error state, dan gaya cetak awal. Tetapkan satu pengendali state per komponen Bootstrap/Livewire; uji inisialisasi ulang, disposal instance, backdrop, dan scroll lock saat rerender/navigasi.
 - [ ] **F02.5** Hapus ketergantungan role switch, reset demo, fixed 400/100, localStorage biodata, dan Alpine vendor terpisah dari target produksi. Prototipe di `docs/ppgui` tetap sebagai referensi.
 
-**Uji/exit:** review pada 360/768/1280 px dan keyboard; build berhasil; tidak ada kontrol demo yang memberi kesan autentikasi nyata. Rincian Tailwind final mengikuti skill frontend saat implementasi.
+**Uji/exit:** review pada 360/768/1280 px dan keyboard; build Bootstrap berhasil; pagination Laravel/Livewire konsisten; modal/offcanvas tidak menggandakan instance/backdrop sesudah rerender/navigasi; tidak ada dependensi/plugin/import/utilitas Tailwind aktif pada tampilan produksi; tidak ada kontrol demo yang memberi kesan autentikasi nyata.
 
 ## 6. F03 — Skema domain dan policy
 

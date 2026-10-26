@@ -12,6 +12,29 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        database: [sqlite, mysql]
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: testing
+          MYSQL_DATABASE: pmb_testing
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --password=testing --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DB_CONNECTION: ${{ matrix.database }}
+      DB_DATABASE: ${{ matrix.database == 'mysql' && 'pmb_testing' || ':memory:' }}
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USERNAME: root
+      DB_PASSWORD: testing
 
     steps:
       - name: Checkout code
@@ -25,6 +48,7 @@ jobs:
           php-version: '8.3'
           tools: composer:v2
           coverage: none
+          extensions: mbstring, pdo_sqlite, pdo_mysql, gd, zip
 
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -36,3 +60,13 @@ jobs:
 
       - name: Run CI Checks
         run: composer ci:check
+
+      - name: Prepare isolated concurrency database
+        if: matrix.database == 'mysql'
+        run: mysql --host=127.0.0.1 --user=root --password=testing --execute="CREATE DATABASE pmb_isolated_race CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+
+      - name: Run two-process concurrency scenarios
+        if: matrix.database == 'mysql'
+        env:
+          DB_DATABASE: pmb_isolated_race
+        run: php artisan test tests/Concurrency/AdmissionsRaceTest.php

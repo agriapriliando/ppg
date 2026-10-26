@@ -4,7 +4,11 @@
 
 Pertahankan identitas prototipe: ungu `#4A154B`, ungu gelap `#320D5C`/`#1E0836`, emas `#FFB300`, permukaan putih, latar lembut, kartu beradius, dan ornamen Dayak secukupnya. Motif dekoratif tidak boleh menurunkan keterbacaan. Gunakan font Plus Jakarta Sans jika aset/lisensinya disiapkan, dengan fallback sistem; jangan menggantungkan fungsi pada font eksternal.
 
-Implementasi produksi mengikuti Blade + Livewire 4 dan pipeline Tailwind proyek. Terjemahkan tampilan Bootstrap prototipe, tanpa membawa global CSS Bootstrap dan Alpine terpisah ke seluruh aplikasi. Hindari dua sistem utilitas yang saling menimpa. Tahap ini merancang tampilan; kelas CSS final ditentukan saat pembangunan frontend.
+Implementasi produksi menggunakan **Bootstrap 5 + Blade + Livewire 4**, dengan CSS khusus yang mengikuti prototipe. Seluruh halaman publik, autentikasi, pendaftar, operator, administrator, dan bukti cetak memakai fondasi Bootstrap yang sama. Tailwind tidak dipakai untuk styling produksi. Pertahankan Vite/Vite Plus untuk membundel aset; ganti dependensi, plugin, import, dan utilitas Tailwind bawaan pada fase F02.
+
+Gunakan grid, form, tabel, tombol, badge, navbar, dan komponen responsif Bootstrap, ditambah CSS identitas ungu/emas serta ornamen dari prototipe. Aset Bootstrap dan Bootstrap Icons disediakan lokal melalui build atau direktori aset terkelola; jangan menggantungkan fungsi utama pada CDN. Versi aktual dikunci saat implementasi dengan acuan aset prototipe.
+
+Livewire tetap menangani state dan aksi server. Gunakan satu pengendali untuk setiap modal/offcanvas/dropdown: jika komponen memakai JavaScript Bootstrap, sinkronkan buka/tutup dengan siklus Livewire dan bersihkan instance/backdrop saat navigasi; jika memakai state Alpine bawaan Livewire, gunakan markup/gaya Bootstrap tanpa memasang pengendali Bootstrap kedua pada elemen yang sama. Jangan memuat Alpine vendor terpisah. Uji ulang fokus, Escape, scroll lock, dan modal setelah rerender/navigasi.
 
 Portal publik memakai navbar ringkas. Ruang kerja memakai sidebar, topbar, breadcrumb, periode aktif, nama pengguna, dan logout POST. Pada ponsel sidebar menjadi drawer dengan overlay, Escape, fokus awal, dan pengembalian fokus saat ditutup. Administrator boleh memilih “Antrean seluruh operator” atau filter operator, dengan identitas administrator tetap terlihat.
 

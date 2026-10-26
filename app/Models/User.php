@@ -2,25 +2,28 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\AccountState;
+use App\Enums\UserRole;
+use Carbon\CarbonInterface;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /**
  * @property int $id
  * @property string $name
- * @property string $email
- * @property Carbon|null $email_verified_at
- * @property string $password
+ * @property string|null $email
+ * @property CarbonInterface|null $email_verified_at
+ * @property string|null $password
+ * @property UserRole $role
+ * @property AccountState $account_state
  * @property string|null $remember_token
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
+ * @property CarbonInterface|null $created_at
+ * @property CarbonInterface|null $updated_at
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
@@ -39,7 +42,16 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'role' => UserRole::class,
+            'account_state' => AccountState::class,
+            'must_change_password' => 'boolean',
+            'last_login_at' => 'immutable_datetime',
         ];
+    }
+
+    public function isAdministrator(): bool
+    {
+        return $this->account_state === AccountState::Active && ! $this->must_change_password && $this->role === UserRole::Administrator;
     }
 
     /**

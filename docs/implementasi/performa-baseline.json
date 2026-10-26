@@ -1,0 +1,167 @@
+{
+    "label": "baseline",
+    "captured_at": "2026-10-18T09:20:11+00:00",
+    "php": "8.3.30",
+    "os": "Windows",
+    "database": "11.8.2-MariaDB",
+    "sessions": 50,
+    "max_workers": 8,
+    "view_cache": "isolated per worker to avoid Windows rename contention",
+    "transport": "Laravel HTTP kernel; no network\/TLS\/browser; not a production acceptance result",
+    "datasets": {
+        "400": {
+            "validation": {
+                "wall_ms": 1469.09,
+                "queries": 2005,
+                "sql_ms": 568.08,
+                "peak_heap_mib": 54
+            },
+            "commit": {
+                "wall_ms": 868.31,
+                "queries": 2001,
+                "sql_ms": 470.06,
+                "peak_heap_mib": 52
+            },
+            "identical_revalidation": {
+                "wall_ms": 1375.93,
+                "queries": 2005,
+                "sql_ms": 484.25,
+                "peak_heap_mib": 54
+            },
+            "export": {
+                "wall_ms": 137.15,
+                "queries": 22,
+                "sql_ms": 23.08,
+                "peak_heap_mib": 66
+            },
+            "http_kernel": {
+                "applicant.dashboard": {
+                    "requests": 45,
+                    "p50_ms": 642.9,
+                    "p95_ms": 722.08,
+                    "max_queries": 12,
+                    "max_sql_ms": 33.56,
+                    "max_heap_mib": 32
+                },
+                "applicant.draft": {
+                    "requests": 45,
+                    "p50_ms": 115.08,
+                    "p95_ms": 201.85,
+                    "max_queries": 15,
+                    "max_sql_ms": 125.38,
+                    "max_heap_mib": 40
+                },
+                "applicant.form": {
+                    "requests": 45,
+                    "p50_ms": 169.9,
+                    "p95_ms": 200.06,
+                    "max_queries": 16,
+                    "max_sql_ms": 31.83,
+                    "max_heap_mib": 34
+                },
+                "staff.dashboard": {
+                    "requests": 5,
+                    "p50_ms": 638.82,
+                    "p95_ms": 645.96,
+                    "max_queries": 13,
+                    "max_sql_ms": 23.02,
+                    "max_heap_mib": 32
+                },
+                "staff.participants": {
+                    "requests": 5,
+                    "p50_ms": 109.42,
+                    "p95_ms": 110.22,
+                    "max_queries": 9,
+                    "max_sql_ms": 10,
+                    "max_heap_mib": 34
+                },
+                "staff.queue": {
+                    "requests": 5,
+                    "p50_ms": 84.98,
+                    "p95_ms": 88.46,
+                    "max_queries": 10,
+                    "max_sql_ms": 9.29,
+                    "max_heap_mib": 34
+                }
+            },
+            "stored_sessions": 50
+        },
+        "4000": {
+            "validation": {
+                "wall_ms": 34355.57,
+                "queries": 20005,
+                "sql_ms": 7293.01,
+                "peak_heap_mib": 86
+            },
+            "commit": {
+                "wall_ms": 11269.74,
+                "queries": 20001,
+                "sql_ms": 6225.47,
+                "peak_heap_mib": 86
+            },
+            "identical_revalidation": {
+                "wall_ms": 36164.28,
+                "queries": 20005,
+                "sql_ms": 7639.36,
+                "peak_heap_mib": 90
+            },
+            "export": {
+                "wall_ms": 1304.26,
+                "queries": 121,
+                "sql_ms": 192.34,
+                "peak_heap_mib": 146
+            },
+            "http_kernel": {
+                "applicant.dashboard": {
+                    "requests": 45,
+                    "p50_ms": 996.43,
+                    "p95_ms": 1197.96,
+                    "max_queries": 12,
+                    "max_sql_ms": 102.52,
+                    "max_heap_mib": 32
+                },
+                "applicant.draft": {
+                    "requests": 45,
+                    "p50_ms": 208.1,
+                    "p95_ms": 305.34,
+                    "max_queries": 15,
+                    "max_sql_ms": 149.11,
+                    "max_heap_mib": 38
+                },
+                "applicant.form": {
+                    "requests": 45,
+                    "p50_ms": 169.16,
+                    "p95_ms": 217.46,
+                    "max_queries": 16,
+                    "max_sql_ms": 69.78,
+                    "max_heap_mib": 34
+                },
+                "staff.dashboard": {
+                    "requests": 5,
+                    "p50_ms": 928,
+                    "p95_ms": 947.88,
+                    "max_queries": 13,
+                    "max_sql_ms": 69.71,
+                    "max_heap_mib": 32
+                },
+                "staff.participants": {
+                    "requests": 5,
+                    "p50_ms": 130.83,
+                    "p95_ms": 137.58,
+                    "max_queries": 9,
+                    "max_sql_ms": 45.79,
+                    "max_heap_mib": 32
+                },
+                "staff.queue": {
+                    "requests": 5,
+                    "p50_ms": 121.12,
+                    "p95_ms": 190.03,
+                    "max_queries": 10,
+                    "max_sql_ms": 41.47,
+                    "max_heap_mib": 34
+                }
+            },
+            "stored_sessions": 50
+        }
+    }
+}

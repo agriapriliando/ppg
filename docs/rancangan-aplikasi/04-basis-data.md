@@ -83,6 +83,8 @@ Jangan memasang unique nomor WhatsApp: nomor keluarga/bersama harus ditinjau. Si
 
 `config_snapshot` dibekukan pada submit pertama. Pada revisi berikutnya, simpan rujukan konfigurasi yang digunakan tanpa menimpa snapshot awal. Pemetaan Neo yang dilengkapi belakangan memakai snapshot integrasi terpisah pada `neo_syncs`. Admin tidak menulis NIM melalui field formulir pendaftar.
 
+Penyempurnaan R1 untuk koreksi kepemilikan menambahkan `applications.ownership_epoch uint default 0` dan `current_owner_submitted_at NULL`, serta `ownership_epoch` pada `application_reviews`/`application_submissions`. Tabel `application_ownership_transfers` mencatat aplikasi, urutan kepemilikan, akun/workspace lama-baru, klaim tujuan, kasus administratif, pelaksana, revisi sebelum koreksi dan waktu; unique `(application_id,ownership_epoch)` dengan FK restrict. Workspace/consent lama tidak dipindahkan. Status pendaftar memfilter review pada epoch saat ini; bukti setelah koreksi menunggu pengiriman pemilik saat ini. Nilai 0 mempertahankan kompatibilitas data lama. Lihat [SOP implementasi koreksi](../implementasi/koreksi-kepemilikan.md); penghapusan skema batas histori ditolak jika perpindahan sudah tercatat.
+
 ## 7. Kamus field formulir
 
 Semua field biodata boleh NULL pada draf kecuali relasi. Kolom wajib di bawah berarti **wajib saat kirim** sesuai rancangan awal; pengesahan pengelola dicatat pada K-05. Nama field JS prototipe diterjemahkan pada batas UI; database menggunakan snake_case yang konsisten.

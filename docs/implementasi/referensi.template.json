@@ -1,0 +1,23 @@
+{
+  "version": "GANTI-VERSI-RESMI",
+  "source": "GANTI dengan sumber resmi yang telah diperiksa dan disahkan; ini hanya struktur template",
+  "options": [
+    { "group": "gender", "code": "GANTI_KODE", "label": "Ganti label jenis kelamin sesuai referensi resmi" },
+    { "group": "religion", "code": "GANTI_KODE", "label": "Ganti label agama sesuai referensi resmi" },
+    { "group": "nationality", "code": "GANTI_KODE", "label": "Ganti label kewarganegaraan sesuai referensi resmi" },
+    { "group": "residence", "code": "GANTI_KODE", "label": "Ganti label jenis tinggal sesuai referensi resmi" },
+    { "group": "transport", "code": "GANTI_KODE", "label": "Ganti label transportasi sesuai referensi resmi" },
+    { "group": "special_need", "code": "GANTI_KODE", "label": "Ganti label kebutuhan khusus sesuai referensi resmi" }
+  ],
+  "regions": [
+    { "code": "GANTI_PROVINSI", "parent_code": null, "level": "province", "name": "Ganti nama provinsi resmi" },
+    { "code": "GANTI_KOTA", "parent_code": "GANTI_PROVINSI", "level": "city", "name": "Ganti nama kota atau kabupaten resmi" },
+    { "code": "GANTI_KECAMATAN", "parent_code": "GANTI_KOTA", "level": "district", "name": "Ganti nama kecamatan resmi" }
+  ],
+  "pt": [
+    { "external_id": "GANTI_ID_PT", "name": "Ganti nama perguruan tinggi resmi" }
+  ],
+  "prodi": [
+    { "external_id": "GANTI_ID_PRODI", "pt_external_id": "GANTI_ID_PT", "name": "Ganti nama program studi resmi" }
+  ]
+}

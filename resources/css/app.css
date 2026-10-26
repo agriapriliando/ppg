@@ -1,8 +1,24 @@
-@import 'tailwindcss';
+@import 'bootstrap/dist/css/bootstrap.min.css';
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+@import './theme.css';
+@import './portal.css';
 
-@source '../views';
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-
-@theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-}
+:root { --bs-primary: #4a154b; --bs-primary-rgb: 74, 21, 75; }
+body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+h1,h2,h3,h4,h5,h6 { font-family: inherit; }
+[x-cloak] { display: none !important; }
+.skip-link { position: absolute; top: -100px; left: 1rem; z-index: 2000; }
+.skip-link:focus { top: 1rem; }
+.portal-sidebar { overflow-y: auto; }
+.sidebar-bottom .btn { color: #d6c6e1; font-size: .8rem; }
+.workspace-card .form-label { font-size: .85rem; }
+.workspace-card .form-control, .workspace-card .form-select { font-size: .9rem; }
+.portal-topbar { min-height: 76px; }
+.pagination { --bs-pagination-color: #4a154b; --bs-pagination-active-bg: #4a154b; --bs-pagination-active-border-color: #4a154b; }
+.field-error { font-size: .85rem; margin-top: .35rem; color: #b02a37; }
+.form-text { overflow-wrap: anywhere; }
+.btn:focus-visible, a:focus-visible { outline: 3px solid #ffb300; outline-offset: 3px; }
+.hero-emblem { font-size: 8rem; color: #ffb300; }
+.auth-section { min-height: calc(100vh - 200px); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+@media print { .no-print, .portal-sidebar, .portal-topbar, .workspace-footer { display: none !important; } .portal-main { margin-left: 0 !important; } .workspace-content { padding: 0 !important; } }

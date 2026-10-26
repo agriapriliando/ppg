@@ -31,7 +31,7 @@ Library vendor prototipe merupakan bahan runtime demo, bukan spesifikasi bisnis.
 | --- | --- | --- |
 | Backend | Laravel terpasang 13.37.0; deklarasi `^13.17`; PHP proyek `^8.3` | Gunakan Laravel 13; cocokkan patch dengan lock saat implementasi |
 | Reaktivitas | Livewire 4.4.7 dan Blaze 1.0.19 terpasang | Gunakan Livewire 4; belum ada komponen PMB |
-| Frontend | Tailwind 4 dideklarasikan pada proyek; Vite/Vite Plus tersedia | Target produksi mengikuti build proyek; UI prototipe diterjemahkan ke Blade |
+| Frontend | Tailwind 4 masih dideklarasikan pada kerangka awal proyek; Vite/Vite Plus tersedia | Sesuai arahan pengguna, target produksi memakai Bootstrap 5; dependensi/plugin/import Tailwind bawaan diganti pada F02, sementara Vite tetap untuk build aset |
 | Demo | PHP biasa + Bootstrap + Alpine lokal; state `ppg-ui-demo-v1` | Bukan backend Laravel atau penyimpanan yang dapat dibagikan antarpengguna |
 | Route | `/` hanya menuju `welcome` | Semua halaman dan aksi PMB masih perlu dibangun |
 | Data | Tabel dasar users, sessions, reset tokens, cache, jobs | Belum ada skema SK, klaim, aplikasi, verifikasi, atau Neo |

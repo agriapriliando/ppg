@@ -4,6 +4,8 @@
 
 Gunakan satu aplikasi Laravel dengan modul domain yang jelas. Ini mencukupi skenario ratusan/ribuan peserta tanpa menambah layanan terpisah. Halaman publik bersifat Blade; workspace interaktif memakai Livewire 4; redirect/callback Google, login/logout, download, dan respons sensitif sekali tampil memakai controller HTTP.
 
+Lapisan tampilan memakai **Bootstrap 5 dan Bootstrap Icons**, dengan CSS khusus PPG dari prototipe sebagai acuan. Vite/Vite Plus tetap digunakan untuk build aset Bootstrap/CSS/JavaScript. Dependensi dan plugin Tailwind pada starter awal dihapus saat implementasi frontend, termasuk import CSS dan utilitas pada halaman bawaan yang masih digunakan. Pagination Laravel diatur memakai view Bootstrap; pagination Livewire juga memakai tema/view Bootstrap agar tidak menghasilkan markup Tailwind.
+
 ```mermaid
 flowchart LR
     U[Browser] --> W[Middleware sesi dan peran]
@@ -37,7 +39,7 @@ Fondasi framework yang sudah ada dipakai, tetapi domain PMB belum mempunyai pola
 | `app/Validation/` dan `app/Rules/` | Aturan draft/submit bersama, pasangan referensi, nomor WA; Livewire tidak dipaksa memakai HTTP FormRequest |
 | `app/Services/References/`, `app/Services/Neo/` | Batas parsing dan adapter eksternal; hanya Neo memakai kontrak interface untuk fake transport yang bermakna |
 | `app/Jobs/` | `ValidateSkImportJob`, `RefreshReferenceDatasetJob`, `GenerateParticipantExportJob`, `SyncApplicationToNeoJob`, `ReconcileNeoSyncJob` |
-| `resources/views/layouts/`, `components/` | Layout publik/portal, badge, tabel, modal, field, timeline, SFC komponen kecil |
+| `resources/views/layouts/`, `components/` | Layout publik/portal berbasis Bootstrap, badge, tabel, modal, field, timeline, SFC komponen kecil |
 | `resources/views/pages/` | Full-page SFC dengan nama namespace `pages::...`, awalan berkas `⚡` sesuai konfigurasi generator yang berlaku |
 | `resources/views/print/` | Bukti A4 Blade tersendiri |
 | `routes/web.php`, `routes/console.php` | Route web dan jadwal pembersihan/rekonsiliasi; periksa middleware di `bootstrap/app.php` |
