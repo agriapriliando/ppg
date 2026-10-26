@@ -1,5 +1,7 @@
 # Dokumentasi aplikasi PMB PPG
 
+Untuk petunjuk penggunaan per peran, baca **[Panduan penggunaan aplikasi](panduan/README.md)**: akses akun, pendaftaran, pemeriksaan operator, pengelolaan administrator, impor SK, penugasan, pemulihan, dan pemecahan masalah.
+
 **Aplikasi sudah mulai diimplementasikan.** Baca [panduan menjalankan dan fitur aktual](implementasi/README.md) serta [kemajuan tiap fase](implementasi/kemajuan.md) untuk membedakan kode yang tersedia dari rencana lanjutan.
 
 Mulai dari **[Rancangan lengkap dan tahapan pembangunan](rancangan-aplikasi/README.md)**. Paket ini disusun pada 18 Oktober 2026 berdasarkan prototipe `ppgui` dan kondisi repositori, untuk menjadi acuan implementasi aplikasi PMB PPG IAKN Palangka Raya.
