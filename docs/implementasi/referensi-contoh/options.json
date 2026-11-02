@@ -1,0 +1,129 @@
+{
+  "options": [
+    {
+      "group": "gender",
+      "code": "L",
+      "label": "Laki-laki"
+    },
+    {
+      "group": "gender",
+      "code": "P",
+      "label": "Perempuan"
+    },
+    {
+      "group": "religion",
+      "code": "KRISTEN",
+      "label": "Kristen"
+    },
+    {
+      "group": "nationality",
+      "code": "WNI",
+      "label": "Indonesia"
+    },
+    {
+      "group": "residence",
+      "code": "1",
+      "label": "Bersama orang tua"
+    },
+    {
+      "group": "residence",
+      "code": "3",
+      "label": "Kost"
+    },
+    {
+      "group": "residence",
+      "code": "2",
+      "label": "Wali"
+    },
+    {
+      "group": "residence",
+      "code": "99",
+      "label": "Lainnya"
+    },
+    {
+      "group": "residence",
+      "code": "10",
+      "label": "Rumah sendiri"
+    },
+    {
+      "group": "residence",
+      "code": "4",
+      "label": "Asrama"
+    },
+    {
+      "group": "residence",
+      "code": "5",
+      "label": "Panti asuhan"
+    },
+    {
+      "group": "transport",
+      "code": "11",
+      "label": "Kuda"
+    },
+    {
+      "group": "transport",
+      "code": "4",
+      "label": "Mobil/bus antar jemput"
+    },
+    {
+      "group": "transport",
+      "code": "8",
+      "label": "Perahu penyeberangan/rakit/getek"
+    },
+    {
+      "group": "transport",
+      "code": "13",
+      "label": "Sepeda motor"
+    },
+    {
+      "group": "transport",
+      "code": "1",
+      "label": "Jalan kaki"
+    },
+    {
+      "group": "transport",
+      "code": "99",
+      "label": "Lainnya"
+    },
+    {
+      "group": "transport",
+      "code": "14",
+      "label": "Mobil pribadi"
+    },
+    {
+      "group": "transport",
+      "code": "6",
+      "label": "Ojek"
+    },
+    {
+      "group": "transport",
+      "code": "5",
+      "label": "Kereta api"
+    },
+    {
+      "group": "transport",
+      "code": "12",
+      "label": "Sepeda"
+    },
+    {
+      "group": "transport",
+      "code": "3",
+      "label": "Angkutan umum/bus/pete-pete"
+    },
+    {
+      "group": "transport",
+      "code": "7",
+      "label": "Andong/bendi/sado/dokar/delman/becak"
+    },
+    {
+      "group": "special_need",
+      "code": "TIDAK",
+      "label": "Tidak ada kebutuhan khusus"
+    },
+    {
+      "group": "special_need",
+      "code": "LAINNYA",
+      "label": "Kebutuhan khusus lainnya"
+    }
+  ]
+}

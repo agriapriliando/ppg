@@ -16,6 +16,8 @@ Istilah utama: **SK** adalah daftar penetapan resmi; **klaim** adalah permohonan
 
 Dokumen unggahan identitas/ijazah **belum** merupakan fitur formulir prototipe. Verifikasi dapat mencatat hasil pemeriksaan sesuai SOP kampus; jangan menambahkan kewajiban unggah, kategori dokumen, atau retensinya tanpa keputusan pengelola. Unduh panduan resmi dapat berupa aset publik yang disetujui; daftar peserta SK lengkap tidak otomatis dipublikasikan.
 
+Perluasan berdasarkan permintaan pengguna pada 2 November 2026 dirinci dalam [rancangan pengelolaan berkas pendaftar](10-pengelolaan-berkas-pendaftar.md): unggah bertahap oleh pendaftar/pengelola, ubah nama, hapus permanen, dan pengaturan admin. Dokumen itu menjadi acuan tambahan untuk fitur berkas; fitur belum diimplementasikan dan tidak otomatis menambah syarat wajib pengiriman formulir.
+
 ## 3. Peran dan batas data
 
 Peran database: `pendaftar_ppg`, `operator`, `administrator`; label demo `pendaftar`/`admin` hanya dipakai pada sumber UI. Satu akun memiliki satu peran utama. Administrator menjalankan kemampuan operator sebagai administrator; tidak menyamar atau mengganti ID aktor.

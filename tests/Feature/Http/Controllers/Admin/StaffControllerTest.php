@@ -5,11 +5,11 @@ use App\Models\AuditEvent;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
-it('creates a staff account with a hashed password and mandatory initial change', function () {
+it('creates a staff account with a hashed password ready for immediate use', function () {
     $admin = User::factory()->administrator()->create();
     $this->actingAs($admin)->post(route('admin.users.store'), ['name' => 'Operator Uji', 'login_id' => 'operator.uji', 'email' => null, 'role' => 'operator', 'password' => 'SandiOperatorUji2026!', 'password_confirmation' => 'SandiOperatorUji2026!'])->assertRedirect(route('admin.users'));
     $user = User::query()->where('login_id', 'operator.uji')->sole();
-    expect($user->must_change_password)->toBeTrue();
+    expect($user->must_change_password)->toBeFalse();
     expect(Hash::check('SandiOperatorUji2026!', $user->password))->toBeTrue();
     $this->assertDatabaseHas('audit_events', ['actor_id' => $admin->id, 'action' => 'Membuat akun pengelola']);
     expect(json_encode(AuditEvent::query()->sole()->safe_changes))->not->toContain('SandiOperatorUji2026!');

@@ -20,6 +20,7 @@ Tujuan aplikasi adalah menangani peserta yang telah ditetapkan dalam SK: mempero
 | 07 | [Tahapan pembangunan terperinci](07-tahapan-pembangunan.md) | Urutan kerja, dependensi, berkas sasaran, keluaran, kriteria selesai, estimasi; pelaksana proyek |
 | 08 | [Rencana pengujian dan penerimaan](08-pengujian-dan-penerimaan.md) | Matriks uji positif/negatif, konkurensi, UAT, bukti rilis; QA dan pengelola |
 | 09 | [Operasional, risiko, dan keputusan](09-operasional-dan-keputusan.md) | Deployment, backup/restore, SOP, risiko, daftar keputusan yang belum disahkan; pengelola sistem |
+| 10 | [Pengelolaan berkas pendaftar](10-pengelolaan-berkas-pendaftar.md) | Perluasan rancangan 2 November 2026: unggah bertahap, ubah nama, hapus permanen, akses pengelola, serta aturan dan panduan berkas oleh admin; belum diimplementasikan |
 
 ## Cara menggunakan
 

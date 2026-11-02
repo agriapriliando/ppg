@@ -23,8 +23,9 @@ class EnsureAccountIsActive
 
             return redirect()->route('login')->withErrors(['login' => 'Akun belum aktif atau akses telah dinonaktifkan.']);
         }
-        if ($user->must_change_password && ! $request->routeIs('password.change', 'password.update', 'logout')) {
-            return redirect()->route('password.change');
+        if ($user->must_change_password) {
+            $user->must_change_password = false;
+            $user->save();
         }
 
         return $next($request);

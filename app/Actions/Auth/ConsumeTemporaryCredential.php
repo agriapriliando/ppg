@@ -22,7 +22,12 @@ class ConsumeTemporaryCredential
                 return null;
             }
             $issuance->used_at = now();
+            $issuance->revoked_at = now();
             $issuance->save();
+            $locked->password = $issuance->secret_hash;
+            $locked->account_state = AccountState::Active;
+            $locked->must_change_password = false;
+            $locked->save();
 
             return $issuance;
         });

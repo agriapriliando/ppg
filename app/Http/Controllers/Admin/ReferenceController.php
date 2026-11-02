@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Admissions\ImportReferenceFiles;
 use App\Actions\Admissions\PublishReferenceDataset;
 use App\Actions\RecordAudit;
 use App\Http\Controllers\Controller;
@@ -10,6 +11,7 @@ use App\Models\ReferenceDataset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -21,9 +23,29 @@ class ReferenceController extends Controller
         return view('admin.references', ['datasets' => ReferenceDataset::query()->orderByDesc('id')->paginate(10), 'consents' => ConsentText::query()->orderByDesc('id')->get()]);
     }
 
-    public function store(Request $request, PublishReferenceDataset $publish): RedirectResponse
+    public function store(Request $request, PublishReferenceDataset $publish, ImportReferenceFiles $import): RedirectResponse
     {
-        $request->validate(['file' => ['required', 'file', 'extensions:json', 'max:10240'], 'approved' => ['accepted']]);
+        if (! $request->hasFile('file')) {
+            $data = $request->validate([
+                'version' => ['sometimes', 'string', 'max:64'],
+                'source' => ['sometimes', 'string', 'max:255'],
+                'files' => ['required', 'array', 'min:1', 'max:10'],
+                'files.*' => ['file', 'extensions:json', 'max:10240'],
+            ]);
+            $actor = $request->user();
+            abort_unless($actor !== null, 403);
+            $files = [];
+            foreach ($data['files'] as $key => $uploaded) {
+                if ($uploaded instanceof UploadedFile) {
+                    $files[$key] = $uploaded;
+                }
+            }
+            $source = Str::limit(implode(', ', array_map(fn (UploadedFile $file) => $file->getClientOriginalName(), $files)), 255, '');
+            $import->handle($actor, $data['version'] ?? 'impor-'.Str::uuid(), $data['source'] ?? $source, $files);
+
+            return back()->with('status', 'Referensi berhasil diterbitkan. Jenis yang tidak diunggah dipertahankan dari dataset aktif sebelumnya.');
+        }
+        $request->validate(['file' => ['required', 'file', 'extensions:json', 'max:10240'], 'files' => ['prohibited'], 'approved' => ['accepted']]);
         $file = $request->file('file');
         abort_unless($file instanceof UploadedFile, 422);
         try {

@@ -11,6 +11,7 @@ Tampilan produksi dirancang menggunakan **Bootstrap 5 + Blade + Livewire 4**, me
 | Bahan | Kegunaan |
 | --- | --- |
 | [Rancangan lengkap](rancangan-aplikasi/README.md) | Kebutuhan, alur, layar, skema, arsitektur, integrasi, tahapan kerja, pengujian, dan operasi |
+| [Rancangan berkas pendaftar](rancangan-aplikasi/10-pengelolaan-berkas-pendaftar.md) | Unggah bebas bertahap, ubah nama, hapus permanen, akses pengelola, dan aturan/panduan berkas oleh admin; belum diimplementasikan |
 | [Prototipe UI](ppgui/README.md) | Meninjau contoh tampilan dan simulasi interaksi tiga peran |
 | [Pengukuran performa F12](implementasi/pengujian-performa.md) | Hasil 400/4.000 peserta, optimasi impor dan batas pengujian lokal |
 | [Rancangan MVP sebelumnya](rancangan-aplikasi-pmb-ppg-iakn-palangka-raya.md) | Latar keputusan produk; dipertahankan sebagai bahan asal |

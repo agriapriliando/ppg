@@ -2,6 +2,7 @@
 
 namespace App\Actions\Admissions;
 
+use App\Actions\Auth\AssignApplicantUsername;
 use App\Actions\RecordAudit;
 use App\Enums\AccountState;
 use App\Enums\PeriodState;
@@ -17,12 +18,11 @@ use App\Models\User;
 use App\Models\WhatsappVerification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class ApproveClaim
 {
-    public function __construct(private RecordAudit $audit) {}
+    public function __construct(private RecordAudit $audit, private AssignApplicantUsername $assignUsername) {}
 
     public function handle(User $actor, SkClaim $claim, int $expectedVersion): Application
     {
@@ -45,18 +45,14 @@ class ApproveClaim
             }
             Gate::forUser($actor)->authorize('view', $participant);
             $verification = WhatsappVerification::query()->where('claim_id', $locked->id)->where('number', $locked->whatsapp_number)->whereNull('invalidated_at')->latest('id')->first();
-            if ($locked->access_path === 'whatsapp' && $verification === null) {
-                throw ValidationException::withMessages(['whatsapp' => 'Catat bukti balasan WhatsApp aktif sebelum menyetujui klaim jalur WhatsApp.']);
-            }
             $user = $locked->requester;
             if ($user === null) {
                 $user = new User;
                 $user->name = $locked->submitted_name;
-                $user->login_id = 'ppg-'.mb_strtolower($period->code).'-'.Str::lower(Str::random(8));
                 $user->role = UserRole::Applicant;
                 $user->account_state = AccountState::PendingActivation;
                 $user->must_change_password = true;
-                $user->save();
+                $this->assignUsername->handle($user);
                 $locked->requester()->associate($user);
             }
             User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();

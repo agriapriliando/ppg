@@ -44,28 +44,14 @@ Pemohon yang sudah mempunyai akun dapat menjawab melalui halaman klaim sendiri. 
 
 Status `declined` tidak dapat langsung disetujui melalui aturan persetujuan klaim saat ini. Gunakan hasil itu setelah pemeriksaan yang cukup; jika perlu diproses kembali, koordinasikan permohonan yang sesuai dengan administrator.
 
-## 4. Mencatat bukti WhatsApp aktif
+## 4. Nomor WhatsApp pada klaim
 
-Verifikasi dilakukan setelah ada balasan nyata dari pemilik nomor melalui kanal resmi kampus.
-
-1. Hubungi nomor yang sedang diperiksa melalui kanal resmi.
-2. Pastikan balasan dan identitas sesuai konteks pemeriksaan.
-3. Pada detail klaim, buka **Bukti nomor WhatsApp aktif**.
-4. Tulis **Ringkasan bukti balasan** sepanjang 10–1.000 karakter.
-5. Catat waktu balasan dan hasil pemeriksaan secukupnya.
-6. Centang bahwa balasan berasal dari nomor yang sedang diperiksa.
-7. Klik **Catat Nomor Terverifikasi** dan pastikan muncul pesan keberhasilan.
-
-Contoh ringkasan:
-
-> Pemohon membalas pada 26 Oktober 2026 pukul 09.15 WIB melalui nomor yang diperiksa. Nama dan pengenal SK telah dicocokkan oleh petugas.
-
-Jangan menulis sandi, kode akses, NIK lengkap, atau isi percakapan sensitif. Verifikasi sebelum persetujuan mengacu pada nomor permohonan. Sesudah klaim disetujui, pencatatan melalui halaman yang sama mengacu pada nomor formulir saat ini.
+Detail klaim menampilkan nomor permohonan dan, setelah persetujuan, nomor formulir saat ini. Formulir bukti nomor WhatsApp aktif telah dihapus dari halaman ini. Persetujuan klaim dan penerbitan/penyerahan akses tidak memerlukan pencatatan bukti balasan. Pemeriksaan identitas, kepesertaan SK, kewenangan petugas, dan konflik administratif tetap berlaku.
 
 ## 5. Menyetujui klaim
 
 1. Pastikan kandidat SK tepat, aktif, belum diklaim, dan tidak berkonflik.
-2. Untuk jalur WhatsApp, catat bukti nomor aktif terlebih dahulu.
+2. Periksa nomor WhatsApp yang tercantum pada permohonan.
 3. Pastikan kasus administratif yang menghambat sudah diselesaikan.
 4. Centang **Identitas pemohon telah dicocokkan menggunakan pembeda yang sah**.
 5. Centang **Kandidat SK tepat, tidak ambigu, dan belum dimiliki pihak lain**.
@@ -74,23 +60,25 @@ Jangan menulis sandi, kode akses, NIK lengkap, atau isi percakapan sensitif. Ver
 
 Satu akun tidak boleh memiliki dua pendaftaran pada periode yang sama. Memilih kandidat saja belum mengunci kepesertaan; persetujuan memeriksa kembali apakah kandidat masih tersedia. Jika data berubah selama pemeriksaan, muat ulang dan periksa kembali sebelum melanjutkan.
 
-Jalur Google tidak mewajibkan bukti WhatsApp untuk persetujuan klaim, tetapi keputusan akhir **Diterima lengkap** tetap memerlukan verifikasi nomor formulir yang berlaku.
+Persetujuan klaim kedua jalur tidak mewajibkan bukti WhatsApp. Keputusan akhir **Diterima lengkap** tetap memerlukan verifikasi nomor formulir yang berlaku.
 
 ## 6. Menyerahkan akses lokal jalur WhatsApp
 
 Bagian ini berlaku untuk klaim jalur WhatsApp yang sudah disetujui.
 
 1. Buka detail klaim.
-2. Pastikan nomor formulir saat ini terverifikasi.
+2. Pastikan nomor tujuan sesuai nomor formulir saat ini.
 3. Pada **Penyerahan akses manual**, isi alasan penerbitan/pemulihan akses 10–1.000 karakter.
-4. Klik **Terbitkan Akses Sekali Tampil**.
-5. Pada halaman kredensial, periksa nama, ID login, sandi sementara, nomor tujuan, batas berlaku, dan alamat masuk.
+4. Klik **Generate Akun**.
+5. Pada halaman akses akun, periksa nama, ID login, kata sandi yang tersedia, nomor tujuan, dan alamat masuk. Tombol menampilkan akses sebelumnya; akses awal hanya dibuat jika belum tersedia.
 6. Serahkan akses secara manual melalui percakapan resmi pada **nomor tujuan yang ditampilkan**.
 7. Setelah benar-benar diserahkan, centang konfirmasi penyerahan.
 8. Klik **Catat Sudah Diserahkan**.
-9. Minta pendaftar segera masuk dan membuat sandi pribadi.
+9. Minta pendaftar masuk dengan sandi awal; akun langsung aktif tanpa kewajiban membuat sandi baru.
 
-Sandi hanya tampil pada respons penerbitan itu. Jika halaman sudah ditutup, terbitkan ulang setelah memeriksa nomor; penerbitan baru mencabut akses sementara dan sesi sebelumnya. Sandi sementara belum dapat digunakan bila penyerahannya belum dicatat. Jika nomor berubah atau akses kedaluwarsa sebelum pencatatan, ulangi proses setelah verifikasi.
+Username akun pendaftar baru dibuat dari nama, misalnya `budi.santoso`. Jika sudah dipakai, sistem menambahkan nomor berurutan: `budi.santoso2`, `budi.santoso3`, dan seterusnya.
+
+Membuka kembali **Generate Akun** tidak mengganti kata sandi, mencabut akses, atau menghapus sesi. Sandi awal yang dibuat setelah pembaruan fitur disimpan terenkripsi dan dapat ditampilkan kembali kepada petugas yang berwenang. Sandi lama yang hanya tersimpan sebagai hash, atau sandi yang sudah diubah pemilik, tidak dapat ditampilkan kembali. Halaman tetap menampilkan informasi akun tanpa mereset sandinya. Sandi awal belum dapat digunakan untuk login pertama bila penyerahannya belum dicatat atau batas masuk pertamanya sudah berakhir. Untuk mengganti password akun secara sengaja, klik **Generate Ulang Password** pada detail klaim. Tindakan ini mencabut password dan sesi lama, menampilkan sandi awal baru, dan perlu dicatat penyerahannya. Login dengan sandi baru langsung mengaktifkan akun tanpa kewajiban mengganti sandi lagi. Username tetap sama. Pemulihan nomor WhatsApp tetap melalui proses pemulihan nomor yang terpisah.
 
 Jangan menaruh sandi sementara pada catatan klaim, audit, atau dokumen bersama. Penerbitan akses bukan pengiriman WhatsApp otomatis.
 

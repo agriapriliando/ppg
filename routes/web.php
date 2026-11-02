@@ -62,6 +62,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::post('/klaim/{claim}/catatan', [ClaimsController::class, 'note'])->name('claims.note');
         Route::post('/klaim/{claim}/whatsapp', [ClaimsController::class, 'verifyWhatsapp'])->name('claims.verify-whatsapp');
         Route::post('/klaim/{claim}/kredensial', [CredentialController::class, 'issue'])->name('credentials.issue');
+        Route::post('/klaim/{claim}/kredensial/generate-ulang', [CredentialController::class, 'regenerate'])->middleware('throttle:5,1')->name('credentials.regenerate');
         Route::post('/kredensial/{issuance}/penyerahan', [CredentialController::class, 'deliver'])->name('credentials.deliver');
         Route::get('/antrean', [ApplicationReviewController::class, 'index'])->name('reviews.index');
         Route::get('/pendaftaran/{application}', [ApplicationReviewController::class, 'show'])->name('reviews.show');

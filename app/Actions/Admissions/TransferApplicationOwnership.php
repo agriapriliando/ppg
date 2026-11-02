@@ -2,6 +2,7 @@
 
 namespace App\Actions\Admissions;
 
+use App\Actions\Auth\AssignApplicantUsername;
 use App\Actions\RecordAudit;
 use App\Enums\AccountState;
 use App\Enums\ApplicationStatus;
@@ -27,7 +28,7 @@ use Illuminate\Validation\ValidationException;
 
 class TransferApplicationOwnership
 {
-    public function __construct(private RecordAudit $audit) {}
+    public function __construct(private RecordAudit $audit, private AssignApplicantUsername $assignUsername) {}
 
     /** @param array<string, mixed> $input */
     public function handle(User $actor, Application $application, array $input): void
@@ -93,11 +94,10 @@ class TransferApplicationOwnership
             if ($target === null) {
                 $target = new User;
                 $target->name = $claim->submitted_name;
-                $target->login_id = 'ppg-'.mb_strtolower($period->code).'-'.Str::lower(Str::random(8));
                 $target->role = UserRole::Applicant;
                 $target->account_state = AccountState::PendingActivation;
                 $target->must_change_password = true;
-                $target->save();
+                $this->assignUsername->handle($target);
                 $claim->requester()->associate($target);
             }
             $targetWorkspace ??= ApplicantWorkspace::create(['user_id' => $target->id, 'admission_period_id' => $period->id]);

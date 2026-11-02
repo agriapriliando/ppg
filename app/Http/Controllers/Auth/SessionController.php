@@ -29,11 +29,8 @@ class SessionController extends Controller
         if ($user !== null && $user->account_state === AccountState::PendingActivation) {
             $issuance = $consume->handle($user, $request->string('password')->toString());
             if ($issuance !== null) {
-                Auth::login($user);
-                $request->session()->regenerate();
-                $request->session()->put('activation', ['user_id' => $user->id, 'issuance_id' => $issuance->id, 'expires' => min($issuance->expires_at->timestamp, now()->addMinutes((int) config('pmb.activation_session_minutes'))->timestamp)]);
-
-                return redirect()->route('activation.edit');
+                $user->refresh();
+                $audit->handle($user, 'Mengaktifkan akun WhatsApp', $user);
             }
         }
         $valid = Hash::check($request->string('password')->toString(), $user->password ?? '$2y$12$5fQOd0e2dqwZ8KU8O52VZefyv6wGFWu5vZhVwXd3BgpbnY.xK2UOe');
@@ -43,10 +40,12 @@ class SessionController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
         $user->last_login_at = now();
+        $user->must_change_password = false;
         $user->save();
+        $request->session()->forget('activation');
         $audit->handle($user, 'Masuk akun', $user);
 
-        return redirect()->route($user->must_change_password ? 'password.change' : 'dashboard');
+        return redirect()->route('dashboard');
     }
 
     public function destroy(Request $request): RedirectResponse

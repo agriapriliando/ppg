@@ -66,7 +66,6 @@ class ClaimsController extends Controller
             'operators' => auth()->user()?->isAdministrator() ? User::query()->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->where('must_change_password', false)->whereIn('id', DB::table('period_operators')->where('admission_period_id', $claim->admission_period_id)->where('is_active', true)->select('user_id'))->orderBy('name')->get() : collect(),
             'candidates' => auth()->user()?->isAdministrator() ? SkParticipant::query()->where('admission_period_id', $claim->admission_period_id)->whereNull('claimed_user_id')->orderBy('name_on_sk')->limit(1000)->get() : collect(),
             'application' => $claim->status === 'approved' ? Application::query()->with('workspace.biodata')->where('sk_participant_id', $claim->candidate_sk_participant_id)->first() : null,
-            'verified' => WhatsappVerification::query()->where('claim_id', $claim->id)->where('number', $claim->whatsapp_number)->whereNull('invalidated_at')->exists(),
         ]);
     }
 

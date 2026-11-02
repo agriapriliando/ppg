@@ -51,33 +51,27 @@ Jika akses Google belum tersedia, pengelola perlu memeriksa konfigurasi layanan.
 2. Isi **ID login atau email** sesuai akses yang diberikan.
 3. Isi kata sandi dengan benar; perhatikan huruf besar, huruf kecil, dan karakter khusus.
 4. Kirim formulir masuk.
-5. Ikuti halaman aktivasi atau penggantian sandi jika aplikasi mengarahkannya.
+5. Login yang berhasil langsung membuka ruang kerja; tidak ada kewajiban mengganti sandi pertama kali.
 6. Setelah berhasil, ruang kerja ada di `/ruang-kerja`.
 
 ID login dan email dinormalisasi menjadi huruf kecil saat masuk. Kata sandi tetap harus cocok persis. Bila percobaan masuk dibatasi, tunggu dan ikuti pesan yang tampil sebelum mencoba kembali.
 
 ## 5. Aktivasi akun jalur WhatsApp
 
-Operator menyerahkan alamat masuk, ID login, sandi sementara, dan batas berlakunya melalui nomor yang sudah diverifikasi.
+Operator menyerahkan alamat masuk, ID login, sandi awal, dan batas masuk pertama melalui nomor yang sudah diverifikasi.
 
 1. Pastikan pesan berasal dari petugas resmi.
-2. Masuk menggunakan ID login dan sandi sementara tersebut.
-3. Aplikasi membuka `/aktivasi-sandi` untuk membuat sandi pribadi.
-4. Isi sandi baru minimal **12 karakter**, lalu ulangi pada konfirmasi.
-5. Selesaikan aktivasi sampai muncul ruang kerja dan informasi akun aktif.
-6. Untuk masuk berikutnya, gunakan sandi baru.
+2. Masuk menggunakan ID login dan sandi awal tersebut setelah petugas mencatat penyerahannya.
+3. Login pertama otomatis mengaktifkan akun dan membuka ruang kerja, tanpa membuat sandi baru.
+4. Untuk login berikutnya, gunakan sandi yang sama. Mengganti sandi melalui `/akun/keamanan` bersifat opsional.
 
-Sandi sementara hanya dapat dipakai jika petugas sudah mencatat penyerahannya, belum kedaluwarsa, belum dicabut, dan belum digunakan. Nilai bawaan masa berlaku adalah **1.440 menit/24 jam**, tetapi pengelola dapat mengubahnya; ikuti waktu kedaluwarsa yang diserahkan petugas. Sesi aktivasi memiliki batas bawaan **10 menit**. Jika sesi aktivasi berakhir, hubungi operator untuk penyerahan akses baru.
+Sandi awal harus dipakai untuk masuk pertama sebelum batas waktu dan tidak dalam keadaan dicabut. Nilai bawaan batas masuk pertama adalah **1.440 menit/24 jam**; ikuti waktu yang diserahkan petugas. Setelah akun aktif, batas tersebut tidak membatasi sandi akun. Jika akses belum digunakan hingga kedaluwarsa, hubungi operator untuk penerbitan ulang.
 
 ## 6. Login pertama akun pengelola
 
 1. Administrator membuat akun operator/administrator dengan sandi awal minimal 12 karakter.
-2. Pengguna masuk dengan ID login atau email akun itu.
-3. Jika diwajibkan mengganti sandi, isi sandi saat ini, sandi baru, dan konfirmasi.
-4. Gunakan sandi baru yang berbeda, minimal 12 karakter.
-5. Setelah tersimpan, lanjutkan pekerjaan sesuai peran.
-
-Operator perlu menyelesaikan kewajiban ganti sandi sebelum dapat dipilih pada beberapa proses, termasuk delegasi klaim ambigu dan penugasan massal.
+2. Pengguna masuk dengan ID login atau email dan sandi yang diberikan.
+3. Ruang kerja langsung terbuka sesuai peran tanpa kewajiban mengganti sandi.
 
 ## 7. Mengubah nama tampilan dan kata sandi
 
@@ -87,7 +81,7 @@ Untuk mengganti sandi:
 
 1. Buka `/akun/keamanan` melalui menu akun.
 2. Masukkan sandi saat ini.
-3. Isi sandi baru yang berbeda, minimal 12 karakter, maksimal 255 karakter.
+3. Isi kata sandi minimal 12 karakter, maksimal 255 karakter. Kata sandi boleh sama dengan sebelumnya.
 4. Ulangi sandi baru pada konfirmasi dan simpan.
 5. Bila perangkat lain diminta masuk kembali, gunakan sandi baru; proses ini mencabut sesi yang tersimpan di basis data.
 

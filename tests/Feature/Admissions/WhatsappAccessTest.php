@@ -9,18 +9,31 @@ use App\Models\User;
 use App\Models\WhatsappVerification;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 require_once __DIR__.'/../../Fixtures/registration.php';
 
-it('requires a real recorded WhatsApp reply before approving an anonymous claim', function () {
+it('approves a WhatsApp claim and delivers access without requiring recorded reply evidence', function () {
     $c = registrationContext();
     $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
-    expect(fn () => app(ApproveClaim::class)->handle($c['operator'], $claim, 0))->toThrow(ValidationException::class);
-    $this->assertDatabaseCount('applications', 0);
+    $this->actingAs($c['operator'])->get(route('claims.show', $claim))->assertOk()
+        ->assertDontSee('Bukti nomor WhatsApp aktif')->assertDontSee('wa-evidence');
+    $this->post(route('claims.approve', $claim), ['version' => 0, 'identity_checked' => 1, 'sk_checked' => 1])
+        ->assertRedirect()->assertSessionHasNoErrors();
+    $this->get(route('claims.show', $claim))->assertOk()->assertSee('Generate Akun')
+        ->assertDontSee('credential-reason')->assertDontSee('Terbitkan Akses Sekali Tampil');
+    $response = $this->post(route('credentials.issue', $claim));
+    $response->assertOk();
+    $secret = $response->viewData('secret');
+    $issuance = CredentialIssuance::query()->sole();
+    $this->post(route('credentials.deliver', $issuance), ['delivered' => 1])->assertRedirect()->assertSessionHasNoErrors();
+    $this->post(route('logout'));
+    $this->post(route('login.store'), ['login' => $claim->fresh()->requester->login_id, 'password' => $secret])
+        ->assertRedirect(route('dashboard'));
+    $this->assertDatabaseCount('applications', 1);
+    $this->assertDatabaseCount('whatsapp_verifications', 0);
 });
 
-it('delivers a one-time secret and activates the account only after a password change', function () {
+it('activates the account on first login and retains the delivered password for future logins', function () {
     $c = registrationContext();
     $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
     $this->actingAs($c['operator'])->post(route('claims.verify-whatsapp', $claim), ['confirmed' => 1, 'evidence' => 'Balasan diterima pada percakapan resmi pukul layanan.'])->assertRedirect()->assertSessionHasNoErrors();
@@ -39,16 +52,15 @@ it('delivers a one-time secret and activates the account only after a password c
     $this->assertGuest();
     $this->actingAs($c['operator'])->post(route('credentials.deliver', $issuance), ['delivered' => 1])->assertRedirect()->assertSessionHasNoErrors();
     $this->post(route('logout'));
-    $this->post(route('login.store'), ['login' => $user->login_id, 'password' => $secret])->assertRedirect(route('activation.edit'));
-    $this->get(route('dashboard'))->assertRedirect(route('activation.edit'));
-    $this->get(route('activation.edit'))->assertOk()->assertSee('Buat kata sandi pribadi');
-    $this->post(route('activation.update'), ['password' => 'SandiPribadiPeserta2026!', 'password_confirmation' => 'SandiPribadiPeserta2026!'])->assertRedirect(route('dashboard'));
+    $this->post(route('login.store'), ['login' => $user->login_id, 'password' => $secret])->assertRedirect(route('dashboard'));
     expect($user->fresh()->account_state)->toBe(AccountState::Active);
     expect($user->fresh()->must_change_password)->toBeFalse();
-    expect(Hash::check('SandiPribadiPeserta2026!', $user->fresh()->password))->toBeTrue();
+    expect(Hash::check($secret, $user->fresh()->password))->toBeTrue();
     expect($issuance->fresh()->used_at)->not->toBeNull();
     expect($issuance->fresh()->revoked_at)->not->toBeNull();
     $this->get(route('dashboard'))->assertOk();
+    $this->post(route('logout'));
+    $this->post(route('login.store'), ['login' => $user->login_id, 'password' => $secret])->assertRedirect(route('dashboard'));
 });
 
 it('rejects an expired temporary credential without opening an activation session', function () {

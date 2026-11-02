@@ -28,3 +28,15 @@ it('rejects a short replacement password', function () {
     $this->actingAs($user)->put(route('password.update'), ['current_password' => 'password', 'password' => 'pendek', 'password_confirmation' => 'pendek'])
         ->assertSessionHasErrors(['password' => 'Kata sandi baru minimal 12 karakter.']);
 });
+
+it('allows saving the same password after verifying the current password', function () {
+    $password = 'SandiYangSama2026!';
+    $user = User::factory()->create(['password' => $password]);
+
+    $this->actingAs($user)->put(route('password.update'), [
+        'current_password' => $password, 'password' => $password, 'password_confirmation' => $password,
+    ])->assertRedirect(route('dashboard'))->assertSessionHasNoErrors();
+
+    expect(Hash::check($password, $user->fresh()->password))->toBeTrue();
+    $this->get(route('password.change'))->assertOk()->assertDontSee('berbeda dari kata sandi sebelumnya');
+});

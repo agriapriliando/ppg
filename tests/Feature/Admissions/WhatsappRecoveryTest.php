@@ -58,8 +58,7 @@ it('recovers the same account through a new verified number and revokes previous
     $this->post(route('credentials.deliver', $issuance), ['delivered' => 1])->assertRedirect()->assertSessionHasNoErrors();
     $this->post(route('logout'));
     $this->post(route('login.store'), ['login' => $c['owner']->login_id, 'password' => 'SandiLamaPeserta2026!'])->assertSessionHasErrors('login');
-    $this->post(route('login.store'), ['login' => $c['owner']->login_id, 'password' => $response->viewData('secret')])->assertRedirect(route('activation.edit'));
-    $this->post(route('activation.update'), ['password' => 'SandiBaruPeserta2026!', 'password_confirmation' => 'SandiBaruPeserta2026!'])->assertRedirect(route('dashboard'));
+    $this->post(route('login.store'), ['login' => $c['owner']->login_id, 'password' => $response->viewData('secret')])->assertRedirect(route('dashboard'));
     expect($c['owner']->fresh()->account_state)->toBe(AccountState::Active);
     $this->assertDatabaseCount('applications', 1);
 });

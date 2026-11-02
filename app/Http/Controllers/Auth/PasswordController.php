@@ -35,9 +35,6 @@ class PasswordController extends Controller
         if ($user->password === null || ! Hash::check($data['current_password'], $user->password)) {
             throw ValidationException::withMessages(['current_password' => 'Kata sandi saat ini tidak sesuai.']);
         }
-        if (Hash::check($data['password'], $user->password)) {
-            throw ValidationException::withMessages(['password' => 'Gunakan kata sandi baru yang berbeda.']);
-        }
         DB::transaction(function () use ($user, $data, $audit): void {
             $user->password = $data['password'];
             $user->must_change_password = false;

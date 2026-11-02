@@ -35,11 +35,19 @@ it('limits repeated login attempts', function () {
     $this->post(route('login.store'), ['login' => 'absent', 'password' => 'salah'])->assertTooManyRequests();
 });
 
-it('forces initial password replacement before opening the workspace', function () {
+it('opens the workspace directly even when an existing account has the old first-login flag', function () {
     $user = User::factory()->operator()->create(['must_change_password' => true]);
-    $this->post(route('login.store'), ['login' => $user->email, 'password' => 'password'])->assertRedirect(route('password.change'));
-    $this->get(route('dashboard'))->assertRedirect(route('password.change'));
-    $this->get(route('password.change'))->assertOk()->assertSee('Ganti kata sandi sebelum melanjutkan');
+    $this->post(route('login.store'), ['login' => $user->email, 'password' => 'password'])->assertRedirect(route('dashboard'));
+    $this->get(route('dashboard'))->assertOk();
+    expect($user->fresh()->must_change_password)->toBeFalse();
+});
+
+it('removes the old first-login restriction for an existing signed-in account', function () {
+    $user = User::factory()->operator()->create(['must_change_password' => true]);
+
+    $this->actingAs($user)->get(route('dashboard'))->assertOk();
+
+    expect($user->fresh()->must_change_password)->toBeFalse();
 });
 
 it('logs out and prevents further access to the workspace', function () {

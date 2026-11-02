@@ -42,12 +42,12 @@ class StaffController extends Controller
             $user->role = UserRole::from($data['role']);
             $user->password = $data['password'];
             $user->account_state = AccountState::Active;
-            $user->must_change_password = true;
+            $user->must_change_password = false;
             $user->save();
             $audit->handle($request->user(), 'Membuat akun pengelola', $user, ['role' => $user->role->value]);
         });
 
-        return redirect()->route('admin.users')->with('status', 'Akun pengelola berhasil dibuat. Pengguna wajib mengganti sandi pada login pertama.');
+        return redirect()->route('admin.users')->with('status', 'Akun pengelola berhasil dibuat. Pengguna dapat langsung masuk dengan kata sandi yang diberikan.');
     }
 
     public function toggle(Request $request, User $user, RecordAudit $audit): RedirectResponse
