@@ -1,17 +1,20 @@
 <?php
 
-use App\Http\Controllers\Admin\AdministrativeCaseController;
+use App\Http\Controllers\Admin\AdminWorkspaceDocumentController;
 use App\Http\Controllers\Admin\AssignmentController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\BulkAssignmentController;
 use App\Http\Controllers\Admin\ConfigurationHistoryController;
+use App\Http\Controllers\Admin\DocumentPolicyController;
 use App\Http\Controllers\Admin\ExportController;
 use App\Http\Controllers\Admin\OwnershipTransferController;
+use App\Http\Controllers\Admin\PortalQuickLinkController;
 use App\Http\Controllers\Admin\ReferenceController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\SkImportController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\WhatsappRecoveryController;
+use App\Http\Controllers\ApplicantDocumentController;
 use App\Http\Controllers\ApplicantFormController;
 use App\Http\Controllers\ApplicationReviewController;
 use App\Http\Controllers\Auth\ActivationController;
@@ -26,6 +29,7 @@ use App\Http\Controllers\ParticipantsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicPortalController;
 use App\Http\Controllers\ReferenceLookupController;
+use App\Http\Controllers\StaffDocumentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', PublicPortalController::class)->name('home');
@@ -52,9 +56,12 @@ Route::middleware(['auth', 'active'])->group(function (): void {
     Route::get('/referensi/pilihan', ReferenceLookupController::class)->middleware('throttle:120,1')->name('references.lookup');
     Route::middleware('role:operator,administrator')->group(function (): void {
         Route::get('/riwayat', AuditController::class)->name('activity');
+        Route::get('/peserta-sk/ekspor', [ParticipantsController::class, 'export'])->name('participants.export');
         Route::get('/peserta-sk', [ParticipantsController::class, 'index'])->name('participants.index');
         Route::get('/peserta-sk/{participant}', [ParticipantsController::class, 'show'])->name('participants.show');
+        Route::put('/peserta-sk/{participant}', [ParticipantsController::class, 'updateSk'])->name('participants.update-sk');
         Route::get('/klaim', [ClaimsController::class, 'index'])->name('claims.index');
+        Route::delete('/klaim/{claim}', [ClaimsController::class, 'destroy'])->name('claims.destroy');
         Route::post('/klaim/{claim}/delegasi', [ClaimFollowupController::class, 'delegate'])->name('claims.delegate');
         Route::get('/klaim/{claim}', [ClaimsController::class, 'show'])->name('claims.show');
         Route::post('/klaim/{claim}/setujui', [ClaimsController::class, 'approve'])->name('claims.approve');
@@ -65,39 +72,45 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::post('/klaim/{claim}/kredensial/generate-ulang', [CredentialController::class, 'regenerate'])->middleware('throttle:5,1')->name('credentials.regenerate');
         Route::post('/kredensial/{issuance}/penyerahan', [CredentialController::class, 'deliver'])->name('credentials.deliver');
         Route::get('/antrean', [ApplicationReviewController::class, 'index'])->name('reviews.index');
+        Route::get('/antrean/{application}/cetak', [ApplicationReviewController::class, 'print'])->name('reviews.print');
         Route::get('/pendaftaran/{application}', [ApplicationReviewController::class, 'show'])->name('reviews.show');
         Route::post('/pendaftaran/{application}', [ApplicationReviewController::class, 'update'])->name('reviews.update');
+        Route::get('/pendaftaran/{application}/berkas', [StaffDocumentController::class, 'show'])->name('reviews.documents');
+        Route::get('/pendaftaran/{application}/berkas/{document}/lihat', [StaffDocumentController::class, 'preview'])->name('reviews.documents.preview');
+        Route::get('/pendaftaran/{application}/berkas/{document}/unduh', [StaffDocumentController::class, 'download'])->name('reviews.documents.download');
     });
     Route::get('/pendaftar/kepesertaan', [ClaimsController::class, 'own'])->middleware('role:pendaftar_ppg')->name('applicant.claims');
     Route::middleware('role:pendaftar_ppg')->prefix('pendaftar')->name('applicant.')->group(function (): void {
         Route::post('/klaim/{claim}/tanggapan', [ClaimFollowupController::class, 'respond'])->middleware('throttle:10,1')->name('claims.respond');
         Route::post('/klaim/{claim}/batalkan', [ClaimFollowupController::class, 'cancel'])->name('claims.cancel');
-        Route::get('/pendaftaran', [ApplicantFormController::class, 'index'])->name('applications');
         Route::get('/formulir/{period}', [ApplicantFormController::class, 'edit'])->name('form.edit');
         Route::post('/formulir/{period}', [ApplicantFormController::class, 'update'])->name('form.update');
         Route::get('/status/{period}', [ApplicantFormController::class, 'status'])->name('application.status');
         Route::get('/bukti/{period}', [ApplicantFormController::class, 'proof'])->name('application.proof');
+        Route::get('/berkas/{period}', [ApplicantDocumentController::class, 'index'])->name('documents.index');
+        Route::get('/berkas/{period}/{document}/lihat', [ApplicantDocumentController::class, 'preview'])->name('documents.preview');
+        Route::get('/berkas/{period}/{document}/unduh', [ApplicantDocumentController::class, 'download'])->name('documents.download');
     });
 
-    Route::prefix('admin')->name('admin.')->middleware('role:administrator')->group(function (): void {
+    Route::prefix('admin')->name('admin.')->middleware('role:operator,administrator')->group(function (): void {
         Route::livewire('/periode', 'pages::admin.periods')->name('periods');
-        Route::get('/riwayat-konfigurasi', [ConfigurationHistoryController::class, 'index'])->name('configuration-history');
-        Route::get('/pendaftaran/{application}/koreksi-pemilik', [OwnershipTransferController::class, 'edit'])->name('ownership.edit');
-        Route::post('/pendaftaran/{application}/koreksi-pemilik', [OwnershipTransferController::class, 'update'])->middleware('throttle:5,1')->name('ownership.update');
-        Route::get('/klaim/{claim}/pemulihan-nomor', [WhatsappRecoveryController::class, 'edit'])->name('whatsapp-recovery.edit');
-        Route::post('/klaim/{claim}/pemulihan-nomor', [WhatsappRecoveryController::class, 'update'])->middleware('throttle:5,1')->name('whatsapp-recovery.update');
-        Route::get('/pengguna', [StaffController::class, 'index'])->name('users');
-        Route::post('/pengguna', [StaffController::class, 'store'])->name('users.store');
-        Route::patch('/pengguna/{user}/status', [StaffController::class, 'toggle'])->name('users.toggle');
+        Route::get('/aturan-berkas', [DocumentPolicyController::class, 'index'])->name('document-policies.index');
+        Route::post('/aturan-berkas', [DocumentPolicyController::class, 'store'])->name('document-policies.store');
+        Route::get('/aturan-berkas/unggahan', [DocumentPolicyController::class, 'uploads'])->name('document-policies.uploads');
+        Route::get('/daftar-unggahan', [DocumentPolicyController::class, 'uploads'])->name('uploads');
+        Route::get('/berkas/workspace/{workspace}', [AdminWorkspaceDocumentController::class, 'show'])->name('workspaces.documents.show');
+        Route::get('/berkas/workspace/{workspace}/{document}/lihat', [AdminWorkspaceDocumentController::class, 'preview'])->name('workspaces.documents.preview');
+        Route::get('/berkas/workspace/{workspace}/{document}/unduh', [AdminWorkspaceDocumentController::class, 'download'])->name('workspaces.documents.download');
         Route::get('/pengaturan', [SettingsController::class, 'edit'])->name('settings');
         Route::put('/pengaturan', [SettingsController::class, 'update'])->name('settings.update');
-        Route::get('/audit', AuditController::class)->name('audit');
-        Route::post('/peserta/{participant}/kondisi', [ParticipantsController::class, 'condition'])->name('participants.condition');
+        Route::post('/tautan-cepat', [PortalQuickLinkController::class, 'store'])->name('quick-links.store');
+        Route::put('/tautan-cepat/{quickLink}', [PortalQuickLinkController::class, 'update'])->name('quick-links.update');
+        Route::delete('/tautan-cepat/{quickLink}', [PortalQuickLinkController::class, 'destroy'])->name('quick-links.destroy');
+        Route::post('/tautan-cepat/{quickLink}/naik', [PortalQuickLinkController::class, 'moveUp'])->name('quick-links.move-up');
+        Route::post('/tautan-cepat/{quickLink}/turun', [PortalQuickLinkController::class, 'moveDown'])->name('quick-links.move-down');
         Route::get('/ekspor', [ExportController::class, 'index'])->name('exports');
         Route::post('/ekspor', [ExportController::class, 'store'])->name('exports.store');
         Route::get('/ekspor/{export}/unduh', [ExportController::class, 'download'])->name('exports.download');
-        Route::get('/kasus', [AdministrativeCaseController::class, 'index'])->name('cases');
-        Route::post('/kasus/{case}/selesai', [AdministrativeCaseController::class, 'resolve'])->name('cases.resolve');
         Route::get('/impor', [SkImportController::class, 'index'])->name('imports');
         Route::post('/impor', [SkImportController::class, 'store'])->name('imports.store');
         Route::get('/template-sk', [SkImportController::class, 'template'])->name('imports.template');
@@ -109,6 +122,19 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::post('/penugasan-massal', [BulkAssignmentController::class, 'store'])->name('assignments.bulk.store');
         Route::post('/penugasan', [AssignmentController::class, 'store'])->name('assignments.store');
         Route::post('/penugasan/{participant}/pindah', [AssignmentController::class, 'transfer'])->name('assignments.transfer');
+        Route::get('/klaim/{claim}/pemulihan-nomor', [WhatsappRecoveryController::class, 'edit'])->name('whatsapp-recovery.edit');
+        Route::post('/klaim/{claim}/pemulihan-nomor', [WhatsappRecoveryController::class, 'update'])->middleware('throttle:5,1')->name('whatsapp-recovery.update');
+    });
+
+    Route::prefix('admin')->name('admin.')->middleware('role:administrator')->group(function (): void {
+        Route::get('/riwayat-konfigurasi', [ConfigurationHistoryController::class, 'index'])->name('configuration-history');
+        Route::get('/pendaftaran/{application}/koreksi-pemilik', [OwnershipTransferController::class, 'edit'])->name('ownership.edit');
+        Route::post('/pendaftaran/{application}/koreksi-pemilik', [OwnershipTransferController::class, 'update'])->middleware('throttle:5,1')->name('ownership.update');
+        Route::get('/pengguna', [StaffController::class, 'index'])->name('users');
+        Route::post('/pengguna', [StaffController::class, 'store'])->name('users.store');
+        Route::patch('/pengguna/{user}/status', [StaffController::class, 'toggle'])->name('users.toggle');
+        Route::get('/audit', AuditController::class)->name('audit');
+        Route::post('/peserta/{participant}/kondisi', [ParticipantsController::class, 'condition'])->name('participants.condition');
         Route::get('/referensi', [ReferenceController::class, 'index'])->name('references');
         Route::post('/referensi', [ReferenceController::class, 'store'])->name('references.store');
         Route::post('/referensi/pernyataan', [ReferenceController::class, 'consent'])->name('references.consent');

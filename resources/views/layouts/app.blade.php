@@ -21,22 +21,20 @@
                 <a href="{{ route('participants.index') }}" @class(['active'=>request()->routeIs('participants.*')])><i class="bi bi-people" aria-hidden="true"></i>Peserta SK</a>
                 <a href="{{ route('claims.index') }}" @class(['active'=>request()->routeIs('claims.*')])><i class="bi bi-whatsapp" aria-hidden="true"></i>Klaim & WhatsApp</a>
                 <a href="{{ route('reviews.index') }}" @class(['active'=>request()->routeIs('reviews.*')])><i class="bi bi-list-check" aria-hidden="true"></i>Antrean Verifikasi</a>
-                @if(!auth()->user()->isAdministrator())<a href="{{ route('activity') }}" @class(['active'=>request()->routeIs('activity')])><i class="bi bi-clock-history" aria-hidden="true"></i>Riwayat Aktivitas</a>@endif
-            @else
-                <a href="{{ route('applicant.claims') }}" @class(['active'=>request()->routeIs('applicant.claims')])><i class="bi bi-patch-check" aria-hidden="true"></i>Kepesertaan SK</a>
-                <a href="{{ route('applicant.applications') }}" @class(['active'=>request()->routeIs('applicant.applications','applicant.form.*','applicant.application.*')])><i class="bi bi-file-earmark-text" aria-hidden="true"></i>Pendaftaran Saya</a>
-            @endif
-            @if(auth()->user()->isAdministrator())
+                <a href="{{ route('admin.document-policies.uploads') }}" @class(['active'=>request()->routeIs('admin.document-policies.uploads*', 'admin.uploads*')])><i class="bi bi-files" aria-hidden="true"></i>Daftar Unggahan</a>
                 <a href="{{ route('admin.imports') }}" @class(['active'=>request()->routeIs('admin.imports*')])><i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i>Impor SK</a>
                 <a href="{{ route('admin.assignments') }}" @class(['active'=>request()->routeIs('admin.assignments*')])><i class="bi bi-diagram-3" aria-hidden="true"></i>Pembagian Operator</a>
                 <a href="{{ route('admin.periods') }}" @class(['active' => request()->routeIs('admin.periods')])><i class="bi bi-calendar-range" aria-hidden="true"></i>Periode & Gelombang</a>
+                <a href="{{ route('admin.document-policies.index') }}" @class(['active'=>request()->routeIs('admin.document-policies.index', 'admin.document-policies.store', 'admin.workspaces.documents.*')])><i class="bi bi-folder-check" aria-hidden="true"></i>Pengaturan Berkas</a>
+                <a href="{{ route('admin.exports') }}" @class(['active'=>request()->routeIs('admin.exports*')])><i class="bi bi-download" aria-hidden="true"></i>Ekspor Peserta</a>
+                <a href="{{ route('admin.settings') }}" @class(['active' => request()->routeIs('admin.settings')])><i class="bi bi-sliders" aria-hidden="true"></i>Pengaturan Aplikasi</a>
+                @if(!auth()->user()->isAdministrator())<a href="{{ route('activity') }}" @class(['active'=>request()->routeIs('activity')])><i class="bi bi-clock-history" aria-hidden="true"></i>Riwayat Aktivitas</a>@endif
+            @endif
+            @if(auth()->user()->isAdministrator())
                 <a href="{{ route('admin.configuration-history') }}" @class(['active'=>request()->routeIs('admin.configuration-history')])><i class="bi bi-clock-history" aria-hidden="true"></i>Riwayat Konfigurasi</a>
                 <a href="{{ route('admin.references') }}" @class(['active'=>request()->routeIs('admin.references*')])><i class="bi bi-mortarboard" aria-hidden="true"></i>Referensi & Pernyataan</a>
                 <a href="{{ route('admin.users') }}" @class(['active' => request()->routeIs('admin.users*')])><i class="bi bi-person-badge" aria-hidden="true"></i>Kelola Pengguna</a>
                 <a href="{{ route('admin.audit') }}" @class(['active' => request()->routeIs('admin.audit')])><i class="bi bi-shield-check" aria-hidden="true"></i>Audit Aktivitas</a>
-                <a href="{{ route('admin.exports') }}" @class(['active'=>request()->routeIs('admin.exports*')])><i class="bi bi-download" aria-hidden="true"></i>Ekspor Peserta</a>
-                <a href="{{ route('admin.cases') }}" @class(['active'=>request()->routeIs('admin.cases*')])><i class="bi bi-exclamation-diamond" aria-hidden="true"></i>Kasus Administratif</a>
-                <a href="{{ route('admin.settings') }}" @class(['active' => request()->routeIs('admin.settings')])><i class="bi bi-sliders" aria-hidden="true"></i>Pengaturan Aplikasi</a>
             @endif
             <a href="{{ route('account') }}" @class(['active' => request()->routeIs('account', 'password.*')])><i class="bi bi-person-gear" aria-hidden="true"></i>Akun & Keamanan</a>
             <a href="{{ route('guide') }}"><i class="bi bi-question-circle" aria-hidden="true"></i>Pusat Bantuan</a>

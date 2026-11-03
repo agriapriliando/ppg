@@ -4,7 +4,13 @@ use App\Models\AdmissionPeriod;
 use App\Models\User;
 
 it('shows an honest empty state without fabricated participants or dates', function () {
-    $this->get(route('home'))->assertOk()->assertSee('Periode penerimaan belum diumumkan')->assertDontSee('400')->assertDontSee('Yohanes');
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('Periode penerimaan belum diumumkan')
+        ->assertSee('Pendaftaran')
+        ->assertDontSee('Ajukan Klaim WhatsApp')
+        ->assertDontSee('400')
+        ->assertDontSee('Yohanes');
 });
 
 it('does not expose draft or archived periods on the public portal', function () {

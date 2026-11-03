@@ -29,7 +29,18 @@ it('paginates reference lookup and restricts programs to the selected university
     $this->getJson(route('references.lookup', ['type' => 'city']))->assertOk()->assertExactJson(['data' => [], 'has_more' => false]);
 });
 
-it('blocks a shared WhatsApp claim until an administrator records a resolution', function () {
+it('looks up districts without requiring a parent and includes city and province details', function () {
+    $c = registrationContext();
+    $res = $this->actingAs($c['applicant'])->getJson(route('references.lookup', ['type' => 'district', 'q' => 'Uji']))->assertOk();
+    $res->assertJsonStructure([
+        'data' => [
+            '*' => ['code', 'name', 'city_code', 'city_name', 'province_code', 'province_name'],
+        ],
+        'has_more',
+    ]);
+});
+
+it('allows approving claims with shared WhatsApp numbers without blocking administrative cases', function () {
     $c = registrationContext();
     app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
     $other = User::factory()->create();
@@ -38,12 +49,7 @@ it('blocks a shared WhatsApp claim until an administrator records a resolution',
     $input['name'] = $other->name;
     $input['identifier'] = '000002';
     $claim = app(SubmitSkClaim::class)->handle($other, $input);
-    $case = AdministrativeCase::query()->sole();
-    expect(fn () => app(ApproveClaim::class)->handle($c['operator'], $claim, 0))->toThrow(ValidationException::class);
-    $resolution = ['resolution' => 'Kedua pemohon dan bukti identitas diperiksa; penggunaan nomor keluarga telah dikonfirmasi.', 'confirmed' => 1];
-    $this->actingAs($c['operator'])->post(route('admin.cases.resolve', $case), $resolution)->assertForbidden();
-    $this->actingAs($c['admin'])->post(route('admin.cases.resolve', $case), $resolution)->assertRedirect()->assertSessionHasNoErrors();
-    expect($case->fresh()->state)->toBe('resolved');
+    expect(AdministrativeCase::query()->count())->toBe(0);
     $app = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
     expect($app->sk_participant_id)->toBe($participant->id);
 });

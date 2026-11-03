@@ -44,4 +44,10 @@ class SkClaim extends Model
     {
         return $this->belongsTo(User::class, 'requester_user_id');
     }
+
+    /** @return HasMany<AdministrativeCase, $this> */
+    public function administrativeCases(): HasMany
+    {
+        return $this->hasMany(AdministrativeCase::class, 'claim_id');
+    }
 }

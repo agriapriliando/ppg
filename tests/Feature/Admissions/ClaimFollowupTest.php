@@ -57,7 +57,9 @@ it('delegates ambiguous claims to an active period operator and removes scope af
     expect($claim->refresh()->review_owner_id)->toBe($c['operator']->id);
     $this->actingAs($c['operator'])->get(route('claims.index'))->assertOk()->assertSee($input['name']);
     $this->get(route('claims.show', $claim))->assertOk();
-    $this->post(route('claims.delegate', $claim), ['version' => 1, 'operator_id' => $c['operator']->id, 'reason' => 'Operator mencoba mendelegasikan dirinya.'])->assertForbidden();
+    $this->post(route('claims.delegate', $claim), ['version' => 1, 'operator_id' => $c['operator']->id, 'reason' => 'Operator memperbarui penanggung jawab klaim.'])->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($c['applicant'])->post(route('claims.delegate', $claim), ['version' => 2, 'operator_id' => $c['operator']->id, 'reason' => 'Pendaftar tidak berhak mendelegasikan.'])->assertForbidden();
+    $this->actingAs($c['operator']);
     PeriodOperator::query()->where('admission_period_id', $c['period']->id)->where('user_id', $c['operator']->id)->update(['is_active' => false]);
     $this->get(route('claims.index'))->assertOk()->assertDontSee($input['name']);
     $this->get(route('claims.show', $claim))->assertNotFound();

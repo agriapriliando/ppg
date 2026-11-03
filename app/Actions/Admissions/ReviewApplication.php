@@ -5,7 +5,6 @@ namespace App\Actions\Admissions;
 use App\Actions\RecordAudit;
 use App\Enums\ApplicationStatus;
 use App\Enums\PeriodState;
-use App\Models\AdministrativeCase;
 use App\Models\AdmissionPeriod;
 use App\Models\Application;
 use App\Models\ApplicationReview;
@@ -55,9 +54,6 @@ class ReviewApplication
                 ApplicantFields::validate(ApplicantFields::fromWorkspace($locked->workspace), true);
             }
             if ($action === 'accept') {
-                if (AdministrativeCase::query()->where('application_id', $locked->id)->where('state', 'open')->exists()) {
-                    throw ValidationException::withMessages(['review' => 'Kasus administratif pendaftaran belum diselesaikan administrator.']);
-                }
                 $number = $locked->workspace->biodata?->whatsapp_number;
                 $latestReview = ApplicationReview::query()->where('application_id', $locked->id)->where('ownership_epoch', $locked->ownership_epoch)->where('action', 'verify')->where('submission_revision', $locked->submission_revision)->latest('id')->first();
                 if ($latestReview === null || $number === null || ! WhatsappVerification::query()->where('workspace_id', $locked->workspace_id)->where('number', $number)->whereNull('invalidated_at')->exists() || $locked->participant->claimed_user_id !== $locked->user_id || $locked->participant->admin_hold || $locked->participant->roster_state !== 'active') {

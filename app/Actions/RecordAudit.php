@@ -17,7 +17,7 @@ class RecordAudit
             'actor_role_snapshot' => $actor?->role->value,
             'action' => $action,
             'subject_type' => $subject->getMorphClass(),
-            'subject_id' => $subject->getKey(),
+            'subject_id' => (string) $subject->getKey(),
             'safe_changes' => $changes,
             'reason' => $reason,
             'request_id' => (string) Str::uuid(),

@@ -7,7 +7,6 @@ use App\Enums\AccountState;
 use App\Enums\ApplicationStatus;
 use App\Enums\PeriodState;
 use App\Enums\UserRole;
-use App\Models\AdministrativeCase;
 use App\Models\AdmissionPeriod;
 use App\Models\ApplicantBiodata;
 use App\Models\ApplicantWorkspace;
@@ -15,10 +14,13 @@ use App\Models\Application;
 use App\Models\ApplicationSubmission;
 use App\Models\ConsentRecord;
 use App\Models\ConsentText;
+use App\Models\CredentialIssuance;
 use App\Models\OriginEducation;
 use App\Models\ReferenceDataset;
 use App\Models\ReferenceProdi;
 use App\Models\ReferencePt;
+use App\Models\ReferenceRegion;
+use App\Models\SkClaim;
 use App\Models\User;
 use App\Models\WhatsappVerification;
 use App\Support\ApplicantFields;
@@ -60,23 +62,87 @@ class SaveApplicantForm
             }
             $datasetId = (int) (ReferenceDataset::query()->where('state', 'active')->value('id') ?? 0);
             $data = ApplicantFields::validate($input, $submit, $datasetId);
+
+            if (! empty($data['district_code']) && (empty($data['city_code']) || empty($data['province_code']))) {
+                $distRegion = ReferenceRegion::query()->where('dataset_id', $datasetId)->where('code', $data['district_code'])->first();
+                if ($distRegion && $distRegion->parent_code) {
+                    $data['city_code'] ??= $distRegion->parent_code;
+                    $cityRegion = ReferenceRegion::query()->where('dataset_id', $datasetId)->where('code', $distRegion->parent_code)->first();
+                    if ($cityRegion && $cityRegion->parent_code) {
+                        $data['province_code'] ??= $cityRegion->parent_code;
+                    }
+                }
+            }
+
             $biodata = ApplicantBiodata::query()->firstOrNew(['workspace_id' => $workspace->id]);
-            if ($biodata->whatsapp_number !== ($data['whatsapp_number'] ?? null)) {
+            $oldNumber = $biodata->whatsapp_number;
+            $newNumber = $data['whatsapp_number'] ?? null;
+
+            if ($oldNumber !== $newNumber) {
                 WhatsappVerification::query()->where('workspace_id', $workspace->id)->whereNull('invalidated_at')->update(['invalidated_at' => now()]);
             }
             $values = [];
             foreach (ApplicantFields::definitions() as $key => $field) {
                 $values[$field['column']] = $data[$key] ?? null;
             }
-            $biodata->fill($values)->save();
-            if ($application !== null && ! empty($values['whatsapp_number']) && ApplicantBiodata::query()->where('whatsapp_number', $values['whatsapp_number'])->where('workspace_id', '!=', $workspace->id)->exists()) {
-                AdministrativeCase::query()->firstOrCreate(['application_id' => $application->id, 'type' => 'shared_whatsapp', 'context_hash' => hash_hmac('sha256', $values['whatsapp_number'], (string) config('app.key'))], ['reason' => 'Nomor WhatsApp formulir juga digunakan pada formulir lain. Perlu pemeriksaan penggunaan nomor bersama.', 'opened_by' => $actor->id]);
+            if (! array_key_exists('whatsapp_number', $input) && ! empty($oldNumber)) {
+                $values['whatsapp_number'] = $oldNumber;
+                $newNumber = $oldNumber;
             }
+            $biodata->fill($values)->save();
+
+            if (! empty($newNumber) && $newNumber !== $oldNumber) {
+                $claims = SkClaim::query()
+                    ->where('admission_period_id', $periodId)
+                    ->where(function ($query) use ($actor, $application): void {
+                        $query->where('requester_user_id', $actor->id)
+                            ->orWhere('review_owner_id', $actor->id);
+                        if ($application?->sk_participant_id !== null) {
+                            $query->orWhere('candidate_sk_participant_id', $application->sk_participant_id);
+                        }
+                    })
+                    ->lockForUpdate()
+                    ->get();
+
+                foreach ($claims as $claim) {
+                    if ($claim->whatsapp_number !== $newNumber) {
+                        $claim->whatsapp_number = $newNumber;
+                        $claim->lock_version++;
+                        $claim->save();
+
+                        WhatsappVerification::query()
+                            ->where('claim_id', $claim->id)
+                            ->whereNull('invalidated_at')
+                            ->update(['invalidated_at' => now()]);
+                    }
+                }
+
+                CredentialIssuance::query()
+                    ->where('user_id', $actor->id)
+                    ->whereNull('revoked_at')
+                    ->update(['target_number' => $newNumber]);
+
+                $this->audit->handle($actor, 'Memperbarui nomor WhatsApp akun dari formulir', $workspace, [
+                    'old_number' => $oldNumber,
+                    'new_number' => $newNumber,
+                ]);
+            }
+            $ptInput = $data['pt_name'] ?? $data['pt_external_id'] ?? null;
+            $prodiInput = $data['prodi_name'] ?? $data['prodi_external_id'] ?? null;
+
+            $ptNameSnapshot = ! empty($ptInput)
+                ? (ReferencePt::query()->where('dataset_id', $datasetId)->where('external_id', $ptInput)->value('name') ?: $ptInput)
+                : null;
+            $prodiNameSnapshot = ! empty($prodiInput)
+                ? (ReferenceProdi::query()->where('dataset_id', $datasetId)->where('external_id', $prodiInput)->value('name') ?: $prodiInput)
+                : null;
+
             OriginEducation::query()->updateOrCreate(['workspace_id' => $workspace->id], [
                 'reference_dataset_id' => $datasetId ?: null,
-                'pt_external_id' => $data['pt_external_id'] ?? null, 'prodi_external_id' => $data['prodi_external_id'] ?? null,
-                'pt_name_snapshot' => ! empty($data['pt_external_id']) ? ReferencePt::query()->where('dataset_id', $datasetId)->where('external_id', $data['pt_external_id'])->value('name') : null,
-                'prodi_name_snapshot' => ! empty($data['prodi_external_id']) ? ReferenceProdi::query()->where('dataset_id', $datasetId)->where('external_id', $data['prodi_external_id'])->value('name') : null,
+                'pt_external_id' => $data['pt_external_id'] ?? $ptInput,
+                'prodi_external_id' => $data['prodi_external_id'] ?? $prodiInput,
+                'pt_name_snapshot' => $ptNameSnapshot,
+                'prodi_name_snapshot' => $prodiNameSnapshot,
             ]);
             $workspace->lock_version++;
             $workspace->saved_at = now();

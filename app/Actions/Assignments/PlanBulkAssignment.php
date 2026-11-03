@@ -19,7 +19,7 @@ class PlanBulkAssignment
      */
     public function handle(User $actor, AdmissionPeriod $period, string $mode, array $operatorIds, ?int $sourceId = null): array
     {
-        abort_unless($actor->isAdministrator(), 403);
+        abort_unless($actor->isAdministrator() || $actor->role === UserRole::Operator, 403);
         if ($period->state === PeriodState::Archived || ! in_array($mode, ['rebalance', 'transfer'], true)) {
             throw ValidationException::withMessages(['assignment' => 'Periode atau metode penugasan tidak tersedia.']);
         }

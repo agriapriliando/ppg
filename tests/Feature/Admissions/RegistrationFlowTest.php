@@ -5,10 +5,10 @@ use App\Actions\Admissions\SubmitSkClaim;
 use App\Enums\ApplicationStatus;
 use App\Models\ApplicantBiodata;
 use App\Models\ApplicantWorkspace;
-use App\Models\ReferenceDataset;
-use App\Models\ReferenceProdi;
+use App\Models\CredentialIssuance;
 use App\Models\User;
 use App\Models\WhatsappVerification;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 require_once __DIR__.'/../../Fixtures/registration.php';
@@ -84,7 +84,39 @@ it('invalidates WhatsApp verification when a saved number changes', function () 
     $app = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
     $verification = WhatsappVerification::create(['workspace_id' => $app->workspace_id, 'number' => '+6281234567890', 'evidence_summary' => 'Bukti balasan sintetis', 'verified_by' => $c['operator']->id, 'verified_at' => now()]);
     $this->actingAs($c['applicant'])->post(route('applicant.form.update', $c['period']), ['version' => 0, 'action' => 'draft', 'whatsapp_number' => '081234567891'])->assertRedirect()->assertSessionHasNoErrors();
-    expect($verification->fresh()->invalidated_at)->not->toBeNull();
+    expect($verification->fresh()->invalidated_at)->not->toBeNull()
+        ->and($claim->fresh()->whatsapp_number)->toBe('+6281234567891');
+});
+
+it('connects form whatsapp number with account claim number and updates account claim number automatically when changed', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
+    $app = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+    $issuance = CredentialIssuance::create([
+        'user_id' => $c['applicant']->id,
+        'claim_id' => $claim->id,
+        'secret_hash' => Hash::make('password123'),
+        'target_number' => $claim->whatsapp_number,
+        'issued_by' => $c['operator']->id,
+        'expires_at' => now()->addHour(),
+    ]);
+
+    // Pastikan halaman form pendaftaran terhubung langsung dengan nomor WhatsApp akun
+    $response = $this->actingAs($c['applicant'])->get(route('applicant.form.edit', $c['period']));
+    $response->assertOk();
+    $response->assertSee('+6281234567890');
+
+    // Ubah nomor WhatsApp pada formulir
+    $this->post(route('applicant.form.update', $c['period']), [
+        'version' => 0,
+        'action' => 'draft',
+        'whatsapp_number' => '081299998888',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    // Pastikan biodata, klaim akun, dan kredensial otomatis ikut berubah ke nomor baru
+    expect($app->workspace->fresh()->biodata->whatsapp_number)->toBe('+6281299998888')
+        ->and($claim->fresh()->whatsapp_number)->toBe('+6281299998888')
+        ->and($issuance->fresh()->target_number)->toBe('+6281299998888');
 });
 
 it('prevents duplicate submissions after a request is repeated', function () {
@@ -99,14 +131,47 @@ it('prevents duplicate submissions after a request is repeated', function () {
     expect($app->fresh()->submission_revision)->toBe(1);
 });
 
-it('rejects a program outside the selected university and keeps the draft unchanged', function () {
+it('saves manually typed origin university and study program into origin education snapshot', function () {
     $c = registrationContext();
-    ReferenceProdi::create(['dataset_id' => ReferenceDataset::query()->sole()->id, 'external_id' => 'other-prodi', 'pt_external_id' => 'other-pt', 'name' => 'Prodi Lain']);
+    $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
+    $app = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+
     $data = completeApplicantForm($c);
     $data['action'] = 'draft';
-    $data['prodi_external_id'] = 'other-prodi';
-    $this->actingAs($c['applicant'])->post(route('applicant.form.update', $c['period']), $data)->assertSessionHasErrors('prodi_external_id');
-    $this->assertDatabaseCount('applicant_biodata', 0);
+    $data['pt_name'] = 'Universitas Palangka Raya';
+    $data['prodi_name'] = 'Pendidikan Agama Kristen';
+    $this->actingAs($c['applicant'])->post(route('applicant.form.update', $c['period']), $data)->assertRedirect()->assertSessionHasNoErrors();
+
+    expect($app->workspace->fresh()->education->pt_name_snapshot)->toBe('Universitas Palangka Raya')
+        ->and($app->workspace->fresh()->education->prodi_name_snapshot)->toBe('Pendidikan Agama Kristen');
+});
+
+it('renders district selection and keeps city and province readonly in form', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
+    app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+
+    $response = $this->actingAs($c['applicant'])->get(route('applicant.form.edit', $c['period']));
+    $response->assertOk();
+    $response->assertSee('id="picker-city_code"', false);
+    $response->assertSee('id="picker-province_code"', false);
+    $response->assertSee('readonly disabled', false);
+    $response->assertSee('name="district_code"', false);
+    $response->assertSee('name="pt_name"', false);
+    $response->assertSee('name="prodi_name"', false);
+});
+
+it('renders responsive confirmation modal with simulation consent checkbox before submit', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
+    app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+
+    $response = $this->actingAs($c['applicant'])->get(route('applicant.form.edit', $c['period']));
+    $response->assertOk();
+    $response->assertSee('Konfirmasi Pengiriman Pendaftaran');
+    $response->assertSee('showConfirmModal = true', false);
+    $response->assertSee('name="consent"', false);
+    $response->assertSee($c['submitConsent']->body);
 });
 
 it('does not expose applications or claims to operators outside the assignment', function () {

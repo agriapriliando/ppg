@@ -22,7 +22,11 @@ class LocalLoginRequest extends FormRequest
     /** @return array<string, list<string>> */
     public function rules(): array
     {
-        return ['login' => ['required', 'string', 'max:255'], 'password' => ['required', 'string', 'max:255']];
+        return [
+            'login' => ['required', 'string', 'max:255'],
+            'password' => ['required', 'string', 'max:255'],
+            'remember' => ['nullable', 'boolean'],
+        ];
     }
 
     /** @return array<string, string> */

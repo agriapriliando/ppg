@@ -18,7 +18,6 @@ new #[Title('Periode & Gelombang')] class extends Component
     #[Locked] public ?int $editingId = null;
     #[Locked] public int $version = 0;
     public array $form = ['code'=>'', 'name'=>'', 'academic_year'=>'', 'wave'=>'', 'state'=>'draft', 'opens_at'=>'', 'closes_at'=>'', 'allow_correction_after_close'=>false, 'correction_closes_at'=>'', 'is_public'=>false];
-    public string $reason = '';
     public string $message = '';
 
     public function mount(): void
@@ -46,7 +45,7 @@ new #[Title('Periode & Gelombang')] class extends Component
 
     public function cancel(): void
     {
-        $this->reset('editingId', 'version', 'form', 'reason');
+        $this->reset('editingId', 'version', 'form');
         $this->resetValidation();
     }
 
@@ -60,21 +59,19 @@ new #[Title('Periode & Gelombang')] class extends Component
 
     public function toggleClosed(int $id, int $version, RecordAudit $audit): void
     {
-        $this->validate(['reason'=>['required','string','min:10','max:1000']], ['reason.required'=>'Tuliskan alasan perubahan status periode.', 'reason.min'=>'Alasan minimal 10 karakter.']);
         DB::transaction(function () use ($id, $version, $audit): void {
             $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($id);
             Gate::authorize('update', $period);
             abort_unless($period->lock_version === $version, 409, 'Periode telah berubah. Muat ulang halaman.');
             abort_unless($period->state === PeriodState::Published, 422);
-            if($period->manual_closed_at!==null && now()->greaterThanOrEqualTo($period->closes_at)) {
-                throw \Illuminate\Validation\ValidationException::withMessages(['reason'=>'Perbarui waktu tutup terlebih dahulu sebelum membuka kembali periode yang jadwalnya sudah berakhir.']);
+            if ($period->manual_closed_at !== null && now()->greaterThanOrEqualTo($period->closes_at)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['period' => 'Perbarui waktu tutup terlebih dahulu sebelum membuka kembali periode yang jadwalnya sudah berakhir.']);
             }
             $period->manual_closed_at = $period->manual_closed_at === null ? now() : null;
             $period->lock_version++;
             $period->save();
-            $audit->handle(auth()->user(), $period->manual_closed_at ? 'Menutup periode manual' : 'Membuka kembali periode', $period, [], $this->reason);
+            $audit->handle(auth()->user(), $period->manual_closed_at ? 'Menutup periode manual' : 'Membuka kembali periode', $period);
         });
-        $this->reason = '';
         $this->message = 'Status periode berhasil diperbarui.';
     }
 
@@ -100,6 +97,6 @@ new #[Title('Periode & Gelombang')] class extends Component
     </div><div class="d-flex gap-2 mt-4"><button class="btn btn-purple" wire:loading.attr="disabled" wire:target="save"><span wire:loading.remove wire:target="save">Simpan Periode</span><span wire:loading wire:target="save">Menyimpan…</span></button>@if($editingId)<button type="button" wire:click="cancel" class="btn btn-light border">Batal</button>@endif</div></form></div></section></div>
     <div class="col-xl-5"><section class="workspace-card"><div class="panel-heading"><h2>Periode & Gelombang</h2><p>Rentang waktu dan status penerimaan.</p></div><div class="panel-body">
     @forelse($periods as $period)<article class="border-bottom pb-3 mb-3" wire:key="period-{{ $period->id }}"><div class="d-flex justify-content-between gap-2"><strong>{{ $period->name }}</strong>@if($period->is_public)<span class="badge text-bg-success">Publik</span>@endif</div><p class="small text-muted my-2">{{ $period->code }} · {{ $period->academic_year }} · Gelombang {{ $period->wave }}</p><span class="badge text-bg-light border">{{ $period->availabilityLabel() }}</span><p class="small mt-2">{{ $period->opens_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} – {{ $period->closes_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</p>@if($period->state !== PeriodState::Archived)<button class="btn btn-outline-purple btn-sm" wire:click="edit({{ $period->id }})">Ubah</button>@endif @if($period->state === PeriodState::Published)<button class="btn btn-light border btn-sm" wire:click="toggleClosed({{ $period->id }}, {{ $period->lock_version }})" wire:confirm="{{ $period->manual_closed_at ? 'Buka kembali periode ini sesuai jadwal yang tersimpan?' : 'Tutup penerimaan klaim dan kirim pertama sekarang?' }}" wire:loading.attr="disabled">{{ $period->manual_closed_at ? 'Buka kembali' : 'Tutup manual' }}</button>@endif</article>@empty<div class="empty-state compact"><i class="bi bi-calendar-range" aria-hidden="true"></i><h3>Belum ada periode</h3><p>Buat periode pertama melalui formulir.</p></div>@endforelse
-    {{ $periods->links() }}<label for="period-reason" class="form-label mt-3">Alasan tutup/buka manual</label><textarea id="period-reason" class="form-control" wire:model="reason" rows="3" maxlength="1000"></textarea><x-field-error name="reason" />
+    {{ $periods->links() }}
     </div></section></div></div>
 </div>

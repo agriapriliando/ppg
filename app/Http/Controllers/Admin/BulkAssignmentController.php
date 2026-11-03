@@ -24,7 +24,7 @@ class BulkAssignmentController extends Controller
     {
         $data = $request->validate(['period_id' => ['nullable', 'integer', 'exists:admission_periods,id'], 'mode' => ['nullable', Rule::in(['rebalance', 'transfer'])], 'operators' => ['nullable', 'array', 'max:100'], 'operators.*' => ['integer', 'distinct'], 'source_id' => ['nullable', 'integer'], 'page' => ['nullable', 'integer', 'min:1']]);
         $actor = $request->user();
-        abort_unless($actor?->isAdministrator(), 403);
+        abort_unless($actor !== null && ($actor->isAdministrator() || $actor->role === UserRole::Operator), 403);
         $period = $request->filled('period_id') ? AdmissionPeriod::query()->findOrFail($request->integer('period_id')) : null;
         $ids = array_map(intval(...), $data['operators'] ?? []);
         sort($ids);
@@ -47,7 +47,7 @@ class BulkAssignmentController extends Controller
             throw ValidationException::withMessages(['assignment' => 'Pratinjau tidak sah. Buat pratinjau baru.']);
         }
         $actor = $request->user();
-        abort_unless($actor?->isAdministrator(), 403);
+        abort_unless($actor !== null && ($actor->isAdministrator() || $actor->role === UserRole::Operator), 403);
         if (! is_array($preview) || ($preview['actor_id'] ?? null) !== $actor->id || ($preview['expires'] ?? 0) <= now()->timestamp) {
             throw ValidationException::withMessages(['assignment' => 'Pratinjau kedaluwarsa atau bukan milik akun ini. Buat pratinjau baru.']);
         }

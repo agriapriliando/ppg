@@ -56,7 +56,7 @@ class ClaimFollowupController extends Controller
 
     public function delegate(Request $request, SkClaim $claim, RecordAudit $audit): RedirectResponse
     {
-        abort_unless($request->user()?->isAdministrator(), 403);
+        abort_unless($request->user()?->isAdministrator() || $request->user()?->role === UserRole::Operator, 403);
         $data = $request->validate(['version' => ['required', 'integer', 'min:0'], 'operator_id' => ['required', 'integer'], 'reason' => ['required', 'string', 'min:10', 'max:1000']]);
         DB::transaction(function () use ($request, $claim, $data, $audit): void {
             $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($claim->admission_period_id);

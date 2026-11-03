@@ -4,7 +4,6 @@ namespace App\Actions\Admissions;
 
 use App\Actions\RecordAudit;
 use App\Enums\UserRole;
-use App\Models\AdministrativeCase;
 use App\Models\AdmissionPeriod;
 use App\Models\ConsentRecord;
 use App\Models\ConsentText;
@@ -67,9 +66,6 @@ class SubmitSkClaim
                 'public_reference' => (string) Str::uuid(), 'request_key' => $data['request_key'],
             ]);
             ConsentRecord::create(['consent_text_id' => $consent->id, 'user_id' => $requester?->id, 'claim_id' => $claim->id, 'accepted_at' => now()]);
-            if (SkClaim::query()->where('admission_period_id', $period->id)->where('whatsapp_number', $number)->where('id', '!=', $claim->id)->whereIn('status', ['pending', 'approved', 'needs_information'])->exists()) {
-                AdministrativeCase::create(['claim_id' => $claim->id, 'type' => 'shared_whatsapp', 'reason' => 'Nomor WhatsApp juga digunakan pada permohonan lain. Periksa kepemilikan dan penggunaan nomor bersama.', 'opened_by' => $requester?->id]);
-            }
             $this->audit->handle($requester, 'Mengajukan klaim SK', $claim);
 
             return $claim;

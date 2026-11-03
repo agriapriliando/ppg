@@ -150,3 +150,15 @@ it('refuses password regeneration by an unrelated operator or for a disabled own
 
     $this->assertDatabaseCount('credential_issuances', 0);
 });
+
+it('provides a manual whatsapp link with credentials prefilled for the target number', function () {
+    $c = credentialViewingContext();
+    $response = $this->actingAs($c['operator'])->post(route('credentials.issue', $c['claim']))->assertOk();
+    $secret = $response->viewData('secret');
+
+    $response->assertSee('Kirim Kredensial WhatsApp')
+        ->assertSee('Kirim via WhatsApp')
+        ->assertSee('https://wa.me/', false)
+        ->assertSee(rawurlencode($secret), false)
+        ->assertSee(rawurlencode($c['owner']->login_id), false);
+});

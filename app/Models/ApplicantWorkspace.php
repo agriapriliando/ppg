@@ -47,4 +47,22 @@ class ApplicantWorkspace extends Model
     {
         return $this->belongsTo(AdmissionPeriod::class, 'admission_period_id');
     }
+
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /** @return HasMany<ApplicantDocument, $this> */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(ApplicantDocument::class, 'workspace_id');
+    }
+
+    /** @return HasMany<ApplicantDocument, $this> */
+    public function availableDocuments(): HasMany
+    {
+        return $this->hasMany(ApplicantDocument::class, 'workspace_id')->where('status', ApplicantDocument::STATUS_AVAILABLE);
+    }
 }

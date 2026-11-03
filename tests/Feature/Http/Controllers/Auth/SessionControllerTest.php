@@ -2,14 +2,24 @@
 
 use App\Enums\AccountState;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 it('logs in with a normalized login identifier and records the actual actor', function () {
     $user = User::factory()->administrator()->create(['login_id' => 'admin.uji']);
-    $this->post(route('login.store'), ['login' => ' ADMIN.UJI ', 'password' => 'password'])
+    $response = $this->post(route('login.store'), ['login' => ' ADMIN.UJI ', 'password' => 'password'])
         ->assertRedirect(route('dashboard'));
     $this->assertAuthenticatedAs($user);
+    $response->assertCookie(Auth::getRecallerName());
     $this->assertDatabaseHas('audit_events', ['actor_id' => $user->id, 'action' => 'Masuk akun']);
     expect($user->fresh()->last_login_at)->not->toBeNull();
+});
+
+it('does not issue a recaller cookie when remember is explicitly disabled', function () {
+    $user = User::factory()->administrator()->create(['login_id' => 'admin.optout']);
+    $response = $this->post(route('login.store'), ['login' => 'admin.optout', 'password' => 'password', 'remember' => '0'])
+        ->assertRedirect(route('dashboard'));
+    $this->assertAuthenticatedAs($user);
+    $response->assertCookieMissing(Auth::getRecallerName());
 });
 
 it('rejects an incorrect password and does not reveal whether the account exists', function () {
@@ -64,4 +74,16 @@ it('revokes access when an already signed-in account is disabled', function () {
     $user->save();
     $this->get(route('dashboard'))->assertRedirect(route('login'));
     $this->assertGuest();
+});
+
+it('renders the login page with Log In submit button, password eye toggle, and checked remember me', function () {
+    $response = $this->get(route('login'));
+
+    $response->assertOk()
+        ->assertSee('Log In')
+        ->assertSee('btn-password-toggle')
+        ->assertSee('bi-eye')
+        ->assertSee('name="remember"', false)
+        ->assertSee('checked', false)
+        ->assertSee('Ingat saya (tetap masuk)');
 });

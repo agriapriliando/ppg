@@ -5,7 +5,6 @@ use App\Actions\Admissions\SubmitSkClaim;
 use App\Enums\AccountState;
 use App\Enums\ApplicationStatus;
 use App\Enums\PeriodState;
-use App\Models\AdministrativeCase;
 use App\Models\ApplicantBiodata;
 use App\Models\ApplicantWorkspace;
 use App\Models\AuditEvent;
@@ -98,11 +97,9 @@ it('requires identity reply and access revocation checks and matching new-number
     $this->assertDatabaseCount('administrative_cases', 0);
 });
 
-it('blocks unresolved cases disabled accounts and archived periods', function (string $condition) {
+it('blocks disabled accounts and archived periods', function (string $condition) {
     $c = whatsappRecoveryContext();
-    if ($condition === 'case') {
-        AdministrativeCase::create(['application_id' => $c['application']->id, 'type' => 'shared_whatsapp', 'reason' => 'Masih menunggu pemeriksaan identitas oleh pengelola.']);
-    } elseif ($condition === 'disabled') {
+    if ($condition === 'disabled') {
         $c['owner']->account_state = AccountState::Disabled;
         $c['owner']->save();
     } else {
@@ -112,7 +109,7 @@ it('blocks unresolved cases disabled accounts and archived periods', function (s
     $this->actingAs($c['admin'])->post(route('admin.whatsapp-recovery.update', $c['claim']), whatsappRecoveryInput($c))->assertSessionHasErrors('recovery');
     expect($c['application']->workspace->fresh()->biodata->whatsapp_number)->toBe('+6281234567890');
     $this->assertDatabaseMissing('administrative_cases', ['type' => 'whatsapp_recovery']);
-})->with(['case', 'disabled', 'archived']);
+})->with(['disabled', 'archived']);
 
 it('rejects a replacement number already used by another account', function () {
     $c = whatsappRecoveryContext();
@@ -122,13 +119,11 @@ it('rejects a replacement number already used by another account', function () {
     $this->assertDatabaseCount('administrative_cases', 0);
 });
 
-it('restricts supervised number recovery to administrators', function () {
+it('allows operators to perform number recovery while restricting applicants', function () {
     $c = whatsappRecoveryContext();
-    foreach ([$c['operator'], $c['owner']] as $actor) {
-        $this->actingAs($actor)->get(route('admin.whatsapp-recovery.edit', $c['claim']))->assertForbidden();
-        $this->post(route('admin.whatsapp-recovery.update', $c['claim']), whatsappRecoveryInput($c))->assertForbidden();
-    }
-    $this->assertDatabaseCount('administrative_cases', 0);
+    $this->actingAs($c['operator'])->get(route('admin.whatsapp-recovery.edit', $c['claim']))->assertOk();
+    $this->actingAs($c['owner'])->get(route('admin.whatsapp-recovery.edit', $c['claim']))->assertForbidden();
+    $this->post(route('admin.whatsapp-recovery.update', $c['claim']), whatsappRecoveryInput($c))->assertForbidden();
 });
 
 it('rejects malformed or unchanged replacement numbers', function (string $number) {

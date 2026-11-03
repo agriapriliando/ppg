@@ -13,6 +13,7 @@ use App\Models\ReferenceOption;
 use App\Models\ReferenceProdi;
 use App\Models\ReferencePt;
 use App\Models\ReferenceRegion;
+use App\Models\SkClaim;
 use App\Support\ApplicantFields;
 use App\Support\FormInput;
 use Illuminate\Http\RedirectResponse;
@@ -21,11 +22,6 @@ use Illuminate\View\View;
 
 class ApplicantFormController extends Controller
 {
-    public function index(Request $request): View
-    {
-        return view('portal.application-periods', ['periods' => AdmissionPeriod::query()->where('state', 'published')->orderByDesc('id')->get(), 'applications' => Application::query()->where('user_id', $request->user()?->id)->with('period')->orderByDesc('id')->get()]);
-    }
-
     public function edit(Request $request, AdmissionPeriod $period): View
     {
         $workspace = ApplicantWorkspace::query()->with(['biodata', 'education', 'application.participant'])->where('user_id', $request->user()?->id)->where('admission_period_id', $period->id)->first();
@@ -35,14 +31,47 @@ class ApplicantFormController extends Controller
             $dataset = ReferenceDataset::query()->whereKey($workspace->education->reference_dataset_id)->first();
         }
         $data = $workspace ? ApplicantFields::fromWorkspace($workspace) : [];
+        if (empty($data['whatsapp_number']) && $request->user() !== null) {
+            $claim = SkClaim::query()
+                ->where('admission_period_id', $period->id)
+                ->where(function ($query) use ($request): void {
+                    $query->where('requester_user_id', $request->user()->id)
+                        ->orWhere('review_owner_id', $request->user()->id);
+                })
+                ->orderBy('id')
+                ->first();
+
+            if ($claim !== null && ! empty($claim->whatsapp_number)) {
+                $data['whatsapp_number'] = $claim->whatsapp_number;
+            }
+        }
+
+        $selectedDistrict = (string) FormInput::old('district_code', $data['district_code'] ?? '');
+        $selectedCity = (string) FormInput::old('city_code', $data['city_code'] ?? '');
+        $selectedProvince = (string) FormInput::old('province_code', $data['province_code'] ?? '');
+
+        if (! empty($selectedDistrict) && (empty($selectedCity) || empty($selectedProvince))) {
+            $distRegion = ReferenceRegion::query()->where('dataset_id', $dataset?->id)->where('code', $selectedDistrict)->first();
+            if ($distRegion && $distRegion->parent_code) {
+                $selectedCity = $selectedCity ?: $distRegion->parent_code;
+                $data['city_code'] = $selectedCity;
+                $cityRegion = ReferenceRegion::query()->where('dataset_id', $dataset?->id)->where('code', $selectedCity)->first();
+                if ($cityRegion && $cityRegion->parent_code) {
+                    $selectedProvince = $selectedProvince ?: $cityRegion->parent_code;
+                    $data['province_code'] = $selectedProvince;
+                }
+            }
+        }
+
+        $regionCodes = array_values(array_filter([$selectedProvince, $selectedCity, $selectedDistrict]));
 
         return view('portal.application-form', [
             'period' => $period, 'workspace' => $workspace, 'application' => $workspace?->application, 'data' => $data,
             'fields' => ApplicantFields::definitions(), 'dataset' => $dataset,
             'options' => ReferenceOption::query()->where('dataset_id', $dataset?->id)->get()->groupBy('group'),
-            'regions' => ReferenceRegion::query()->where('dataset_id', $dataset?->id)->whereIn('code', [FormInput::old('province_code', $data['province_code'] ?? ''), FormInput::old('city_code', $data['city_code'] ?? ''), FormInput::old('district_code', $data['district_code'] ?? '')])->get(),
-            'ptLabel' => ReferencePt::query()->where('dataset_id', $dataset?->id)->where('external_id', FormInput::old('pt_external_id', $data['pt_external_id'] ?? ''))->value('name') ?? '',
-            'prodiLabel' => ReferenceProdi::query()->where('dataset_id', $dataset?->id)->where('external_id', FormInput::old('prodi_external_id', $data['prodi_external_id'] ?? ''))->value('name') ?? '',
+            'regions' => ReferenceRegion::query()->where('dataset_id', $dataset?->id)->whereIn('code', $regionCodes)->get(),
+            'ptLabel' => $data['pt_name'] ?? (ReferencePt::query()->where('dataset_id', $dataset?->id)->where('external_id', FormInput::old('pt_external_id', $data['pt_external_id'] ?? ''))->value('name') ?? ''),
+            'prodiLabel' => $data['prodi_name'] ?? (ReferenceProdi::query()->where('dataset_id', $dataset?->id)->where('external_id', FormInput::old('prodi_external_id', $data['prodi_external_id'] ?? ''))->value('name') ?? ''),
             'consent' => ConsentText::query()->where('purpose', 'submission')->latest('id')->first(),
         ]);
     }
@@ -52,7 +81,7 @@ class ApplicantFormController extends Controller
         $request->validate(['version' => ['required', 'integer', 'min:0'], 'action' => ['required', 'in:draft,submit']]);
         $actor = $request->user();
         abort_unless($actor !== null, 403);
-        $keys = [...array_keys(ApplicantFields::definitions()), 'pt_external_id', 'prodi_external_id', 'consent', 'consent_id'];
+        $keys = [...array_keys(ApplicantFields::definitions()), 'pt_external_id', 'prodi_external_id', 'pt_name', 'prodi_name', 'consent', 'consent_id'];
         $submit = $request->input('action') === 'submit';
         $save->handle($actor, $period->id, $request->integer('version'), $request->only($keys), $submit);
 

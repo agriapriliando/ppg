@@ -28,8 +28,8 @@ class ValidateSkImport
             return;
         }
         $actor = User::findOrFail($import->uploaded_by);
-        if (! $actor->isAdministrator()) {
-            throw new RuntimeException('Pengunggah tidak lagi memiliki hak administrator.');
+        if (! in_array($actor->role, [UserRole::Administrator, UserRole::Operator], true)) {
+            throw new RuntimeException('Pengunggah tidak lagi memiliki hak impor.');
         }
         $path = Storage::disk('local')->path($import->private_path);
         $this->inspectArchive($path);

@@ -6,7 +6,6 @@ use App\Actions\Admissions\SubmitSkClaim;
 use App\Enums\AccountState;
 use App\Enums\ApplicationStatus;
 use App\Enums\PeriodState;
-use App\Models\AdministrativeCase;
 use App\Models\ApplicantWorkspace;
 use App\Models\Application;
 use App\Models\ApplicationReview;
@@ -126,7 +125,7 @@ it('requires all identity and privacy confirmations before transferring', functi
     $this->assertDatabaseCount('application_ownership_transfers', 0);
 });
 
-it('rejects missing holds archived periods withdrawn SK disabled targets and unresolved cases', function (string $condition) {
+it('rejects missing holds archived periods withdrawn SK and disabled targets', function (string $condition) {
     $c = ownershipContext();
     if ($condition === 'hold') {
         $c['participant']->forceFill(['admin_hold' => false])->save();
@@ -138,13 +137,11 @@ it('rejects missing holds archived periods withdrawn SK disabled targets and unr
     } elseif ($condition === 'disabled') {
         $c['target']->account_state = AccountState::Disabled;
         $c['target']->save();
-    } else {
-        AdministrativeCase::create(['application_id' => $c['application']->id, 'type' => 'shared_whatsapp', 'reason' => 'Kasus yang belum selesai diperiksa.']);
     }
     $this->actingAs($c['admin'])->post(route('admin.ownership.update', $c['application']), ownershipInput($c))->assertSessionHasErrors('ownership');
     expect($c['application']->fresh()->user_id)->toBe($c['applicant']->id);
     $this->assertDatabaseCount('application_ownership_transfers', 0);
-})->with(['hold', 'archived', 'withdrawn', 'disabled', 'case']);
+})->with(['hold', 'archived', 'withdrawn', 'disabled']);
 
 it('rejects claims for another SK or without the target account consent', function (string $condition) {
     $c = ownershipContext();

@@ -22,6 +22,12 @@ class SkParticipant extends Model
         return $this->hasOne(Application::class, 'sk_participant_id');
     }
 
+    /** @return BelongsTo<User, $this> */
+    public function claimedUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'claimed_user_id');
+    }
+
     protected function casts(): array
     {
         return ['sk_date' => 'immutable_date', 'admin_hold' => 'boolean'];

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\RecordAudit;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\AdministrativeCase;
 use Illuminate\Http\RedirectResponse;
@@ -19,6 +20,8 @@ class AdministrativeCaseController extends Controller
 
     public function resolve(Request $request, AdministrativeCase $case, RecordAudit $audit): RedirectResponse
     {
+        $actor = $request->user();
+        abort_unless($actor?->isAdministrator() || $actor?->role === UserRole::Operator, 403);
         $data = $request->validate(['resolution' => ['required', 'string', 'min:20', 'max:2000'], 'confirmed' => ['accepted']]);
         DB::transaction(function () use ($case, $request, $data, $audit): void {
             $locked = AdministrativeCase::query()->lockForUpdate()->findOrFail($case->id);

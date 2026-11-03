@@ -112,7 +112,7 @@ class GoogleController extends Controller
         if ($user->account_state !== AccountState::Active) {
             return redirect()->route('login')->withErrors(['login' => 'Akun tidak aktif. Hubungi pengelola.']);
         }
-        Auth::login($user);
+        Auth::login($user, true);
         $request->session()->regenerate();
         $user->last_login_at = now();
         $user->save();

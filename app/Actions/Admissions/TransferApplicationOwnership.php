@@ -83,9 +83,6 @@ class TransferApplicationOwnership
                 throw ValidationException::withMessages(['ownership' => 'Akun tujuan sudah mempunyai pendaftaran pada periode ini. Penggabungan aplikasi tidak dilakukan otomatis.']);
             }
             $sourceClaims = SkClaim::query()->where('candidate_sk_participant_id', $participant->id)->where('requester_user_id', $source->id)->where('status', 'approved')->lockForUpdate()->get();
-            if (AdministrativeCase::query()->where('state', 'open')->where(fn ($query) => $query->where('application_id', $locked->id)->orWhereIn('claim_id', [...$sourceClaims->modelKeys(), $claim->id]))->exists()) {
-                throw ValidationException::withMessages(['ownership' => 'Selesaikan kasus administratif lain sebelum koreksi kepemilikan.']);
-            }
             $sourceWorkspace = ApplicantWorkspace::query()->lockForUpdate()->findOrFail($locked->workspace_id);
             $targetWorkspace = $target === null ? null : ApplicantWorkspace::query()->where('user_id', $target->id)->where('admission_period_id', $period->id)->lockForUpdate()->first();
             if ($sourceWorkspace->user_id !== $source->id || $sourceWorkspace->admission_period_id !== $period->id || $sourceWorkspace->lock_version !== (int) $data['source_workspace_version'] || ($targetWorkspace->lock_version ?? 0) !== (int) $data['target_workspace_version']) {

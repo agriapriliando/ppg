@@ -30,7 +30,7 @@ class RecoverWhatsappAccess
     /** @param array<string, mixed> $input */
     public function handle(User $actor, SkClaim $claim, array $input): void
     {
-        abort_unless($actor->isAdministrator(), 403);
+        abort_unless($actor->isAdministrator() || $actor->role === UserRole::Operator, 403);
         $data = Validator::make($input, [
             'claim_version' => ['required', 'integer', 'min:0'],
             'application_version' => ['required', 'integer', 'min:0'],
@@ -59,9 +59,6 @@ class RecoverWhatsappAccess
             }
             if ($biodata->whatsapp_number === $number) {
                 throw ValidationException::withMessages(['whatsapp_number' => 'Nomor baru harus berbeda. Gunakan penerbitan ulang akses untuk nomor yang sama.']);
-            }
-            if (AdministrativeCase::query()->where('state', 'open')->where(fn ($query) => $query->where('claim_id', $lockedClaim->id)->orWhere('application_id', $application->id))->exists()) {
-                throw ValidationException::withMessages(['recovery' => 'Selesaikan kasus administratif yang masih terbuka sebelum mengganti nomor.']);
             }
             if (ApplicantBiodata::query()->where('whatsapp_number', $number)->whereNotIn('workspace_id', ApplicantWorkspace::query()->where('user_id', $user->id)->select('id'))->exists() || SkClaim::query()->where('whatsapp_number', $number)->where('id', '!=', $lockedClaim->id)->whereIn('status', ['pending', 'needs_information', 'approved'])->where(fn ($query) => $query->whereNull('requester_user_id')->orWhere('requester_user_id', '!=', $user->id))->exists()) {
                 throw ValidationException::withMessages(['whatsapp_number' => 'Nomor baru sedang digunakan pada data lain. Periksa penggunaan nomor bersama melalui kasus administratif.']);

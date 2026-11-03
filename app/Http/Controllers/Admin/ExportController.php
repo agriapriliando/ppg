@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\RecordAudit;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Jobs\GenerateParticipantExportJob;
 use App\Models\AdmissionPeriod;
@@ -35,7 +36,13 @@ class ExportController extends Controller
     public function download(Request $request, ExportRun $export, RecordAudit $audit): StreamedResponse
     {
         $actor = $request->user();
-        abort_unless($actor !== null && $actor->isAdministrator(), 403);
+        abort_unless(
+            $actor !== null && (
+                $actor->isAdministrator()
+                || ($actor->role === UserRole::Operator && $export->requested_by === $actor->id)
+            ),
+            403
+        );
         if ($export->state !== 'ready' || $export->expires_at === null || $export->expires_at->isPast() || ! hash_equals($export->scope_hash ?? '', ParticipantExport::fingerprint($actor, $export->scope_snapshot)) || $export->private_path === null || ! Storage::disk('local')->exists($export->private_path)) {
             throw ValidationException::withMessages(['export' => 'Berkas belum siap, kedaluwarsa, atau penugasan telah berubah. Siapkan ekspor baru.']);
         }

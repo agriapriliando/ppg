@@ -45,9 +45,8 @@ it('restricts reports to administrators and failed validation results', function
     Storage::fake('local');
     $import = stagedImport('ready');
     $this->get(route('admin.imports.errors', $import))->assertRedirect(route('login'));
-    foreach ([User::factory()->operator()->create(), User::factory()->create()] as $user) {
-        $this->actingAs($user)->get(route('admin.imports.errors', $import))->assertForbidden();
-    }
+    $this->actingAs(User::factory()->create())->get(route('admin.imports.errors', $import))->assertForbidden();
+    $this->actingAs(User::factory()->operator()->create())->get(route('admin.imports.errors', $import))->assertNotFound();
     $this->actingAs(User::findOrFail($import->uploaded_by))->get(route('admin.imports.errors', $import))->assertNotFound();
 });
 

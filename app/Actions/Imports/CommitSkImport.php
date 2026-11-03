@@ -20,7 +20,7 @@ class CommitSkImport
 
     public function handle(User $actor, SkImport $import, string $previewHash): void
     {
-        abort_unless($actor->isAdministrator(), 403);
+        abort_unless($actor->isAdministrator() || $actor->role === UserRole::Operator, 403);
         DB::transaction(function () use ($actor, $import, $previewHash): void {
             $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($import->admission_period_id);
             $locked = SkImport::query()->lockForUpdate()->findOrFail($import->id);

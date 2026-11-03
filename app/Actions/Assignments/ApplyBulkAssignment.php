@@ -3,6 +3,7 @@
 namespace App\Actions\Assignments;
 
 use App\Actions\RecordAudit;
+use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
 use App\Models\SkParticipant;
 use App\Models\User;
@@ -16,7 +17,7 @@ class ApplyBulkAssignment
     /** @param list<int> $operatorIds */
     public function handle(User $actor, int $periodId, int $version, string $mode, array $operatorIds, ?int $sourceId, string $hash, string $reason): int
     {
-        abort_unless($actor->isAdministrator(), 403);
+        abort_unless($actor->isAdministrator() || $actor->role === UserRole::Operator, 403);
 
         return DB::transaction(function () use ($actor, $periodId, $version, $mode, $operatorIds, $sourceId, $hash, $reason): int {
             $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($periodId);

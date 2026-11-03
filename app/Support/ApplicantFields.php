@@ -4,8 +4,8 @@ namespace App\Support;
 
 use App\Models\ApplicantWorkspace;
 use App\Models\ReferenceDataset;
-use App\Models\ReferenceProdi;
 use App\Models\ReferenceRegion;
+use App\Models\SkClaim;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -20,8 +20,29 @@ class ApplicantFields
             $value = $workspace->biodata?->getAttribute($field['column']);
             $data[$key] = $key === 'birth_date' ? $value?->format('Y-m-d') : $value;
         }
-        $data['pt_external_id'] = $workspace->education?->pt_external_id;
-        $data['prodi_external_id'] = $workspace->education?->prodi_external_id;
+        $education = $workspace->education;
+        $data['pt_name'] = $education ? ($education->pt_name_snapshot ?? $education->pt_external_id) : null;
+        $data['prodi_name'] = $education ? ($education->prodi_name_snapshot ?? $education->prodi_external_id) : null;
+        $data['pt_external_id'] = $education?->pt_external_id;
+        $data['prodi_external_id'] = $education?->prodi_external_id;
+
+        if (empty($data['whatsapp_number'])) {
+            $claim = SkClaim::query()
+                ->where('admission_period_id', $workspace->admission_period_id)
+                ->where(function ($query) use ($workspace): void {
+                    $query->where('requester_user_id', $workspace->user_id)
+                        ->orWhere('review_owner_id', $workspace->user_id);
+                    if ($workspace->application?->sk_participant_id !== null) {
+                        $query->orWhere('candidate_sk_participant_id', $workspace->application->sk_participant_id);
+                    }
+                })
+                ->orderBy('id')
+                ->first();
+
+            if ($claim !== null && ! empty($claim->whatsapp_number)) {
+                $data['whatsapp_number'] = $claim->whatsapp_number;
+            }
+        }
 
         return $data;
     }
@@ -47,9 +68,9 @@ class ApplicantFields
             'rt' => ['label' => 'RT', 'step' => 2, 'type' => 'text', 'required' => false, 'column' => 'rt'],
             'rw' => ['label' => 'RW', 'step' => 2, 'type' => 'text', 'required' => false, 'column' => 'rw'],
             'village_name' => ['label' => 'Kelurahan / desa', 'step' => 2, 'type' => 'text', 'required' => true, 'column' => 'village_name'],
-            'province_code' => ['label' => 'Provinsi', 'step' => 2, 'type' => 'region', 'required' => true, 'column' => 'province_code', 'reference' => 'province'],
-            'city_code' => ['label' => 'Kota / kabupaten', 'step' => 2, 'type' => 'region', 'required' => true, 'column' => 'city_code', 'reference' => 'city'],
             'district_code' => ['label' => 'Kecamatan', 'step' => 2, 'type' => 'region', 'required' => true, 'column' => 'district_code', 'reference' => 'district'],
+            'city_code' => ['label' => 'Kota / kabupaten', 'step' => 2, 'type' => 'region', 'required' => true, 'column' => 'city_code', 'reference' => 'city'],
+            'province_code' => ['label' => 'Provinsi', 'step' => 2, 'type' => 'region', 'required' => true, 'column' => 'province_code', 'reference' => 'province'],
             'postal_code' => ['label' => 'Kode pos', 'step' => 2, 'type' => 'text', 'required' => false, 'column' => 'postal_code'],
             'residence_type_code' => ['label' => 'Jenis tinggal', 'step' => 2, 'type' => 'select', 'required' => true, 'column' => 'residence_type_code', 'reference' => 'residence'],
             'transport_type_code' => ['label' => 'Alat transportasi', 'step' => 2, 'type' => 'select', 'required' => true, 'column' => 'transport_type_code', 'reference' => 'transport'],
@@ -98,8 +119,22 @@ class ApplicantFields
         if ($final && ($input['is_kps_recipient'] ?? null)) {
             $rules['kps_number'][] = 'required';
         }
-        $rules['pt_external_id'] = [$final ? 'required' : 'nullable', 'string', 'max:64', Rule::exists('reference_pt', 'external_id')->where('dataset_id', $datasetId)];
-        $rules['prodi_external_id'] = [$final ? 'required' : 'nullable', 'string', 'max:64', Rule::exists('reference_prodi', 'external_id')->where('dataset_id', $datasetId)];
+        if (isset($input['pt_name']) && ! isset($input['pt_external_id'])) {
+            $input['pt_external_id'] = $input['pt_name'];
+        } elseif (isset($input['pt_external_id']) && ! isset($input['pt_name'])) {
+            $input['pt_name'] = $input['pt_external_id'];
+        }
+        if (isset($input['prodi_name']) && ! isset($input['prodi_external_id'])) {
+            $input['prodi_external_id'] = $input['prodi_name'];
+        } elseif (isset($input['prodi_external_id']) && ! isset($input['prodi_name'])) {
+            $input['prodi_name'] = $input['prodi_external_id'];
+        }
+        $rules['pt_name'] = [$final ? 'required' : 'nullable', 'string', 'max:255'];
+        $rules['prodi_name'] = [$final ? 'required' : 'nullable', 'string', 'max:255'];
+        $rules['pt_external_id'] = ['nullable', 'string', 'max:255'];
+        $rules['prodi_external_id'] = ['nullable', 'string', 'max:255'];
+        $labels['pt_name'] = 'Perguruan tinggi asal';
+        $labels['prodi_name'] = 'Program studi asal';
         $labels['pt_external_id'] = 'Perguruan tinggi asal';
         $labels['prodi_external_id'] = 'Program studi asal';
         $data = Validator::make($input, $rules, ['required' => ':attribute wajib diisi.', 'exists' => ':attribute tidak tersedia pada referensi aktif.', 'digits' => ':attribute harus terdiri dari :digits digit.', 'birth_date.before' => 'Tanggal lahir harus sebelum hari ini.'], $labels)->validate();
@@ -110,9 +145,6 @@ class ApplicantFields
             if (! empty($data[$child]) && ! ReferenceRegion::query()->where('dataset_id', $datasetId)->where('code', $data[$child])->where('parent_code', $data[$parent] ?? null)->exists()) {
                 throw ValidationException::withMessages([$child => 'Pilihan wilayah tidak sesuai induknya. Pilih ulang wilayah.']);
             }
-        }
-        if (! empty($data['prodi_external_id']) && ! ReferenceProdi::query()->where('dataset_id', $datasetId)->where('external_id', $data['prodi_external_id'])->where('pt_external_id', $data['pt_external_id'] ?? null)->exists()) {
-            throw ValidationException::withMessages(['prodi_external_id' => 'Program studi tidak berada di perguruan tinggi yang dipilih.']);
         }
         if (! empty($data['whatsapp_number'])) {
             $data['whatsapp_number'] = WhatsappNumber::normalize($data['whatsapp_number']);

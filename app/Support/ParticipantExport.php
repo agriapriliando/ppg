@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\UserRole;
 use App\Models\SkParticipant;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,7 +14,11 @@ class ParticipantExport
      */
     public static function query(User $actor, array $filters): Builder
     {
-        return SkParticipant::query()->visibleTo($actor)
+        $query = ($actor->isAdministrator() || $actor->role === UserRole::Operator)
+            ? SkParticipant::query()
+            : SkParticipant::query()->visibleTo($actor);
+
+        return $query
             ->when(! empty($filters['period_id']), fn ($query) => $query->where('admission_period_id', $filters['period_id']))
             ->when(! empty($filters['operator_id']), fn ($query) => $query->where('assigned_operator_id', $filters['operator_id']))
             ->when(! empty($filters['status']), fn ($query) => $query->whereHas('application', fn ($apps) => $apps->where('status', $filters['status'])));

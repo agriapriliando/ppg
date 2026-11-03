@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ExportRun;
+use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 
 require_once __DIR__.'/../../Fixtures/registration.php';
@@ -34,11 +35,12 @@ it('refuses download after assignment changes and after expiry', function () {
     Storage::disk('local')->assertMissing($run->private_path);
 });
 
-it('forbids operators from downloading another users export', function () {
+it('forbids operators from downloading another users export and forbids applicants from exporting', function () {
     Storage::fake('local');
     $c = registrationContext();
     $this->actingAs($c['admin'])->post(route('admin.exports.store'), [])->assertRedirect();
     $run = ExportRun::query()->sole();
     $this->actingAs($c['operator'])->get(route('admin.exports.download', $run))->assertForbidden();
-    $this->post(route('admin.exports.store'), [])->assertForbidden();
+    $this->actingAs(User::factory()->create())->post(route('admin.exports.store'), [])->assertForbidden();
+    $this->actingAs($c['operator'])->post(route('admin.exports.store'), [])->assertRedirect();
 });

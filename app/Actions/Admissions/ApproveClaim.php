@@ -7,7 +7,6 @@ use App\Actions\RecordAudit;
 use App\Enums\AccountState;
 use App\Enums\PeriodState;
 use App\Enums\UserRole;
-use App\Models\AdministrativeCase;
 use App\Models\AdmissionPeriod;
 use App\Models\ApplicantBiodata;
 use App\Models\ApplicantWorkspace;
@@ -35,9 +34,6 @@ class ApproveClaim
             }
             if ($period->state === PeriodState::Archived || $locked->lock_version !== $expectedVersion || ! in_array($locked->status, ['pending', 'needs_information'], true)) {
                 throw ValidationException::withMessages(['claim' => 'Klaim telah berubah atau periode diarsipkan. Muat ulang pemeriksaan.']);
-            }
-            if (AdministrativeCase::query()->where('claim_id', $locked->id)->where('state', 'open')->exists()) {
-                throw ValidationException::withMessages(['claim' => 'Selesaikan kasus administratif klaim sebelum persetujuan.']);
             }
             $participant = SkParticipant::query()->whereKey($locked->candidate_sk_participant_id)->lockForUpdate()->first();
             if ($participant === null || $participant->admission_period_id !== $period->id || $participant->claimed_user_id !== null || $participant->roster_state !== 'active' || $participant->admin_hold) {

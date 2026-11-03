@@ -90,9 +90,12 @@ it('provides a real downloadable Excel template and a usable import preview page
     $this->get(route('admin.imports.show', SkImport::query()->sole()))->assertOk()->assertSee('Peserta Uji')->assertSee('Pratinjau siap dikonfirmasi');
 });
 
-it('forbids operators from importing participant rosters', function () {
+it('allows operators to import participant rosters and forbids applicants', function () {
     $operator = User::factory()->operator()->create();
-    $this->actingAs($operator)->get(route('admin.imports'))->assertForbidden();
+    $this->actingAs($operator)->get(route('admin.imports'))->assertOk();
+
+    $applicant = User::factory()->create();
+    $this->actingAs($applicant)->get(route('admin.imports'))->assertForbidden();
     $this->post(route('admin.imports.store'))->assertForbidden();
     $this->assertDatabaseCount('sk_imports', 0);
 });

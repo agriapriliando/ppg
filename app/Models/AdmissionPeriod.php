@@ -8,6 +8,7 @@ use Database\Factories\AdmissionPeriodFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property PeriodState $state
@@ -66,5 +67,17 @@ class AdmissionPeriod extends Model
         }
 
         return $this->acceptsApplications() ? 'Pendaftaran dibuka' : 'Belum dibuka';
+    }
+
+    /** @return HasMany<DocumentPolicyVersion, $this> */
+    public function documentPolicyVersions(): HasMany
+    {
+        return $this->hasMany(DocumentPolicyVersion::class, 'admission_period_id');
+    }
+
+    /** @return HasMany<ApplicantDocument, $this> */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(ApplicantDocument::class, 'admission_period_id');
     }
 }

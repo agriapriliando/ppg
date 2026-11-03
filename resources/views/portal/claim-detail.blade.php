@@ -1,9 +1,173 @@
-<x-layouts::app title="Pemeriksaan Klaim"><div class="row g-4"><div class="col-xl-7"><section class="workspace-card mb-4"><div class="panel-heading"><h2>{{ $claim->submitted_name }}</h2><p>{{ $claim->period->name }} · Jalur {{ $claim->access_path==='google' ? 'Google' : 'WhatsApp' }}</p></div><div class="panel-body"><dl class="detail-list"><dt>Nama permohonan</dt><dd>{{ $claim->submitted_name }}</dd><dt>Pengenal resmi</dt><dd>{{ $claim->submitted_identifier ?? 'Tidak diisi' }}</dd><dt>Nomor permohonan</dt><dd>{{ $claim->whatsapp_number }}</dd><dt>Kandidat kepesertaan</dt><dd>{{ $claim->candidate?->name_on_sk ?? 'Belum cocok / nama ambigu' }} @if($claim->candidate)· {{ $claim->candidate->sk_number }} · urut {{ $claim->candidate->sk_order }}@endif</dd><dt>Status klaim</dt><dd>{{ ['approved'=>'Disetujui','pending'=>'Menunggu pemeriksaan','needs_information'=>'Perlu informasi','declined'=>'Belum disetujui'][$claim->status] ?? $claim->status }}</dd>@if($application)<dt>Nomor PMB</dt><dd>{{ $application->application_number }}</dd><dt>Nomor formulir saat ini</dt><dd>{{ $application->workspace->biodata?->whatsapp_number ?? 'Belum diisi' }}</dd>@endif</dl>@if(!in_array($claim->status, ['approved','cancelled']))<form method="post" action="{{ route('claims.approve', $claim) }}">@csrf<input type="hidden" name="version" value="{{ $claim->lock_version }}"><div class="checklist-box"><label><input type="checkbox" class="form-check-input" name="identity_checked" value="1" required><span>Identitas pemohon telah dicocokkan menggunakan pembeda yang sah.</span></label><label><input type="checkbox" class="form-check-input" name="sk_checked" value="1" required><span>Kandidat SK tepat, tidak ambigu, dan belum dimiliki pihak lain.</span></label></div><button class="btn btn-purple mt-3" @disabled(!$claim->candidate)>Setujui Klaim SK</button></form>@endif</div></section>
-@if(auth()->user()->isAdministrator() && !in_array($claim->status, ['approved','cancelled']))<section class="workspace-card"><div class="panel-heading"><h2>Pencocokan administratif</h2></div><div class="panel-body"><form method="post" action="{{ route('claims.candidate', $claim) }}">@csrf<input type="hidden" name="version" value="{{ $claim->lock_version }}"><label for="claim-candidate" class="form-label">Kandidat resmi pada periode ini</label><select id="claim-candidate" name="candidate_id" class="form-select mb-3" required><option value="">Pilih setelah identitas diperiksa</option>@foreach($candidates as $candidate)<option value="{{ $candidate->id }}" @selected($claim->candidate_sk_participant_id===$candidate->id)>{{ $candidate->name_on_sk }} · {{ $candidate->sk_number }} · {{ $candidate->sk_order }}</option>@endforeach</select><label for="candidate-reason" class="form-label">Dasar pencocokan *</label><textarea id="candidate-reason" name="reason" class="form-control mb-3" minlength="10" maxlength="1000" required></textarea><button class="btn btn-outline-purple">Simpan Kandidat</button></form></div></section>@endif</div>
-<div class="col-xl-5">
-@if(auth()->user()->isAdministrator() && !$claim->candidate && in_array($claim->status, ['pending','needs_information']))<section class="workspace-card mb-4"><div class="panel-heading"><h2>Penanggung jawab klaim</h2><p>Klaim tanpa kandidat dapat ditriase oleh satu operator periode.</p></div><div class="panel-body"><p>Saat ini: {{ $claim->reviewOwner?->name ?? 'Administrator' }}</p><form method="post" action="{{ route('claims.delegate', $claim) }}">@csrf<input type="hidden" name="version" value="{{ $claim->lock_version }}"><label for="claim-owner" class="form-label">Operator pemeriksa *</label><select id="claim-owner" name="operator_id" class="form-select mb-3" required><option value="">Pilih operator periode</option>@foreach($operators as $operator)<option value="{{ $operator->id }}" @selected($claim->review_owner_id===$operator->id)>{{ $operator->name }}</option>@endforeach</select><label for="delegation-reason" class="form-label">Alasan penugasan *</label><textarea id="delegation-reason" name="reason" class="form-control mb-3" minlength="10" maxlength="1000" required></textarea><button class="btn btn-outline-purple">Simpan Penanggung Jawab</button></form></div></section>@endif
-@if($claim->responses->isNotEmpty())<section class="workspace-card mb-4"><div class="panel-heading"><h2>Informasi tambahan pemohon</h2></div><div class="panel-body">@foreach($claim->responses as $response)<div class="border-bottom pb-3 mb-3"><small class="text-muted">{{ $response->created_at->timezone(config('pmb.business_timezone'))->format('d/m/Y H:i') }} WIB</small><p class="mb-0 text-break" style="white-space: pre-line">{{ $response->message }}</p></div>@endforeach</div></section>@endif
+<x-layouts::app title="Pemeriksaan Akun">
+    @php
+        $isStaff = auth()->user()?->isAdministrator() || auth()->user()?->role === \App\Enums\UserRole::Operator;
+    @endphp
 
-@if(auth()->user()->isAdministrator() && $claim->status==='approved' && $claim->access_path==='whatsapp')<a class="btn btn-outline-danger w-100 mb-4" href="{{ route('admin.whatsapp-recovery.edit', $claim) }}">Pemulihan Saat Nomor Lama Hilang</a>@endif
-@if($claim->status==='approved' && $claim->access_path==='whatsapp')<section class="workspace-card mb-4"><div class="panel-heading"><h2>Penyerahan akses manual</h2><p>{{ $claim->requester?->account_state->label() }}</p></div><div class="panel-body"><form method="post" action="{{ route('credentials.issue', $claim) }}">@csrf<p class="small text-muted">Lihat akses yang sudah tersedia. Jika belum ada, akses awal akan dibuat.</p><button class="btn btn-gold">Generate Akun</button></form><form method="post" action="{{ route('credentials.regenerate', $claim) }}" class="mt-3">@csrf<p class="small text-muted">Generate ulang mengganti password dan mengeluarkan sesi akun sebelumnya.</p><button class="btn btn-outline-danger">Generate Ulang Password</button></form></div></section>@endif
-@if(!in_array($claim->status, ['approved','cancelled']))<section class="workspace-card"><div class="panel-heading"><h2>Catatan tindak lanjut</h2></div><div class="panel-body"><form method="post" action="{{ route('claims.note', $claim) }}">@csrf<input type="hidden" name="version" value="{{ $claim->lock_version }}"><label for="claim-result" class="form-label">Hasil pemeriksaan</label><select id="claim-result" name="status" class="form-select mb-3"><option value="needs_information">Perlu informasi tambahan</option><option value="declined">Klaim belum dapat disetujui</option></select><label for="claim-note" class="form-label">Catatan kepada pemohon</label><textarea id="claim-note" name="public_note" class="form-control mb-3" required minlength="10" maxlength="1000" rows="3">{{ \App\Support\FormInput::old('public_note', $claim->public_note) }}</textarea><button class="btn btn-outline-purple">Simpan Catatan</button></form></div></section>@endif</div></div></x-layouts::app>
+    <div class="row g-4">
+        <div class="col-xl-7">
+            <section class="workspace-card mb-4">
+                <div class="panel-heading">
+                    <h2>{{ $claim->submitted_name }}</h2>
+                    <p>{{ $claim->period->name }} · Jalur {{ $claim->access_path === 'google' ? 'Google' : 'WhatsApp' }}</p>
+                </div>
+                <div class="panel-body">
+                    <dl class="detail-list">
+                        <dt>Nama permohonan</dt>
+                        <dd>{{ $claim->submitted_name }}</dd>
+                        <dt>Pengenal resmi</dt>
+                        <dd>{{ $claim->submitted_identifier ?? 'Tidak diisi' }}</dd>
+                        <dt>Nomor permohonan</dt>
+                        <dd>{{ $claim->whatsapp_number }}</dd>
+                        <dt>Kandidat kepesertaan</dt>
+                        <dd>{{ $claim->candidate?->name_on_sk ?? 'Belum cocok / nama ambigu' }} @if($claim->candidate)· {{ $claim->candidate->sk_number }} · urut {{ $claim->candidate->sk_order }}@endif</dd>
+                        <dt>Status klaim</dt>
+                        <dd>{{ ['approved'=>'Disetujui','pending'=>'Menunggu pemeriksaan','needs_information'=>'Perlu informasi','declined'=>'Belum disetujui'][$claim->status] ?? $claim->status }}</dd>
+                        @if($application)
+                            <dt>Nomor PMB</dt>
+                            <dd>{{ $application->application_number }}</dd>
+                            <dt>Nomor formulir saat ini</dt>
+                            <dd>{{ $application->workspace->biodata?->whatsapp_number ?? 'Belum diisi' }}</dd>
+                        @endif
+                    </dl>
+
+                    @if(!in_array($claim->status, ['approved','cancelled']))
+                        <form method="post" action="{{ route('claims.approve', $claim) }}">
+                            @csrf
+                            <input type="hidden" name="version" value="{{ $claim->lock_version }}">
+                            <div class="checklist-box">
+                                <label>
+                                    <input type="checkbox" class="form-check-input" name="identity_checked" value="1" required>
+                                    <span>Identitas pemohon telah dicocokkan menggunakan pembeda yang sah.</span>
+                                </label>
+                                <label>
+                                    <input type="checkbox" class="form-check-input" name="sk_checked" value="1" required>
+                                    <span>Kandidat SK tepat, tidak ambigu, dan belum dimiliki pihak lain.</span>
+                                </label>
+                            </div>
+                            <button class="btn btn-purple mt-3" @disabled(!$claim->candidate)>Setujui Akun</button>
+                        </form>
+                    @endif
+                </div>
+            </section>
+
+            @if($isStaff && !in_array($claim->status, ['approved','cancelled']))
+                <section class="workspace-card">
+                    <div class="panel-heading">
+                        <h2>Pencocokan administratif</h2>
+                    </div>
+                    <div class="panel-body">
+                        <form method="post" action="{{ route('claims.candidate', $claim) }}">
+                            @csrf
+                            <input type="hidden" name="version" value="{{ $claim->lock_version }}">
+                            <label for="claim-candidate" class="form-label">Kandidat resmi pada periode ini</label>
+                            <select id="claim-candidate" name="candidate_id" class="form-select mb-3" required>
+                                <option value="">Pilih setelah identitas diperiksa</option>
+                                @foreach($candidates as $candidate)
+                                    <option value="{{ $candidate->id }}" @selected($claim->candidate_sk_participant_id === $candidate->id)>
+                                        {{ $candidate->name_on_sk }} · {{ $candidate->sk_number }} · {{ $candidate->sk_order }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <button class="btn btn-outline-purple">Simpan Kandidat</button>
+                        </form>
+                    </div>
+                </section>
+            @endif
+        </div>
+
+        <div class="col-xl-5">
+            @if($isStaff && !$claim->candidate && in_array($claim->status, ['pending','needs_information']))
+                <section class="workspace-card mb-4">
+                    <div class="panel-heading">
+                        <h2>Penanggung jawab klaim</h2>
+                        <p>Klaim tanpa kandidat dapat ditriase oleh satu operator periode.</p>
+                    </div>
+                    <div class="panel-body">
+                        <p>Saat ini: {{ $claim->reviewOwner?->name ?? 'Administrator' }}</p>
+                        <form method="post" action="{{ route('claims.delegate', $claim) }}">
+                            @csrf
+                            <input type="hidden" name="version" value="{{ $claim->lock_version }}">
+                            <label for="claim-owner" class="form-label">Operator pemeriksa *</label>
+                            <select id="claim-owner" name="operator_id" class="form-select mb-3" required>
+                                <option value="">Pilih operator periode</option>
+                                @foreach($operators as $operator)
+                                    <option value="{{ $operator->id }}" @selected($claim->review_owner_id === $operator->id)>
+                                        {{ $operator->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <label for="delegation-reason" class="form-label">Alasan penugasan *</label>
+                            <textarea id="delegation-reason" name="reason" class="form-control mb-3" minlength="10" maxlength="1000" required></textarea>
+                            <button class="btn btn-outline-purple">Simpan Penanggung Jawab</button>
+                        </form>
+                    </div>
+                </section>
+            @endif
+
+            @if($claim->responses->isNotEmpty())
+                <section class="workspace-card mb-4">
+                    <div class="panel-heading">
+                        <h2>Informasi tambahan pemohon</h2>
+                    </div>
+                    <div class="panel-body">
+                        @foreach($claim->responses as $response)
+                            <div class="border-bottom pb-3 mb-3">
+                                <small class="text-muted">{{ $response->created_at->timezone(config('pmb.business_timezone'))->format('d/m/Y H:i') }} WIB</small>
+                                <p class="mb-0 text-break" style="white-space: pre-line">{{ $response->message }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
+            @endif
+
+            @if($isStaff && $claim->status === 'approved' && $claim->access_path === 'whatsapp')
+                <a class="btn btn-outline-danger w-100 mb-4" href="{{ route('admin.whatsapp-recovery.edit', $claim) }}">
+                    Pemulihan Saat Nomor Lama Hilang
+                </a>
+            @endif
+
+            @if($claim->status === 'approved' && $claim->access_path === 'whatsapp')
+                <section class="workspace-card mb-4">
+                    <div class="panel-heading">
+                        <h2>Penyerahan akses manual</h2>
+                        <p>{{ $claim->requester?->account_state->label() }}</p>
+                    </div>
+                    <div class="panel-body">
+                        <form method="post" action="{{ route('credentials.issue', $claim) }}">
+                            @csrf
+                            <p class="small text-muted">Lihat akses yang sudah tersedia. Jika belum ada, akses awal akan dibuat.</p>
+                            <button class="btn btn-gold">Generate Akun</button>
+                        </form>
+                        <form method="post" action="{{ route('credentials.regenerate', $claim) }}" class="mt-3">
+                            @csrf
+                            <p class="small text-muted">Generate ulang mengganti password dan mengeluarkan sesi akun sebelumnya.</p>
+                            <button class="btn btn-outline-danger">Generate Ulang Password</button>
+                        </form>
+                    </div>
+                </section>
+            @endif
+
+            @if(!in_array($claim->status, ['approved','cancelled']))
+                <section class="workspace-card">
+                    <div class="panel-heading">
+                        <h2>Catatan tindak lanjut</h2>
+                    </div>
+                    <div class="panel-body">
+                        <form method="post" action="{{ route('claims.note', $claim) }}">
+                            @csrf
+                            <input type="hidden" name="version" value="{{ $claim->lock_version }}">
+                            <label for="claim-result" class="form-label">Hasil pemeriksaan</label>
+                            <select id="claim-result" name="status" class="form-select mb-3">
+                                <option value="needs_information">Perlu informasi tambahan</option>
+                                <option value="declined">Klaim belum dapat disetujui</option>
+                            </select>
+                            <label for="claim-note" class="form-label">Catatan kepada pemohon</label>
+                            <textarea id="claim-note" name="public_note" class="form-control mb-3" required minlength="10" maxlength="1000" rows="3">{{ \App\Support\FormInput::old('public_note', $claim->public_note) }}</textarea>
+                            <button class="btn btn-outline-purple">Simpan Catatan</button>
+                        </form>
+                    </div>
+                </section>
+            @endif
+        </div>
+    </div>
+</x-layouts::app>

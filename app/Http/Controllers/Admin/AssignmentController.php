@@ -30,10 +30,44 @@ class AssignmentController extends Controller
         sort($ids);
         $operators = User::query()->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->orderBy('id')->get();
         $unassigned = $period ? SkParticipant::query()->where('admission_period_id', $period->id)->where('roster_state', 'active')->whereNull('assigned_operator_id')->count() : 0;
-        $loads = $period ? SkParticipant::query()->where('admission_period_id', $period->id)->selectRaw('assigned_operator_id, count(*) as total')->groupBy('assigned_operator_id')->pluck('total', 'assigned_operator_id') : collect();
-        $token = $period && $ids !== [] ? Crypt::encryptString(json_encode(['period_id' => $period->id, 'version' => $period->lock_version, 'ids' => $ids, 'expires' => now()->addHour()->timestamp], JSON_THROW_ON_ERROR)) : null;
+        $totalParticipants = $period ? SkParticipant::query()->where('admission_period_id', $period->id)->where('roster_state', 'active')->count() : 0;
+        $loads = $period ? SkParticipant::query()->where('admission_period_id', $period->id)->where('roster_state', 'active')->whereNotNull('assigned_operator_id')->selectRaw('assigned_operator_id, count(*) as total')->groupBy('assigned_operator_id')->pluck('total', 'assigned_operator_id') : SkParticipant::query()->where('roster_state', 'active')->whereNotNull('assigned_operator_id')->selectRaw('assigned_operator_id, count(*) as total')->groupBy('assigned_operator_id')->pluck('total', 'assigned_operator_id');
+        $assignedOperatorIds = $period ? PeriodOperator::query()->where('admission_period_id', $period->id)->where('is_active', true)->pluck('user_id')->map(intval(...))->all() : [];
+        sort($assignedOperatorIds);
+        $selected = $request->has('operators') ? $ids : $assignedOperatorIds;
 
-        return view('admin.assignments', ['periods' => AdmissionPeriod::query()->where('state', '!=', 'archived')->orderByDesc('id')->get(), 'period' => $period, 'operators' => $operators, 'selected' => $ids, 'unassigned' => $unassigned, 'loads' => $loads, 'token' => $token]);
+        $targetLoads = [];
+        $isExpanded = false;
+        if ($period && $ids !== []) {
+            $count = count($ids);
+            $isExpanded = count($ids) > count($assignedOperatorIds) || array_diff($ids, $assignedOperatorIds) !== [];
+
+            if ($isExpanded || $unassigned === $totalParticipants) {
+                foreach ($ids as $index => $id) {
+                    $targetLoads[$id] = intdiv($totalParticipants, $count) + ($index < ($totalParticipants % $count) ? 1 : 0);
+                }
+            } else {
+                foreach ($ids as $index => $id) {
+                    $addition = intdiv($unassigned, $count) + ($index < ($unassigned % $count) ? 1 : 0);
+                    $targetLoads[$id] = ($loads[$id] ?? 0) + $addition;
+                }
+            }
+        }
+
+        $redistribute = $isExpanded;
+        $token = $period && $ids !== [] ? Crypt::encryptString(json_encode(['period_id' => $period->id, 'version' => $period->lock_version, 'ids' => $ids, 'redistribute' => $redistribute, 'expires' => now()->addHour()->timestamp], JSON_THROW_ON_ERROR)) : null;
+
+        return view('admin.assignments', [
+            'periods' => AdmissionPeriod::query()->where('state', '!=', 'archived')->orderByDesc('id')->get(),
+            'period' => $period,
+            'operators' => $operators,
+            'selected' => $selected,
+            'unassigned' => $unassigned,
+            'totalParticipants' => $totalParticipants,
+            'loads' => $loads,
+            'targetLoads' => $targetLoads,
+            'token' => $token,
+        ]);
     }
 
     public function store(Request $request, AssignOperators $assign): RedirectResponse
@@ -49,9 +83,9 @@ class AssignmentController extends Controller
         }
         $actor = $request->user();
         abort_unless($actor !== null, 403);
-        $assign->handle($actor, $preview['period_id'], $preview['version'], $preview['ids']);
+        $assign->handle($actor, $preview['period_id'], $preview['version'], $preview['ids'], (bool) ($preview['redistribute'] ?? false));
 
-        return redirect()->route('admin.assignments', ['period_id' => $preview['period_id']])->with('status', 'Operator periode disimpan dan peserta yang belum ditugaskan telah dibagi.');
+        return redirect()->route('admin.assignments', ['period_id' => $preview['period_id']])->with('status', 'Operator periode disimpan dan pembagian peserta berhasil diperbarui.');
     }
 
     public function transfer(Request $request, SkParticipant $participant, RecordAudit $audit): RedirectResponse

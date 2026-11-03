@@ -33,7 +33,7 @@ return new class extends Migration
             $table->string('actor_role_snapshot', 32)->nullable();
             $table->string('action', 100);
             $table->string('subject_type');
-            $table->unsignedBigInteger('subject_id');
+            $table->string('subject_id', 64);
             $table->json('safe_changes');
             $table->text('reason')->nullable();
             $table->uuid('request_id');

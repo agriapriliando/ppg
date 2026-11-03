@@ -37,7 +37,8 @@ class SessionController extends Controller
         if (! $valid || $user === null || $user->account_state !== AccountState::Active) {
             throw ValidationException::withMessages(['login' => 'ID login atau kata sandi tidak sesuai, atau akun tidak aktif.']);
         }
-        Auth::login($user);
+        $remember = $request->has('remember') ? $request->boolean('remember') : true;
+        Auth::login($user, $remember);
         $request->session()->regenerate();
         $user->last_login_at = now();
         $user->must_change_password = false;

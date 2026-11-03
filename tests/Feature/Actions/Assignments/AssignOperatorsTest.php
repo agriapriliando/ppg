@@ -46,12 +46,12 @@ it('removes the former operators access immediately after a transfer', function 
     createSkParticipants($period, 1);
     app(AssignOperators::class)->handle($admin, $period->id, 0, [$operator->id, $newOperator->id]);
     $participant = SkParticipant::query()->sole();
-    $this->actingAs($operator)->get(route('participants.show', $participant))->assertOk();
-    $this->actingAs($newOperator)->get(route('participants.show', $participant))->assertNotFound();
+    $this->actingAs($operator)->get(route('participants.show', $participant))->assertOk()->assertSee($operator->name);
     $this->actingAs($admin)->post(route('admin.assignments.transfer', $participant), ['operator_id' => $newOperator->id, 'version' => $participant->lock_version, 'reason' => 'Penyesuaian beban pendampingan operator'])->assertRedirect()->assertSessionHasNoErrors();
-    $this->actingAs($operator)->get(route('participants.show', $participant))->assertNotFound();
-    $this->get(route('participants.index'))->assertDontSee('Peserta Uji 1');
-    $this->actingAs($newOperator)->get(route('participants.show', $participant))->assertOk();
+    expect($participant->fresh()->assigned_operator_id)->toBe($newOperator->id);
+    $this->actingAs($operator)->get(route('participants.index', ['operator_id' => $operator->id]))->assertDontSee('Peserta Uji 1');
+    $this->actingAs($operator)->get(route('participants.index', ['operator_id' => $newOperator->id]))->assertSee('Peserta Uji 1');
+    $this->actingAs($newOperator)->get(route('participants.show', $participant))->assertOk()->assertSee($newOperator->name);
 });
 
 it('shows the distribution preview without changing assignments until confirmation', function () {
@@ -61,4 +61,45 @@ it('shows the distribution preview without changing assignments until confirmati
     createSkParticipants($period, 2);
     $this->actingAs($admin)->get(route('admin.assignments', ['period_id' => $period->id, 'operators' => [$operator->id]]))->assertOk()->assertSee('2 peserta belum ditugaskan');
     expect(SkParticipant::query()->whereNull('assigned_operator_id')->count())->toBe(2);
+});
+
+it('displays the number of participants per operator card and adjusts distribution when operators expand', function () {
+    $admin = User::factory()->administrator()->create();
+    $op1 = User::factory()->operator()->create(['name' => 'Operator Satu']);
+    $op2 = User::factory()->operator()->create(['name' => 'Operator Dua']);
+    $period = AdmissionPeriod::factory()->create();
+    createSkParticipants($period, 10);
+
+    // Mula-mula 10 peserta ditugaskan ke Operator Satu
+    $assign = app(AssignOperators::class);
+    $assign->handle($admin, $period->id, 0, [$op1->id]);
+    expect(SkParticipant::query()->where('assigned_operator_id', $op1->id)->count())->toBe(10);
+
+    // Kunjungi halaman penugasan, pastikan kartu operator menampilkan jumlah peserta
+    $response = $this->actingAs($admin)->get(route('admin.assignments', ['period_id' => $period->id]));
+    $response->assertOk()
+        ->assertSee('10 peserta')
+        ->assertSee('0 peserta');
+
+    // Operator bertambah: pilih Op1 dan Op2 lalu tinjau pembagian
+    $previewResponse = $this->actingAs($admin)->get(route('admin.assignments', [
+        'period_id' => $period->id,
+        'operators' => [$op1->id, $op2->id],
+    ]));
+
+    // Tinjau pembagian memperlihatkan pembagian baru (masing-masing 5 peserta)
+    $previewResponse->assertOk()
+        ->assertSee('Distribusi seluruh peserta periode')
+        ->assertSee('+5')
+        ->assertSee('-5');
+
+    // Konfirmasi dan simpan pembagian baru
+    $token = $previewResponse->viewData('token');
+    $this->actingAs($admin)->post(route('admin.assignments.store'), [
+        'preview_token' => $token,
+    ])->assertRedirect(route('admin.assignments', ['period_id' => $period->id]));
+
+    // Verifikasi di database: beban peserta berubah dan terbagi merata
+    expect(SkParticipant::query()->where('assigned_operator_id', $op1->id)->count())->toBe(5);
+    expect(SkParticipant::query()->where('assigned_operator_id', $op2->id)->count())->toBe(5);
 });

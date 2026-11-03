@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Actions\RecordAudit;
+use App\Enums\UserRole;
 use App\Models\ExportRun;
 use App\Models\User;
 use App\Support\ParticipantExport;
@@ -27,7 +28,7 @@ class GenerateParticipantExportJob implements ShouldQueue
     {
         $run = ExportRun::findOrFail($this->exportId);
         $actor = User::findOrFail($run->requested_by);
-        if (! $actor->isAdministrator()) {
+        if (! in_array($actor->role, [UserRole::Administrator, UserRole::Operator], true)) {
             throw new RuntimeException('Pengaju tidak lagi berhak mengekspor.');
         }
         if ($run->state !== 'queued') {
@@ -59,7 +60,7 @@ class GenerateParticipantExportJob implements ShouldQueue
         } finally {
             fclose($handle);
         }
-        if (! $actor->fresh()?->isAdministrator() || ! hash_equals($run->scope_hash, ParticipantExport::fingerprint($actor, $run->scope_snapshot))) {
+        if (! in_array($actor->fresh()?->role, [UserRole::Administrator, UserRole::Operator], true) || ! hash_equals($run->scope_hash, ParticipantExport::fingerprint($actor, $run->scope_snapshot))) {
             throw new RuntimeException('Hak akses atau penugasan berubah saat ekspor.');
         }
         $run->forceFill(['state' => 'ready', 'row_count' => $count, 'expires_at' => now()->addDay()])->save();

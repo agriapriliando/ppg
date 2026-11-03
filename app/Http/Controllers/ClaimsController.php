@@ -7,8 +7,10 @@ use App\Actions\Admissions\SubmitSkClaim;
 use App\Actions\RecordAudit;
 use App\Enums\AccountState;
 use App\Enums\UserRole;
+use App\Models\AdministrativeCase;
 use App\Models\AdmissionPeriod;
 use App\Models\Application;
+use App\Models\ConsentRecord;
 use App\Models\ConsentText;
 use App\Models\SkClaim;
 use App\Models\SkParticipant;
@@ -54,17 +56,46 @@ class ClaimsController extends Controller
             });
         }
 
-        return view('portal.claims', ['claims' => $claims->orderBy('status')->orderBy('created_at')->orderBy('id')->paginate(25)]);
+        $search = trim((string) $request->input('search'));
+        if ($search !== '') {
+            $claims->where(function ($query) use ($search): void {
+                $query->where('submitted_name', 'like', "%{$search}%")
+                    ->orWhere('whatsapp_number', 'like', "%{$search}%")
+                    ->orWhere('submitted_identifier', 'like', "%{$search}%")
+                    ->orWhere('public_reference', 'like', "%{$search}%");
+            });
+        }
+
+        $status = $request->input('status');
+        if (! empty($status)) {
+            $claims->where('status', $status);
+        }
+
+        $periodId = $request->input('period_id');
+        if (! empty($periodId)) {
+            $claims->where('admission_period_id', $periodId);
+        }
+
+        return view('portal.claims', [
+            'claims' => $claims->orderBy('status')->orderBy('created_at')->orderBy('id')->paginate(25)->withQueryString(),
+            'periods' => AdmissionPeriod::query()->orderByDesc('id')->get(),
+            'search' => $search,
+            'status' => $status,
+            'periodId' => $periodId,
+        ]);
     }
 
     public function show(SkClaim $claim): View
     {
         abort_unless(Gate::allows('review', $claim), 404);
 
+        $actor = auth()->user();
+        $isStaff = $actor?->isAdministrator() || $actor?->role === UserRole::Operator;
+
         return view('portal.claim-detail', [
             'claim' => $claim->load(['period', 'candidate.assignedOperator', 'requester', 'responses', 'reviewOwner']),
-            'operators' => auth()->user()?->isAdministrator() ? User::query()->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->where('must_change_password', false)->whereIn('id', DB::table('period_operators')->where('admission_period_id', $claim->admission_period_id)->where('is_active', true)->select('user_id'))->orderBy('name')->get() : collect(),
-            'candidates' => auth()->user()?->isAdministrator() ? SkParticipant::query()->where('admission_period_id', $claim->admission_period_id)->whereNull('claimed_user_id')->orderBy('name_on_sk')->limit(1000)->get() : collect(),
+            'operators' => $isStaff ? User::query()->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->where('must_change_password', false)->whereIn('id', DB::table('period_operators')->where('admission_period_id', $claim->admission_period_id)->where('is_active', true)->select('user_id'))->orderBy('name')->get() : collect(),
+            'candidates' => $isStaff ? SkParticipant::query()->where('admission_period_id', $claim->admission_period_id)->whereNull('claimed_user_id')->orderBy('name_on_sk')->limit(1000)->get() : collect(),
             'application' => $claim->status === 'approved' ? Application::query()->with('workspace.biodata')->where('sk_participant_id', $claim->candidate_sk_participant_id)->first() : null,
         ]);
     }
@@ -82,8 +113,8 @@ class ClaimsController extends Controller
 
     public function candidate(Request $request, SkClaim $claim, RecordAudit $audit): RedirectResponse
     {
-        abort_unless($request->user()?->isAdministrator(), 403);
-        $data = $request->validate(['candidate_id' => ['required', 'integer', 'exists:sk_participants,id'], 'reason' => ['required', 'string', 'min:10', 'max:1000'], 'version' => ['required', 'integer', 'min:0']]);
+        abort_unless($request->user()?->isAdministrator() || $request->user()?->role === UserRole::Operator, 403);
+        $data = $request->validate(['candidate_id' => ['required', 'integer', 'exists:sk_participants,id'], 'reason' => ['nullable', 'string', 'max:1000'], 'version' => ['required', 'integer', 'min:0']]);
         DB::transaction(function () use ($claim, $data, $request, $audit): void {
             AdmissionPeriod::query()->whereKey($claim->admission_period_id)->lockForUpdate()->firstOrFail();
             $participant = SkParticipant::query()->whereKey($data['candidate_id'])->where('admission_period_id', $claim->admission_period_id)->whereNull('claimed_user_id')->lockForUpdate()->firstOrFail();
@@ -92,7 +123,7 @@ class ClaimsController extends Controller
                 throw ValidationException::withMessages(['claim' => 'Klaim telah berubah. Muat ulang pemeriksaan.']);
             }
             $locked->forceFill(['candidate_sk_participant_id' => $participant->id, 'lock_version' => $locked->lock_version + 1])->save();
-            $audit->handle($request->user(), 'Menetapkan kandidat kepesertaan', $locked, ['participant_id' => $participant->id], $data['reason']);
+            $audit->handle($request->user(), 'Menetapkan kandidat kepesertaan', $locked, ['participant_id' => $participant->id], $data['reason'] ?? null);
         });
 
         return back()->with('status', 'Kandidat dipilih untuk pemeriksaan. Entri SK belum dikunci oleh klaim.');
@@ -131,5 +162,35 @@ class ClaimsController extends Controller
         });
 
         return back()->with('status', 'Bukti balasan nomor aktif telah dicatat.');
+    }
+
+    public function destroy(Request $request, SkClaim $claim, RecordAudit $audit): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless($actor !== null, 403);
+        abort_unless($actor->isAdministrator() || $actor->role === UserRole::Operator, 403);
+        abort_unless($claim->status === 'pending', 422, 'Hanya permohonan klaim yang menunggu pemeriksaan yang dapat dihapus.');
+
+        DB::transaction(function () use ($actor, $claim, $audit): void {
+            $locked = SkClaim::query()->lockForUpdate()->findOrFail($claim->id);
+            if ($locked->status !== 'pending') {
+                throw ValidationException::withMessages(['claim' => 'Klaim telah diproses atau berubah status.']);
+            }
+
+            $locked->responses()->delete();
+            ConsentRecord::query()->where('claim_id', $locked->id)->delete();
+            WhatsappVerification::query()->where('claim_id', $locked->id)->delete();
+            AdministrativeCase::query()->where('claim_id', $locked->id)->delete();
+
+            $audit->handle($actor, 'Menghapus permohonan klaim menunggu pemeriksaan', $locked, [
+                'submitted_name' => $locked->submitted_name,
+                'whatsapp_number' => $locked->whatsapp_number,
+                'period_id' => $locked->admission_period_id,
+            ]);
+
+            $locked->delete();
+        });
+
+        return redirect()->route('claims.index')->with('status', 'Permohonan klaim berhasil dihapus.');
     }
 }

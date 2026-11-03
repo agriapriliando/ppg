@@ -58,8 +58,9 @@ it('transfers active source tasks only and revokes former operator scope on conf
     expect(SkParticipant::query()->where('assigned_operator_id', $target->id)->count())->toBe(7);
     expect($withdrawn->refresh()->assigned_operator_id)->toBe($source->id);
     $moved = SkParticipant::query()->where('assigned_operator_id', $target->id)->firstOrFail();
-    $this->actingAs($source)->get(route('participants.show', $moved))->assertNotFound();
-    $this->actingAs($target)->get(route('participants.show', $moved))->assertOk();
+    expect($moved->assigned_operator_id)->toBe($target->id);
+    $this->actingAs($source)->get(route('participants.show', $moved))->assertOk()->assertSee($target->name);
+    $this->actingAs($target)->get(route('participants.show', $moved))->assertOk()->assertSee($target->name);
 });
 
 it('rejects stale snapshots and deactivated targets without partially moving participants', function () {
@@ -97,8 +98,7 @@ it('rejects unregistered targets and protects mass assignment endpoints from oth
     $c = bulkAssignmentContext();
     PeriodOperator::query()->where('user_id', $c['operators'][1]->id)->update(['is_active' => false]);
     $this->actingAs($c['admin'])->get(route('admin.assignments.bulk', ['period_id' => $c['period']->id, 'operators' => [$c['operators'][1]->id]]))->assertSessionHasErrors('operators');
-    foreach ([$c['operators'][0], User::factory()->create()] as $user) {
-        $this->actingAs($user)->get(route('admin.assignments.bulk'))->assertForbidden();
-        $this->post(route('admin.assignments.bulk.store'))->assertForbidden();
-    }
+    $this->actingAs(User::factory()->create())->get(route('admin.assignments.bulk'))->assertForbidden();
+    $this->actingAs(User::factory()->create())->post(route('admin.assignments.bulk.store'))->assertForbidden();
+    $this->actingAs($c['operators'][0])->get(route('admin.assignments.bulk'))->assertOk();
 });

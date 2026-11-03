@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Actions\RecordAudit;
 use App\Http\Controllers\Controller;
 use App\Models\ApplicationSetting;
+use App\Models\PortalQuickLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,10 @@ class SettingsController extends Controller
 {
     public function edit(): View
     {
-        return view('admin.settings', ['setting' => ApplicationSetting::query()->where('key', 'public')->first()]);
+        return view('admin.settings', [
+            'setting' => ApplicationSetting::query()->where('key', 'public')->first(),
+            'quickLinks' => PortalQuickLink::query()->orderBy('sort_order')->orderBy('id')->get(),
+        ]);
     }
 
     public function update(Request $request, RecordAudit $audit): RedirectResponse

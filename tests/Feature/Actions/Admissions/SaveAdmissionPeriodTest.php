@@ -56,14 +56,17 @@ it('keeps one public period and records the replacement', function () {
     expect(AdmissionPeriod::query()->where('is_public', true)->count())->toBe(1);
 });
 
-it('requires a reason before closing a period manually', function () {
+it('closes and reopens a period manually without requiring a reason input', function () {
     $user = User::factory()->administrator()->create();
     $period = AdmissionPeriod::factory()->published()->create();
     $editor = Livewire::actingAs($user)->test('pages::admin.periods');
-    $editor->call('toggleClosed', $period->id, 0)->assertHasErrors('reason');
-    $editor->set('reason', 'Penutupan untuk pemeriksaan jadwal')->call('toggleClosed', $period->id, 0)->assertHasNoErrors();
+    $editor->call('toggleClosed', $period->id, 0)->assertHasNoErrors();
     expect($period->fresh()->acceptsApplications())->toBeFalse();
-    $this->assertDatabaseHas('audit_events', ['actor_id' => $user->id, 'action' => 'Menutup periode manual', 'reason' => 'Penutupan untuk pemeriksaan jadwal']);
+    $this->assertDatabaseHas('audit_events', ['actor_id' => $user->id, 'action' => 'Menutup periode manual']);
+
+    $editor->call('toggleClosed', $period->id, 1)->assertHasNoErrors();
+    expect($period->fresh()->acceptsApplications())->toBeTrue();
+    $this->assertDatabaseHas('audit_events', ['actor_id' => $user->id, 'action' => 'Membuka kembali periode']);
 });
 
 it('uses an inclusive opening and exclusive closing boundary', function () {
@@ -74,7 +77,10 @@ it('uses an inclusive opening and exclusive closing boundary', function () {
     expect($period->acceptsApplications())->toBeFalse();
 });
 
-it('forbids nonadministrators from calling period actions directly', function () {
-    $user = User::factory()->operator()->create();
-    Livewire::actingAs($user)->test('pages::admin.periods')->assertForbidden();
+it('allows operators to manage periods and forbids applicants', function () {
+    $operator = User::factory()->operator()->create();
+    Livewire::actingAs($operator)->test('pages::admin.periods')->assertOk();
+
+    $applicant = User::factory()->create();
+    Livewire::actingAs($applicant)->test('pages::admin.periods')->assertForbidden();
 });

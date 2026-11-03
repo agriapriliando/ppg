@@ -54,7 +54,25 @@ button:focus-visible,a:focus-visible{outline:3px solid #b880d3;outline-offset:3p
 .eyebrow{font-size:.58rem;letter-spacing:.14em;color:#e8c675;font-weight:700;display:block;margin-bottom:12px}
 .welcome-banner h2{font-size:1.52rem;color:#fff;font-weight:750;margin-bottom:11px;max-width:550px;line-height:1.4}
 .welcome-banner p{color:#dbc8e0;font-size:.75rem;max-width:510px;margin-bottom:22px}
-.welcome-banner .btn{font-size:.73rem;padding:10px 17px;box-shadow:none}
+.welcome-banner .btn{font-size:.73rem;padding:10px 17px;border-radius:10px;box-shadow:none;transition:all 0.2s cubic-bezier(0.4,0,0.2,1)}
+.welcome-banner .btn-banner-glass{background:rgba(255,255,255,0.12);color:#ffffff;border:1px solid rgba(255,255,255,0.28);font-weight:600;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:inline-flex;align-items:center;text-decoration:none}
+.welcome-banner .btn-banner-glass:hover{background:rgba(255,255,255,0.22);color:#ffffff;border-color:rgba(255,255,255,0.5);transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,0.25)}
+.welcome-banner .badge-counter{display:inline-flex;align-items:center;justify-content:center;min-width:1.35rem;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:700;border-radius:9999px;line-height:1}
+.doc-actions-group{display:inline-flex;align-items:center;background:#faf7fc;border:1px solid #e2d7e8;border-radius:9px;padding:3px;gap:4px;box-shadow:0 1px 2px rgba(74,21,75,0.04)}
+.doc-actions-group .doc-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;font-size:0.75rem;font-weight:600;line-height:1.25;border:1px solid transparent;border-radius:6px;background:#ffffff;color:#55445d;text-decoration:none;cursor:pointer;transition:all 0.18s ease-in-out;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,0.03)}
+.doc-actions-group .doc-btn i{font-size:0.85rem;line-height:1}
+.doc-actions-group .doc-btn:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(0,0,0,0.06)}
+.doc-actions-group .doc-btn:active{transform:translateY(0)}
+.doc-actions-group .doc-btn-preview{color:#6a3283;border-color:#ece4f2}
+.doc-actions-group .doc-btn-preview:hover{background:#f3e8fa;border-color:#d8b4e2;color:#4a154b}
+.doc-actions-group .doc-btn-download{color:#1d4ed8;border-color:#e0e7ff}
+.doc-actions-group .doc-btn-download:hover{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
+.doc-actions-group .doc-btn-rename{color:#b45309;border-color:#fef3c7}
+.doc-actions-group .doc-btn-rename:hover{background:#fffbeb;border-color:#fde68a;color:#92400e}
+.doc-actions-group .doc-btn-delete{color:#dc2626;border-color:#fee2e2}
+.doc-actions-group .doc-btn-delete:hover{background:#fef2f2;border-color:#fca5a5;color:#991b1b}
+.doc-actions-group .doc-btn-open{background:#6a3283;color:#ffffff;border-color:#6a3283}
+.doc-actions-group .doc-btn-open:hover{background:#4a154b;color:#ffffff;border-color:#4a154b}
 .welcome-symbol{width:170px;display:flex;flex-direction:column;align-items:center;gap:12px;flex-shrink:0;color:#e6be64;z-index:1}
 .welcome-symbol i{font-size:4.5rem;line-height:1.2}
 .welcome-symbol span{font-size:.5rem;letter-spacing:.18em}
@@ -84,12 +102,20 @@ button:focus-visible,a:focus-visible{outline:3px solid #b880d3;outline-offset:3p
 .form-control:focus,.form-select:focus{border-color:#b88ecb;box-shadow:0 0 0 3px #9b66ba15}
 .form-control:disabled,.form-select:disabled{background:#f6f3f8;color:#73617d}
 .form-check-input:checked{background-color:#6a3283;border-color:#6a3283}
-.status-pill{display:inline-flex;align-items:center;gap:6px;font-size:.62rem;font-weight:650;padding:5px 9px;border-radius:6px;white-space:nowrap;background:#f1edf5;color:#897293}
-.status-pill.draf,.status-pill.belum_ada{background:#f0edf4;color:#8a7b98}
-.status-pill.terkirim{background:#eaf0fc;color:#557bb4}
-.status-pill.diverifikasi{background:#f0e7fa;color:#8a58aa}
-.status-pill.perbaikan{background:#fff3d9;color:#b28734}
-.status-pill.diterima_lengkap{background:#e7f5ed;color:#458761}
+.status-pill{display:inline-flex;align-items:center;gap:6px;font-size:.68rem;font-weight:700;padding:4px 10px;border-radius:9999px;white-space:nowrap;border:1px solid transparent;line-height:1.3}
+.status-pill::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.status-pill.draf,.status-pill.belum_ada,.status-pill.cancelled{background:#f1f5f9;color:#475569;border-color:#cbd5e1}
+.status-pill.draf::before,.status-pill.belum_ada::before,.status-pill.cancelled::before{background:#64748b}
+.status-pill.terkirim,.status-pill.pending{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+.status-pill.terkirim::before,.status-pill.pending::before{background:#2563eb}
+.status-pill.diverifikasi{background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe}
+.status-pill.diverifikasi::before{background:#7c3aed}
+.status-pill.perbaikan,.status-pill.needs_information{background:#fffbeb;color:#b45309;border-color:#fde68a}
+.status-pill.perbaikan::before,.status-pill.needs_information::before{background:#d97706}
+.status-pill.diterima_lengkap,.status-pill.approved{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+.status-pill.diterima_lengkap::before,.status-pill.approved::before{background:#10b981}
+.status-pill.declined{background:#fff1f2;color:#be123c;border-color:#fecdd3}
+.status-pill.declined::before{background:#e11d48}
 .detail-list{margin:0}
 .detail-list dt{font-size:.65rem;color:#9a8ba2;font-weight:500;margin-bottom:5px}
 .detail-list dd{font-size:.76rem;font-weight:600;margin:0 0 18px;color:#54415d;overflow-wrap:anywhere}
@@ -243,6 +269,15 @@ button:focus-visible,a:focus-visible{outline:3px solid #b880d3;outline-offset:3p
 .ui-modal-body p{line-height:1.8;color:#8b709b}
 .ui-modal-body .btn{font-size:.74rem}
 .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:23px}
+.guide-status-list{display:flex;flex-direction:column;gap:10px}
+.guide-status-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#faf8fc;border:1px solid #efe8f6;border-radius:10px}
+.guide-status-item .status-pill{flex-shrink:0}
+.guide-status-item p{margin:0;font-size:.73rem;line-height:1.5;color:#503e5c}
+.guide-steps-list{display:flex;flex-direction:column;gap:12px}
+.guide-step{display:flex;align-items:flex-start;gap:12px}
+.guide-step-num{width:24px;height:24px;border-radius:50%;background:#f3e8fa;color:#6a3283;font-weight:700;font-size:.72rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.guide-step-content{flex:1;font-size:.74rem;line-height:1.5;color:#503e5c}
+.guide-step-content strong{color:#301044;display:block;margin-bottom:2px}
 .template-columns{background:#f7f1fb;padding:20px;border-radius:9px}
 .template-columns strong{display:block;font-size:.73rem;margin-bottom:8px}
 .template-columns code{display:block;margin-bottom:16px;color:#9b74b0;font-size:.75rem}
@@ -281,6 +316,11 @@ button:focus-visible,a:focus-visible{outline:3px solid #b880d3;outline-offset:3p
 .auth-card h2{font-size:1.4rem}
 .auth-card .form-label{font-size:.8rem;font-weight:600}
 .auth-card .form-control{min-height:47px;font-size:.83rem;border-color:#e3d5ec;border-radius:9px}
+.auth-card .input-group .form-control{border-top-right-radius:0!important;border-bottom-right-radius:0!important}
+.auth-card .input-group .btn-password-toggle{border:1px solid #e3d5ec;border-left:none;background:#faf7fc;color:#6a3283;padding:0 16px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;transition:all 0.2s ease;border-top-right-radius:9px;border-bottom-right-radius:9px;min-height:47px}
+.auth-card .input-group .btn-password-toggle:hover{background:#f1e4f6;color:#4a154b}
+.auth-card .input-group .btn-password-toggle:focus{outline:none;box-shadow:none;border-color:#b88ecb}
+.auth-card .input-group:focus-within .btn-password-toggle{border-color:#b88ecb}
 .auth-card p{font-size:.8rem}
 .auth-role-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .auth-role-grid a{padding:15px 8px;border:1px solid #e5d4ed;border-radius:10px;text-align:center;text-decoration:none;color:#9a76ae;font-size:.71rem;display:flex;flex-direction:column;gap:8px;background:#faf6fd}
