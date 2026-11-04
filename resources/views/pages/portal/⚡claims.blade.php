@@ -1,0 +1,364 @@
+<?php
+
+use App\Actions\RecordAudit;
+use App\Enums\UserRole;
+use App\Models\AdmissionPeriod;
+use App\Models\SkClaim;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
+use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
+use Livewire\Component;
+use Livewire\WithPagination;
+
+new #[Title('Klaim & WhatsApp')] class extends Component
+{
+    use WithPagination;
+
+    #[Url(except: '')]
+    public string $search = '';
+
+    #[Url(except: '')]
+    public string $status = '';
+
+    #[Url(as: 'period_id', except: '')]
+    public string $periodId = '';
+
+    #[Url(as: 'per_page', except: 25)]
+    public int $perPage = 25;
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPeriodId(): void
+    {
+        $this->resetPage();
+    }
+
+    public function setPerPage(int $perPage): void
+    {
+        if (in_array($perPage, [10, 25, 50, 100], true)) {
+            $this->perPage = $perPage;
+            $this->resetPage();
+        }
+    }
+
+    public function mount(): void
+    {
+        $user = auth()->user();
+        abort_unless($user !== null && in_array($user->role, [UserRole::Operator, UserRole::Administrator], true), 403);
+    }
+
+    public function deleteClaim(int $id, RecordAudit $audit): void
+    {
+        $actor = auth()->user();
+        abort_unless($actor !== null && in_array($actor->role, [UserRole::Operator, UserRole::Administrator], true), 403);
+
+        $claim = SkClaim::findOrFail($id);
+        abort_unless($claim->status === 'pending', 403);
+
+        $claimName = $claim->submitted_name;
+        $claim->delete();
+        $audit->handle($actor, 'Menghapus permohonan klaim pending', $claim, ['submitted_name' => $claimName]);
+        session()->flash('status', "Permohonan klaim oleh {$claimName} berhasil dihapus.");
+    }
+
+    /** @return LengthAwarePaginator<SkClaim> */
+    public function getClaimsProperty(): LengthAwarePaginator
+    {
+        $actor = auth()->user();
+        abort_unless($actor !== null, 403);
+
+        $claims = SkClaim::query()->with(['period', 'candidate.assignedOperator', 'reviewOwner']);
+
+        if (! $actor->isAdministrator()) {
+            $claims->where(function ($query) use ($actor): void {
+                $query->whereHas('candidate', fn ($candidate) => $candidate->visibleTo($actor))
+                    ->orWhere(fn ($unmatched) => $unmatched->whereNull('candidate_sk_participant_id')->where('review_owner_id', $actor->id)->whereExists(fn ($membership) => $membership->selectRaw('1')->from('period_operators')->whereColumn('period_operators.admission_period_id', 'sk_claims.admission_period_id')->where('period_operators.user_id', $actor->id)->where('is_active', true)));
+            });
+        }
+
+        $search = trim($this->search);
+        if ($search !== '') {
+            $claims->where(function ($query) use ($search): void {
+                $query->where('submitted_name', 'like', "%{$search}%")
+                    ->orWhere('whatsapp_number', 'like', "%{$search}%")
+                    ->orWhere('submitted_identifier', 'like', "%{$search}%")
+                    ->orWhere('public_reference', 'like', "%{$search}%");
+            });
+        }
+
+        if (! empty($this->status)) {
+            $claims->where('status', $this->status);
+        }
+
+        if (! empty($this->periodId)) {
+            $claims->where('admission_period_id', (int) $this->periodId);
+        }
+
+        return $claims->orderBy('status')->orderBy('created_at')->orderBy('id')->paginate($this->perPage);
+    }
+
+    /** @return Collection<int, AdmissionPeriod> */
+    public function getPeriodsProperty(): Collection
+    {
+        return AdmissionPeriod::query()->orderByDesc('id')->get();
+    }
+};
+?>
+
+<div x-data="{ showGuide: false }">
+    <div class="notice-box info">
+        <i class="bi bi-whatsapp" aria-hidden="true"></i>
+        <p class="mb-0">Periksa identitas dan kepesertaan sebelum menyetujui klaim. Bukti balasan WhatsApp dan penyerahan akses dicatat secara terpisah.</p>
+    </div>
+
+    @if (session('status'))
+        <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2" aria-hidden="true"></i>
+            {{ session('status') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    <section class="workspace-card">
+        <div class="panel-heading d-flex flex-wrap align-items-center justify-content-between gap-3 pb-3 border-bottom">
+            <div>
+                <h2 class="h5 mb-1 fw-bold text-purple">Daftar Klaim & Akses WhatsApp</h2>
+                <p class="text-muted small mb-0">Kelola pengajuan klaim akun dan verifikasi kepemilikan nomor WhatsApp calon mahasiswa.</p>
+            </div>
+            <div>
+                <button type="button" @click="showGuide = true" class="btn btn-outline-purple d-inline-flex align-items-center gap-2">
+                    <i class="bi bi-question-circle" aria-hidden="true"></i>
+                    <span>Petunjuk</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="panel-body pt-3">
+            <div class="row g-3">
+                <div class="col-lg-5">
+                    <label for="claim-search" class="visually-hidden">Pencarian klaim</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                        <input id="claim-search" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Cari nama, nomor WA, atau referensi…" maxlength="100">
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <label for="claim-status" class="visually-hidden">Filter status</label>
+                    <select id="claim-status" wire:model.live="status" class="form-select">
+                        <option value="">Semua status</option>
+                        <option value="pending">Menunggu pemeriksaan</option>
+                        <option value="needs_information">Perlu informasi</option>
+                        <option value="approved">Disetujui</option>
+                        <option value="declined">Belum disetujui</option>
+                        <option value="cancelled">Dibatalkan</option>
+                    </select>
+                </div>
+                <div class="col-lg-3">
+                    <label for="claim-period" class="visually-hidden">Periode</label>
+                    <select id="claim-period" wire:model.live="periodId" class="form-select">
+                        <option value="">Semua periode</option>
+                        @foreach($this->periods as $period)
+                            <option value="{{ $period->id }}">{{ $period->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 pt-3 mt-3 border-top">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="small text-muted fw-semibold">Jumlah per halaman:</span>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Jumlah per halaman">
+                        @foreach([10, 25, 50, 100] as $size)
+                            <button type="button"
+                                wire:click="setPerPage({{ $size }})"
+                                class="btn {{ $perPage === $size ? 'btn-purple' : 'btn-outline-purple' }}">
+                                {{ $size }}
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+                <div class="small text-muted">
+                    Total: <strong>{{ $this->claims->total() }}</strong> klaim
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table portal-table">
+                <thead>
+                    <tr>
+                        <th>Pemohon / periode</th>
+                        <th>Jalur</th>
+                        <th>Status</th>
+                        <th>Kandidat</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($this->claims as $claim)
+                        <tr wire:key="claim-{{ $claim->id }}">
+                            <td>
+                                <strong>{{ $claim->submitted_name }}</strong>
+                                <small class="d-block text-muted">Ref: {{ $claim->public_reference }} · WA: {{ $claim->whatsapp_number }}</small>
+                                <small class="d-block text-muted">{{ $claim->period->name }}</small>
+                            </td>
+                            <td>
+                                <span class="badge text-bg-light border">
+                                    <i class="bi bi-{{ $claim->access_path === 'google' ? 'google text-danger' : 'whatsapp text-success' }} me-1" aria-hidden="true"></i>
+                                    {{ $claim->access_path === 'google' ? 'Google' : 'WhatsApp' }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="status-pill {{ $claim->status }}">
+                                    {{ ['approved'=>'Disetujui','pending'=>'Menunggu pemeriksaan','needs_information'=>'Perlu informasi','declined'=>'Belum disetujui','cancelled'=>'Dibatalkan'][$claim->status] ?? $claim->status }}
+                                </span>
+                            </td>
+                            <td>
+                                @if($claim->candidate)
+                                    <strong>{{ $claim->candidate->name_on_sk }}</strong>
+                                    <small class="d-block text-muted">SK: {{ $claim->candidate->sk_number }} / urut {{ $claim->candidate->sk_order }}</small>
+                                    <small class="d-block text-muted">Operator: {{ $claim->candidate->assignedOperator?->name ?? 'Belum ditugaskan' }}</small>
+                                @else
+                                    <span class="text-muted">Nama belum cocok</span>
+                                    <small class="d-block text-muted">Triase: {{ $claim->reviewOwner?->name ?? 'Administrator' }}</small>
+                                @endif
+                            </td>
+                            <td>
+                                <div class="d-inline-flex align-items-center gap-1">
+                                    <a class="btn btn-sm btn-outline-purple" href="{{ route('claims.show', $claim) }}">Periksa</a>
+                                    @if($claim->status === 'pending')
+                                        <form method="post" action="{{ route('claims.destroy', $claim) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus permohonan klaim oleh {{ $claim->submitted_name }} ini?')">
+                                            @csrf
+                                            @method('delete')
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus Permohonan Klaim">
+                                                <i class="bi bi-trash" aria-hidden="true"></i> Hapus
+                                            </button>
+                                        </form>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="text-muted py-4 text-center">Tidak ada permohonan klaim dalam filter atau penugasan ini.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center justify-content-end p-3 border-top">
+            <div>
+                {{ $this->claims->links() }}
+            </div>
+        </div>
+    </section>
+
+    <!-- Pop-up Modal Petunjuk Klaim & WhatsApp (Alpine.js Mobile Responsive) -->
+    <div 
+        x-cloak 
+        x-show="showGuide" 
+        class="ui-modal-backdrop" 
+        @keydown.escape.window="showGuide = false" 
+        @click.self="showGuide = false"
+        style="display: none;"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-guide-claims-title"
+    >
+        <div 
+            class="ui-modal"
+            x-show="showGuide"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
+        >
+            <div class="ui-modal-header d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="dayak-shield-badge" style="width: 32px; height: 32px; font-size: 0.85rem;">
+                        <i class="bi bi-whatsapp" aria-hidden="true"></i>
+                    </span>
+                    <h2 id="modal-guide-claims-title" class="h6 mb-0 fw-bold text-purple">Petunjuk Pemeriksaan Klaim & WhatsApp</h2>
+                </div>
+                <button type="button" class="btn-close" @click="showGuide = false" aria-label="Tutup"></button>
+            </div>
+
+            <div class="ui-modal-body">
+                <div class="mb-4">
+                    <h3 class="h6 fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+                        <i class="bi bi-info-circle text-purple" aria-hidden="true"></i> Apa itu Klaim Akun?
+                    </h3>
+                    <p class="text-muted small mb-0">Klaim akun diajukan oleh calon mahasiswa untuk menghubungkan nomor WhatsApp atau akun Google mereka dengan data resmi peserta yang tercantum di Surat Keputusan (SK) penerimaan PPG.</p>
+                </div>
+
+                <hr class="my-4" style="border-color: #efe8f6;">
+
+                <div class="mb-4">
+                    <h3 class="h6 fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+                        <i class="bi bi-tag text-purple" aria-hidden="true"></i> Arti Status Klaim
+                    </h3>
+                    <div class="guide-status-list">
+                        <div class="guide-status-item">
+                            <span class="status-pill pending">Menunggu pemeriksaan</span>
+                            <p><strong>Menunggu Pemeriksaan (Kuning):</strong> Permohonan baru masuk. Operator/Admin perlu mencocokkan identitas pemohon dengan data SK resmi.</p>
+                        </div>
+                        <div class="guide-status-item">
+                            <span class="status-pill needs_information">Perlu informasi</span>
+                            <p><strong>Perlu Informasi (Biru):</strong> Operator meminta keterangan tambahan atau konfirmasi bukti kepada pemohon.</p>
+                        </div>
+                        <div class="guide-status-item">
+                            <span class="status-pill approved">Disetujui</span>
+                            <p><strong>Disetujui (Hijau):</strong> Identitas terverifikasi cocok. Akun pendaftar telah berhasil dikaitkan dengan nomor SK.</p>
+                        </div>
+                        <div class="guide-status-item">
+                            <span class="status-pill declined">Belum disetujui</span>
+                            <p><strong>Belum Disetujui (Merah):</strong> Permohonan ditolak karena identitas tidak sesuai atau tidak memenuhi syarat.</p>
+                        </div>
+                        <div class="guide-status-item">
+                            <span class="status-pill cancelled">Dibatalkan</span>
+                            <p><strong>Dibatalkan (Abu-abu):</strong> Permohonan dibatalkan oleh pemohon atau digantikan pengajuan baru.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4" style="border-color: #efe8f6;">
+
+                <div>
+                    <h3 class="h6 fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+                        <i class="bi bi-check2-circle text-purple" aria-hidden="true"></i> Langkah Pemeriksaan Klaim
+                    </h3>
+                    <ol class="small text-muted ps-3 mb-0" style="line-height: 1.7;">
+                        <li>Klik tombol <strong>Periksa</strong> pada baris klaim yang ingin ditinjau.</li>
+                        <li>Pastikan nama pemohon dan nomor WhatsApp sesuai dengan arsip dokumen pendaftar.</li>
+                        <li>Pilih kandidat peserta SK yang tepat apabila sistem belum mencocokkan secara otomatis.</li>
+                        <li>Klik <strong>Setujui Akun</strong> jika seluruh data identitas telah valid dan dapat dipertanggungjawabkan.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="modal-actions border-top p-3 bg-light m-0">
+                <button type="button" class="btn btn-outline-purple" @click="showGuide = false">
+                    <i class="bi bi-check2 me-1" aria-hidden="true"></i> Tutup Petunjuk
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

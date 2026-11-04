@@ -34,7 +34,8 @@ class ReviewApplication
             $allowed = match ($action) {
                 'verify' => [ApplicationStatus::Submitted],
                 'correction' => [ApplicationStatus::Submitted, ApplicationStatus::Verified],
-                'accept' => [ApplicationStatus::Verified],
+                'accept' => [ApplicationStatus::Submitted, ApplicationStatus::Verified],
+                'revert' => [ApplicationStatus::Accepted],
                 'reopen' => $actor->isAdministrator() ? [ApplicationStatus::Accepted] : [],
                 default => [],
             };
@@ -43,10 +44,11 @@ class ReviewApplication
             }
             $rules = match ($action) {
                 'verify' => ['identity_checked' => ['accepted'], 'sk_checked' => ['accepted'], 'data_checked' => ['accepted']],
-                'correction','reopen' => ['public_note' => ['required', 'string', 'min:10', 'max:1000'], 'field_keys' => ['required', 'array', 'min:1'], 'field_keys.*' => [Rule::in(['Identitas', 'Alamat', 'Tambahan', 'Pendidikan asal', 'Kontak WhatsApp'])]],
+                'revert' => ['public_note' => ['nullable', 'string', 'max:1000']],
+                'correction','reopen' => ['public_note' => ['required', 'string', 'min:10', 'max:1000'], 'field_keys' => ['sometimes', 'array'], 'field_keys.*' => [Rule::in(['Identitas', 'Alamat', 'Tambahan', 'Pendidikan asal', 'Kontak WhatsApp'])]],
                 default => [],
             };
-            $data = Validator::make($input, $rules, ['public_note.required' => 'Tuliskan catatan perbaikan yang spesifik.', 'field_keys.required' => 'Pilih kelompok data yang perlu diperbaiki.'])->validate();
+            $data = Validator::make($input, $rules, ['public_note.required' => 'Tuliskan catatan perbaikan yang spesifik.'])->validate();
             if (in_array($action, ['verify', 'accept'], true)) {
                 if (! $locked->hasCurrentOwnerSubmission()) {
                     throw ValidationException::withMessages(['review' => 'Akun pemilik saat ini harus mengirim formulir sebelum diperiksa.']);
@@ -55,22 +57,25 @@ class ReviewApplication
             }
             if ($action === 'accept') {
                 $number = $locked->workspace->biodata?->whatsapp_number;
-                $latestReview = ApplicationReview::query()->where('application_id', $locked->id)->where('ownership_epoch', $locked->ownership_epoch)->where('action', 'verify')->where('submission_revision', $locked->submission_revision)->latest('id')->first();
-                if ($latestReview === null || $number === null || ! WhatsappVerification::query()->where('workspace_id', $locked->workspace_id)->where('number', $number)->whereNull('invalidated_at')->exists() || $locked->participant->claimed_user_id !== $locked->user_id || $locked->participant->admin_hold || $locked->participant->roster_state !== 'active') {
-                    throw ValidationException::withMessages(['review' => 'Keputusan memerlukan pemeriksaan revisi terbaru, kepesertaan sah, WhatsApp nomor saat ini terverifikasi, serta seluruh konflik selesai.']);
+                if ($number === null || ! WhatsappVerification::query()->where('workspace_id', $locked->workspace_id)->where('number', $number)->whereNull('invalidated_at')->exists() || $locked->participant->claimed_user_id !== $locked->user_id || $locked->participant->admin_hold || $locked->participant->roster_state !== 'active') {
+                    throw ValidationException::withMessages(['review' => 'Keputusan memerlukan kepesertaan sah, WhatsApp nomor saat ini terverifikasi, serta seluruh konflik selesai.']);
                 }
                 $locked->forceFill(['accepted_at' => now(), 'accepted_by' => $actor->id]);
             }
-            if ($action === 'reopen') {
+            if (in_array($action, ['reopen', 'revert'], true)) {
                 $locked->forceFill(['accepted_at' => null, 'accepted_by' => null]);
             }
             $locked->status = match ($action) {
-                'verify' => ApplicationStatus::Verified,'accept' => ApplicationStatus::Accepted,default => ApplicationStatus::Correction
+                'verify' => ApplicationStatus::Verified,
+                'accept' => ApplicationStatus::Accepted,
+                'revert' => ApplicationStatus::Submitted,
+                default => ApplicationStatus::Correction,
             };
             $locked->lock_version++;
             $locked->save();
-            ApplicationReview::create(['application_id' => $locked->id, 'ownership_epoch' => $locked->ownership_epoch, 'reviewer_id' => $actor->id, 'submission_revision' => $locked->submission_revision, 'action' => $action, 'identity_checked' => (bool) ($data['identity_checked'] ?? false), 'sk_checked' => (bool) ($data['sk_checked'] ?? false), 'data_checked' => (bool) ($data['data_checked'] ?? false), 'field_keys' => $data['field_keys'] ?? [], 'public_note' => $data['public_note'] ?? null]);
-            $this->audit->handle($actor, 'Keputusan: '.$locked->status->label(), $locked, ['status' => $locked->status->value, 'revision' => $locked->submission_revision], $action === 'reopen' ? $data['public_note'] : null);
+            $reviewNote = $data['public_note'] ?? ($action === 'revert' ? 'Status berkas diterima lengkap dikembalikan ke antrean pemeriksaan.' : null);
+            ApplicationReview::create(['application_id' => $locked->id, 'ownership_epoch' => $locked->ownership_epoch, 'reviewer_id' => $actor->id, 'submission_revision' => $locked->submission_revision, 'action' => $action, 'identity_checked' => (bool) ($data['identity_checked'] ?? true), 'sk_checked' => (bool) ($data['sk_checked'] ?? true), 'data_checked' => (bool) ($data['data_checked'] ?? true), 'field_keys' => ! empty($data['field_keys']) ? $data['field_keys'] : ($action === 'correction' ? ['Identitas'] : []), 'public_note' => $reviewNote]);
+            $this->audit->handle($actor, $action === 'revert' ? 'Mengembalikan status berkas diterima lengkap' : 'Keputusan: '.$locked->status->label(), $locked, ['status' => $locked->status->value, 'revision' => $locked->submission_revision], in_array($action, ['reopen', 'revert'], true) ? $reviewNote : null);
         });
     }
 }

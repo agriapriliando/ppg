@@ -63,7 +63,7 @@ class ParticipantsController extends Controller
             'sk_order' => ['required', 'integer', 'min:1', 'max:999999'],
             'official_participant_id' => ['nullable', 'string', 'max:100'],
             'assigned_operator_id' => ['nullable', 'integer', 'exists:users,id'],
-            'reason' => ['required', 'string', 'min:5', 'max:1000'],
+            'reason' => ['nullable', 'string', 'max:1000'],
             'version' => ['required', 'integer', 'min:0'],
         ]);
 
@@ -109,7 +109,8 @@ class ParticipantsController extends Controller
                 'lock_version' => $locked->lock_version + 1,
             ])->save();
 
-            $audit->handle($actor, 'Memperbarui data resmi SK peserta', $locked, $changes, $data['reason']);
+            $auditReason = ! empty($data['reason']) ? $data['reason'] : 'Pembaruan data resmi SK peserta';
+            $audit->handle($actor, 'Memperbarui data resmi SK peserta', $locked, $changes, $auditReason);
         });
 
         return back()->with('status', 'Data resmi kepesertaan bersumber dari SK berhasil diperbarui.');

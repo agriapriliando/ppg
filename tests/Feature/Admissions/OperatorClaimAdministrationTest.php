@@ -3,7 +3,9 @@
 use App\Actions\Admissions\ApproveClaim;
 use App\Actions\Admissions\SubmitSkClaim;
 use App\Enums\AccountState;
+use App\Enums\ApplicationStatus;
 use App\Models\AdministrativeCase;
+use App\Models\Application;
 use App\Models\SkClaim;
 use App\Models\SkParticipant;
 use App\Models\WhatsappVerification;
@@ -137,4 +139,51 @@ it('allows operators to access and perform whatsapp recovery when old number is 
     $this->post(route('admin.whatsapp-recovery.update', $claim), $payload)
         ->assertRedirect(route('claims.show', $claim))
         ->assertSessionHasNoErrors();
+});
+
+it('allows operators to cancel approval of an approved claim', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
+    $application = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+
+    $claim->refresh();
+    expect($claim->status)->toBe('approved');
+    expect($c['participant']->refresh()->claimed_user_id)->toBe($claim->requester_user_id);
+    expect(Application::query()->whereKey($application->id)->exists())->toBeTrue();
+
+    // Halaman klaim menampilkan tombol pembatalan persetujuan
+    $this->actingAs($c['operator'])->get(route('claims.show', $claim))
+        ->assertOk()
+        ->assertSee('Batalkan Persetujuan Klaim')
+        ->assertSee('Konfirmasi Pembatalan Persetujuan');
+
+    // Operator membatalkan persetujuan
+    $this->post(route('claims.cancel-approval', $claim), [
+        'version' => $claim->lock_version,
+        'confirmed' => 1,
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $claim->refresh();
+    expect($claim->status)->toBe('pending');
+    expect($claim->reviewed_by)->toBeNull();
+    expect($c['participant']->refresh()->claimed_user_id)->toBeNull();
+    expect(Application::query()->whereKey($application->id)->exists())->toBeFalse();
+});
+
+it('prevents cancelling claim approval if application is already accepted', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
+    $application = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+
+    $application->forceFill([
+        'status' => ApplicationStatus::Accepted,
+        'accepted_at' => now(),
+    ])->save();
+
+    $this->actingAs($c['operator'])->post(route('claims.cancel-approval', $claim), [
+        'version' => $claim->fresh()->lock_version,
+        'confirmed' => 1,
+    ])->assertSessionHasErrors('claim');
+
+    expect($claim->fresh()->status)->toBe('approved');
 });

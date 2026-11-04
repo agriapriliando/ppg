@@ -451,11 +451,6 @@
                             @endforeach
                         </select>
                     </div>
-
-                    <div class="mb-2">
-                        <label for="edit-reason" class="form-label fw-bold">Alasan Perubahan Data *</label>
-                        <textarea id="edit-reason" name="reason" class="form-control" rows="2" required minlength="5" maxlength="1000" placeholder="Jelaskan alasan atau dasar pembaruan data resmi SK ini...">{{ old('reason') }}</textarea>
-                    </div>
                 </div>
 
                 <div class="modal-actions border-top p-3 bg-light m-0 d-flex justify-content-end gap-2">

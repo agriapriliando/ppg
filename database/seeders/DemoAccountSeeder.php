@@ -42,7 +42,7 @@ class DemoAccountSeeder extends Seeder
                 $user->email = $email;
                 $user->email_verified_at = now();
                 $user->login_id = $login;
-                $user->password = 'PpgDemo2026!';
+                $user->password = '12345678';
                 $user->role = $role;
                 $user->account_state = AccountState::Active;
                 $user->must_change_password = false;

@@ -1,5 +1,5 @@
 <x-layouts::app title="Pemeriksaan Pendaftaran">
-    <div x-data="{ showGuide: false }">
+    <div x-data="{ showGuide: false, showAcceptModal: false }">
         @if($application && ($application->participant->roster_state!=='active' || $application->participant->admin_hold))
             <div class="notice-box warning">
                 <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
@@ -84,7 +84,7 @@
                             <div class="audit-line">
                                 <i class="bi bi-clock-history" aria-hidden="true"></i>
                                 <div>
-                                    <strong>{{ ['verify'=>'Diverifikasi','correction'=>'Perbaikan','accept'=>'Diterima lengkap','reopen'=>'Dibuka kembali','contact_recovery'=>'Kontak dipulihkan','ownership_transfer'=>'Kepemilikan dikoreksi'][$review->action]??'Pemeriksaan' }}</strong>
+                                    <strong>{{ ['verify'=>'Diverifikasi','correction'=>'Perbaikan','accept'=>'Diterima lengkap','revert'=>'Diterima lengkap dikembalikan','reopen'=>'Dibuka kembali','contact_recovery'=>'Kontak dipulihkan','ownership_transfer'=>'Kepemilikan dikoreksi'][$review->action]??'Pemeriksaan' }}</strong>
                                     <small>Revisi {{ $review->submission_revision }} · {{ $review->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</small>
                                     <p class="small mb-0">{{ $review->public_note }}</p>
                                 </div>
@@ -109,37 +109,28 @@
                         <h2>Tindak lanjut pendaftaran</h2>
                     </div>
                     <div class="panel-body">
-                        <form method="post" action="{{ route('reviews.update',$application) }}" novalidate>
+                        <form id="review-action-form" method="post" action="{{ route('reviews.update',$application) }}" novalidate>
                             @csrf
                             <input type="hidden" name="version" value="{{ $application->lock_version }}">
-                            <div class="checklist-box">
-                                @foreach(['identity_checked'=>'Identitas telah diperiksa','sk_checked'=>'Kepesertaan SK sah dan tidak berkonflik','data_checked'=>'Seluruh biodata dan pendidikan konsisten'] as $key=>$label)
-                                    <label>
-                                        <input type="checkbox" name="{{ $key }}" class="form-check-input" value="1">
-                                        <span>{{ $label }}</span>
-                                    </label>
-                                @endforeach
-                            </div>
+                            <input type="hidden" name="identity_checked" value="1">
+                            <input type="hidden" name="sk_checked" value="1">
+                            <input type="hidden" name="data_checked" value="1">
                             <div class="d-grid gap-2 mt-3">
-                                <button class="btn btn-purple" name="action" value="verify" @disabled($application->status!==App\Enums\ApplicationStatus::Submitted)>
-                                    Tandai Diverifikasi
-                                </button>
-                                <button class="btn btn-gold" name="action" value="accept" @disabled($application->status!==App\Enums\ApplicationStatus::Verified || !$verified)>
+                                <button type="button"
+                                    @click="showAcceptModal = true"
+                                    class="btn btn-gold"
+                                    @disabled(!in_array($application->status, [App\Enums\ApplicationStatus::Submitted, App\Enums\ApplicationStatus::Verified], true) || !$verified)>
                                     Tetapkan Diterima Lengkap
                                 </button>
+                                @if($application->status === App\Enums\ApplicationStatus::Accepted)
+                                    <button type="submit" class="btn btn-outline-danger w-100 mt-2 fw-semibold" name="action" value="revert" onclick="return confirm('Apakah Anda yakin ingin mengembalikan status Berkas Diterima Lengkap pendaftar ini ke antrean pemeriksaan?')">
+                                        <i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Kembalikan Berkas Diterima Lengkap
+                                    </button>
+                                @endif
                             </div>
                             <hr>
-                            <h3 class="h6">Permintaan perbaikan</h3>
-                            <div class="d-flex flex-wrap gap-2 mb-3">
-                                @foreach(['Identitas','Alamat','Tambahan','Pendidikan asal','Kontak WhatsApp'] as $group)
-                                    <label class="small">
-                                        <input type="checkbox" class="form-check-input me-1" name="field_keys[]" value="{{ $group }}">
-                                        {{ $group }}
-                                    </label>
-                                @endforeach
-                            </div>
                             <label for="review-note" class="form-label">Catatan spesifik kepada pendaftar</label>
-                            <textarea id="review-note" class="form-control mb-3" name="public_note" minlength="10" maxlength="1000" rows="4">{{ \App\Support\FormInput::old('public_note') }}</textarea>
+                            <textarea id="review-note" class="form-control mb-3" name="public_note" minlength="10" maxlength="1000" rows="4" placeholder="Tuliskan catatan perbaikan jika berkas/biodata perlu diperbaiki...">{{ \App\Support\FormInput::old('public_note') }}</textarea>
                             <button class="btn btn-outline-purple w-100" name="action" value="correction" @disabled(!in_array($application->status,[App\Enums\ApplicationStatus::Submitted,App\Enums\ApplicationStatus::Verified],true))>
                                 Minta Perbaikan
                             </button>
@@ -235,7 +226,7 @@
                             <span class="guide-step-num">4</span>
                             <div class="guide-step-content">
                                 <strong>Keputusan & Tindak Lanjut</strong>
-                                <span>Centang ketiga kotak persetujuan kepatuhan data. Bila data valid, klik <em>Tandai Diverifikasi</em> lalu <em>Tetapkan Diterima Lengkap</em>. Bila ada kekeliruan, pilih bagian yang keliru, isi catatan perbaikan, lalu klik <em>Minta Perbaikan</em>.</span>
+                                <span>Bila data valid dan WhatsApp terverifikasi, klik <em>Tetapkan Diterima Lengkap</em>. Bila ada kekeliruan, isi catatan perbaikan lalu klik <em>Minta Perbaikan</em>.</span>
                             </div>
                         </div>
                     </div>
@@ -248,5 +239,87 @@
                 </div>
             </div>
         </div>
+
+        <!-- Pop-up Modal Konfirmasi Tetapkan Diterima Lengkap (Alpine.js Mobile Responsive) -->
+    <div 
+        x-cloak 
+        x-show="showAcceptModal" 
+        class="ui-modal-backdrop" 
+        @keydown.escape.window="showAcceptModal = false" 
+        @click.self="showAcceptModal = false"
+        style="display: none;"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-accept-title"
+    >
+        <div 
+            class="ui-modal"
+            x-show="showAcceptModal"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
+            style="max-width: 520px;"
+        >
+            <div class="ui-modal-header d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="dayak-shield-badge" style="width: 32px; height: 32px; font-size: 0.85rem; background: #e0a800;">
+                        <i class="bi bi-patch-check-fill" aria-hidden="true"></i>
+                    </span>
+                    <h2 id="modal-accept-title" class="h6 mb-0 fw-bold text-dark">Konfirmasi Penetapan Diterima Lengkap</h2>
+                </div>
+                <button type="button" class="btn-close" @click="showAcceptModal = false" aria-label="Tutup"></button>
+            </div>
+
+            <div class="ui-modal-body">
+                <p class="text-muted small mb-3">
+                    Apakah Anda yakin ingin menetapkan pendaftaran calon mahasiswa ini sebagai <strong>Diterima Lengkap</strong>?
+                </p>
+
+                <div class="p-3 mb-3 rounded-3 border bg-light">
+                    <div class="row g-2 small">
+                        <div class="col-sm-4 text-muted">Nama Peserta</div>
+                        <div class="col-sm-8 fw-semibold text-dark">{{ $application->participant->name_on_sk }}</div>
+
+                        <div class="col-sm-4 text-muted">No. Pendaftaran</div>
+                        <div class="col-sm-8 fw-semibold text-dark">{{ $application->application_number }}</div>
+
+                        <div class="col-sm-4 text-muted">Periode</div>
+                        <div class="col-sm-8 text-dark">{{ $application->period->name }}</div>
+
+                        <div class="col-sm-4 text-muted">WhatsApp</div>
+                        <div class="col-sm-8 text-success fw-semibold">
+                            <i class="bi bi-check-circle-fill me-1"></i>{{ $application->workspace->biodata?->whatsapp_number ?? '-' }} (Terverifikasi)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning d-flex align-items-start gap-2 py-2 px-3 small mb-0" role="alert">
+                    <i class="bi bi-info-circle-fill fs-6 mt-1 flex-shrink-0 text-warning"></i>
+                    <div>
+                        Pendaftaran akan resmi disetujui. Anda tetap dapat mengembalikan status berkas ke antrean bila diperlukan di kemudian hari.
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions d-flex align-items-center justify-content-end gap-2 p-3 bg-light border-top">
+                <button type="button" class="btn btn-light border px-3" @click="showAcceptModal = false">
+                    Batal
+                </button>
+                <button type="submit" form="review-action-form" name="action" value="accept" class="btn btn-gold px-4 fw-semibold d-inline-flex align-items-center gap-2">
+                    <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                    <span>Ya, Tetapkan Lengkap</span>
+                </button>
+            </div>
+        </div>
     </div>
+</div>
 </x-layouts::app>

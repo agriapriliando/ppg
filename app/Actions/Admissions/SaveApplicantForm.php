@@ -78,7 +78,7 @@ class SaveApplicantForm
             $oldNumber = $biodata->whatsapp_number;
             $newNumber = $data['whatsapp_number'] ?? null;
 
-            if ($oldNumber !== $newNumber) {
+            if (! empty($oldNumber) && $oldNumber !== $newNumber) {
                 WhatsappVerification::query()->where('workspace_id', $workspace->id)->whereNull('invalidated_at')->update(['invalidated_at' => now()]);
             }
             $values = [];

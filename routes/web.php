@@ -57,21 +57,22 @@ Route::middleware(['auth', 'active'])->group(function (): void {
     Route::middleware('role:operator,administrator')->group(function (): void {
         Route::get('/riwayat', AuditController::class)->name('activity');
         Route::get('/peserta-sk/ekspor', [ParticipantsController::class, 'export'])->name('participants.export');
-        Route::get('/peserta-sk', [ParticipantsController::class, 'index'])->name('participants.index');
+        Route::livewire('/peserta-sk', 'pages::portal.participants')->name('participants.index');
         Route::get('/peserta-sk/{participant}', [ParticipantsController::class, 'show'])->name('participants.show');
         Route::put('/peserta-sk/{participant}', [ParticipantsController::class, 'updateSk'])->name('participants.update-sk');
-        Route::get('/klaim', [ClaimsController::class, 'index'])->name('claims.index');
+        Route::livewire('/klaim', 'pages::portal.claims')->name('claims.index');
         Route::delete('/klaim/{claim}', [ClaimsController::class, 'destroy'])->name('claims.destroy');
         Route::post('/klaim/{claim}/delegasi', [ClaimFollowupController::class, 'delegate'])->name('claims.delegate');
         Route::get('/klaim/{claim}', [ClaimsController::class, 'show'])->name('claims.show');
         Route::post('/klaim/{claim}/setujui', [ClaimsController::class, 'approve'])->name('claims.approve');
+        Route::post('/klaim/{claim}/batal-setujui', [ClaimsController::class, 'cancelApproval'])->name('claims.cancel-approval');
         Route::post('/klaim/{claim}/kandidat', [ClaimsController::class, 'candidate'])->name('claims.candidate');
         Route::post('/klaim/{claim}/catatan', [ClaimsController::class, 'note'])->name('claims.note');
         Route::post('/klaim/{claim}/whatsapp', [ClaimsController::class, 'verifyWhatsapp'])->name('claims.verify-whatsapp');
         Route::post('/klaim/{claim}/kredensial', [CredentialController::class, 'issue'])->name('credentials.issue');
         Route::post('/klaim/{claim}/kredensial/generate-ulang', [CredentialController::class, 'regenerate'])->middleware('throttle:5,1')->name('credentials.regenerate');
         Route::post('/kredensial/{issuance}/penyerahan', [CredentialController::class, 'deliver'])->name('credentials.deliver');
-        Route::get('/antrean', [ApplicationReviewController::class, 'index'])->name('reviews.index');
+        Route::livewire('/antrean', 'pages::portal.review-queue')->name('reviews.index');
         Route::get('/antrean/{application}/cetak', [ApplicationReviewController::class, 'print'])->name('reviews.print');
         Route::get('/pendaftaran/{application}', [ApplicationReviewController::class, 'show'])->name('reviews.show');
         Route::post('/pendaftaran/{application}', [ApplicationReviewController::class, 'update'])->name('reviews.update');
@@ -96,8 +97,8 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::livewire('/periode', 'pages::admin.periods')->name('periods');
         Route::get('/aturan-berkas', [DocumentPolicyController::class, 'index'])->name('document-policies.index');
         Route::post('/aturan-berkas', [DocumentPolicyController::class, 'store'])->name('document-policies.store');
-        Route::get('/aturan-berkas/unggahan', [DocumentPolicyController::class, 'uploads'])->name('document-policies.uploads');
-        Route::get('/daftar-unggahan', [DocumentPolicyController::class, 'uploads'])->name('uploads');
+        Route::livewire('/aturan-berkas/unggahan', 'pages::admin.document-uploads')->name('document-policies.uploads');
+        Route::livewire('/daftar-unggahan', 'pages::admin.document-uploads')->name('uploads');
         Route::get('/berkas/workspace/{workspace}', [AdminWorkspaceDocumentController::class, 'show'])->name('workspaces.documents.show');
         Route::get('/berkas/workspace/{workspace}/{document}/lihat', [AdminWorkspaceDocumentController::class, 'preview'])->name('workspaces.documents.preview');
         Route::get('/berkas/workspace/{workspace}/{document}/unduh', [AdminWorkspaceDocumentController::class, 'download'])->name('workspaces.documents.download');

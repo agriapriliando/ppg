@@ -26,7 +26,16 @@ it('completes Google registration through correction and acceptance while retain
     $firstDate = $application->tanggal_daftar->format('Y-m-d');
     $firstSubmitted = $application->submitted_at->format('Y-m-d H:i:s');
     $this->get(route('applicant.application.proof', $c['period']))->assertOk()->assertSee($application->application_number)->assertDontSee('0000000000000001');
-    $this->actingAs($c['operator'])->get(route('reviews.show', $application))->assertOk()->assertSee('Pemeriksaan Pendaftaran');
+    $this->actingAs($c['operator'])->get(route('reviews.show', $application))
+        ->assertOk()
+        ->assertSee('Pemeriksaan Pendaftaran')
+        ->assertDontSee('Identitas telah diperiksa')
+        ->assertDontSee('Kepesertaan SK sah dan tidak berkonflik')
+        ->assertDontSee('Seluruh biodata dan pendidikan konsisten')
+        ->assertDontSee('Tandai Diverifikasi')
+        ->assertSee('Tetapkan Diterima Lengkap')
+        ->assertDontSee('Permintaan perbaikan</h3>', false)
+        ->assertDontSee('name="field_keys[]"', false);
     $this->post(route('reviews.update', $application), ['version' => $application->lock_version, 'action' => 'correction', 'field_keys' => ['Alamat'], 'public_note' => 'Periksa kembali nomor rumah sesuai alamat tempat tinggal.'])->assertRedirect()->assertSessionHasNoErrors();
     $this->travel(1)->hours();
     $form['version'] = ApplicantWorkspace::findOrFail($application->workspace_id)->lock_version;
@@ -43,6 +52,31 @@ it('completes Google registration through correction and acceptance while retain
     expect($application->tanggal_daftar->format('Y-m-d'))->toBe($firstDate);
     expect($application->submitted_at->format('Y-m-d H:i:s'))->toBe($firstSubmitted);
     expect($application->submission_revision)->toBe(2);
+
+    // Operator melihat tombol untuk mengembalikan Berkas Diterima Lengkap
+    $this->actingAs($c['operator'])->get(route('reviews.show', $application))
+        ->assertOk()
+        ->assertSee('Kembalikan Berkas Diterima Lengkap');
+
+    // Operator mengembalikan status Berkas Diterima Lengkap ke antrean
+    $this->actingAs($c['operator'])->post(route('reviews.update', $application), [
+        'version' => $application->lock_version,
+        'action' => 'revert',
+    ])->assertRedirect()->assertSessionHas('status', 'Status berkas diterima lengkap berhasil dikembalikan ke antrean.');
+
+    $application->refresh();
+    expect($application->status)->toBe(ApplicationStatus::Submitted);
+    expect($application->accepted_at)->toBeNull();
+    expect($application->accepted_by)->toBeNull();
+
+    // Operator dapat menetapkan kembali menjadi Diterima Lengkap
+    $this->actingAs($c['operator'])->post(route('reviews.update', $application), [
+        'version' => $application->lock_version,
+        'action' => 'accept',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $application->refresh();
+    expect($application->status)->toBe(ApplicationStatus::Accepted);
     $this->assertDatabaseCount('application_submissions', 2);
     $this->assertDatabaseHas('audit_events', ['actor_id' => $c['operator']->id, 'action' => 'Keputusan: Diterima lengkap']);
     $this->actingAs($c['applicant'])->get(route('applicant.application.status', $c['period']))->assertOk()->assertSee('Diterima lengkap')->assertSee('Periksa kembali nomor rumah');

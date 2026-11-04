@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Admissions\ApproveClaim;
+use App\Actions\Admissions\CancelClaimApproval;
 use App\Actions\Admissions\SubmitSkClaim;
 use App\Actions\RecordAudit;
 use App\Enums\AccountState;
@@ -109,6 +110,17 @@ class ClaimsController extends Controller
         $approve->handle($actor, $claim, (int) $data['version']);
 
         return back()->with('status', 'Klaim disetujui dan satu pendaftaran resmi dibuat.');
+    }
+
+    public function cancelApproval(Request $request, SkClaim $claim, CancelClaimApproval $cancelApproval): RedirectResponse
+    {
+        Gate::authorize('review', $claim);
+        $data = $request->validate(['version' => ['required', 'integer', 'min:0'], 'confirmed' => ['accepted']]);
+        $actor = $request->user();
+        abort_unless($actor !== null, 403);
+        $cancelApproval->handle($actor, $claim, (int) $data['version']);
+
+        return back()->with('status', 'Persetujuan klaim berhasil dibatalkan. Status klaim dikembalikan ke Menunggu Pemeriksaan.');
     }
 
     public function candidate(Request $request, SkClaim $claim, RecordAudit $audit): RedirectResponse

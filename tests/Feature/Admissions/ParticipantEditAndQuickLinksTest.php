@@ -12,6 +12,7 @@ it('allows operators and administrators to edit official sk participant data wit
     $this->actingAs($c['operator'])->get(route('participants.show', $participant))
         ->assertOk()
         ->assertSee('Edit Data SK')
+        ->assertDontSee('Alasan Perubahan Data')
         ->assertSee($participant->name_on_sk);
 
     $payload = [
@@ -21,7 +22,6 @@ it('allows operators and administrators to edit official sk participant data wit
         'sk_order' => 5,
         'official_participant_id' => '999888777',
         'assigned_operator_id' => $c['operator']->id,
-        'reason' => 'Perbaikan penulisan ejaan nama sesuai ijazah dan ralat nomor urut SK.',
         'version' => $participant->lock_version,
     ];
 

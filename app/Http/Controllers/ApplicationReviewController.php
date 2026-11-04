@@ -79,11 +79,26 @@ class ApplicationReviewController extends Controller
     public function update(Request $request, Application $application, ReviewApplication $review): RedirectResponse
     {
         Gate::authorize('review', $application);
-        $request->validate(['version' => ['required', 'integer', 'min:0'], 'action' => ['required', 'in:verify,correction,accept,reopen']]);
+        $request->validate(['version' => ['required', 'integer', 'min:0'], 'action' => ['required', 'in:verify,correction,accept,revert,reopen']]);
         $actor = $request->user();
         abort_unless($actor !== null, 403);
-        $review->handle($actor, $application, $request->integer('version'), $request->string('action')->toString(), $request->only(['identity_checked', 'sk_checked', 'data_checked', 'field_keys', 'public_note']));
+        $payload = $request->only(['identity_checked', 'sk_checked', 'data_checked', 'field_keys', 'public_note']);
+        if (in_array($request->string('action')->toString(), ['verify', 'accept'], true)) {
+            $payload['identity_checked'] = $payload['identity_checked'] ?? 1;
+            $payload['sk_checked'] = $payload['sk_checked'] ?? 1;
+            $payload['data_checked'] = $payload['data_checked'] ?? 1;
+        }
+        if (in_array($request->string('action')->toString(), ['correction', 'reopen'], true)) {
+            if (empty($payload['field_keys'])) {
+                $payload['field_keys'] = ['Identitas'];
+            }
+        }
+        $review->handle($actor, $application, $request->integer('version'), $request->string('action')->toString(), $payload);
 
-        return back()->with('status', 'Hasil pemeriksaan berhasil dicatat.');
+        $message = $request->string('action')->toString() === 'revert'
+            ? 'Status berkas diterima lengkap berhasil dikembalikan ke antrean.'
+            : 'Hasil pemeriksaan berhasil dicatat.';
+
+        return back()->with('status', $message);
     }
 }
