@@ -2,6 +2,32 @@
     title="Penerimaan Mahasiswa Baru PPG IAKN Palangka Raya · Portal Resmi"
     description="Portal resmi Penerimaan Mahasiswa Baru (PMB) Pendidikan Profesi Guru (PPG) Dalam Jabatan Bimas Kristen Institut Agama Kristen Negeri (IAKN) Palangka Raya. Pencocokan SK, pendaftaran, dan verifikasi berkas."
 >
+    @if (!empty($settings['notice']))
+        <aside class="top-announcement-wrapper bg-white border-bottom py-2" role="region" aria-label="Pengumuman Resmi PMB (Atas)">
+            <div class="container">
+                <div class="public-announcement-card my-1">
+                    <div class="d-flex align-items-start align-items-md-center gap-3">
+                        <div class="announcement-icon-badge flex-shrink-0" aria-hidden="true">
+                            <i class="bi bi-megaphone-fill"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                <span class="announcement-tag">
+                                    <span class="announcement-live-dot" aria-hidden="true"></span>
+                                    <span>PENGUMUMAN PENTING</span>
+                                </span>
+                                <small class="text-muted fw-semibold">Pengelola PMB PPG IAKN Palangka Raya</small>
+                            </div>
+                            <div class="announcement-text text-break">
+                                {{ $settings['notice'] }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    @endif
+
     <section class="hero-section position-relative py-5">
         <div class="container py-4">
             <div class="row align-items-center g-4">
@@ -26,6 +52,55 @@
         </div>
     </section>
     <section class="container py-5"><x-notice />
+        @if(isset($quickLinks) && $quickLinks->isNotEmpty())
+            <section class="workspace-card mb-4" aria-label="Layanan Akademik dan Tautan Penting">
+                <div class="panel-heading d-flex align-items-center justify-content-between py-2 px-3 border-bottom bg-light bg-opacity-50">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="dayak-shield-badge" style="width: 28px; height: 28px; font-size: 0.8rem;">
+                            <i class="bi bi-link-45deg" aria-hidden="true"></i>
+                        </span>
+                        <h2 class="h6 mb-0 fw-bold text-purple">Layanan Akademik & Tautan Penting</h2>
+                    </div>
+                    <small class="text-muted d-none d-md-block">Akses cepat portal dan sistem terkait</small>
+                </div>
+                <div class="panel-body p-3">
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach($quickLinks as $link)
+                            <a href="{{ $link->url }}" target="{{ $link->target ?? '_blank' }}" rel="noopener noreferrer" 
+                               class="btn d-inline-flex align-items-center gap-2 text-decoration-none shadow-sm"
+                               style="
+                                    @if($link->button_color === 'purple')
+                                        background: linear-gradient(135deg, #4A154B 0%, #6a3283 100%); color: #ffffff; border: 1px solid #4A154B;
+                                    @elseif($link->button_color === 'gold')
+                                        background: linear-gradient(135deg, #D4AF37 0%, #f1c40f 100%); color: #1e1b18; border: 1px solid #D4AF37; font-weight: 600;
+                                    @elseif($link->button_color === 'blue')
+                                        background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%); color: #ffffff; border: 1px solid #1d4ed8;
+                                    @elseif($link->button_color === 'green')
+                                        background: linear-gradient(135deg, #15803d 0%, #22c55e 100%); color: #ffffff; border: 1px solid #15803d;
+                                    @elseif($link->button_color === 'teal')
+                                        background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%); color: #ffffff; border: 1px solid #0f766e;
+                                    @else
+                                        background: linear-gradient(135deg, #334155 0%, #475569 100%); color: #ffffff; border: 1px solid #334155;
+                                    @endif
+                                    padding: 8px 16px; border-radius: 8px; transition: transform 0.15s ease, box-shadow 0.15s ease;
+                               "
+                               onmouseover="this.style.transform='translateY(-2px)'"
+                               onmouseout="this.style.transform='translateY(0)'"
+                               title="{{ $link->description ?: $link->title }}">
+                                <i class="bi {{ $link->icon ?: 'bi-box-arrow-up-right' }}" style="font-size: 1.05rem;" aria-hidden="true"></i>
+                                <div class="text-start">
+                                    <span class="fw-bold d-block lh-1" style="font-size: 0.85rem;">{{ $link->title }}</span>
+                                    @if($link->description)
+                                        <small class="d-block opacity-75 lh-1 mt-1" style="font-size: 0.68rem; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ $link->description }}</small>
+                                    @endif
+                                </div>
+                                <i class="bi bi-arrow-up-right opacity-50 ms-1" style="font-size: 0.75rem;" aria-hidden="true"></i>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            </section>
+        @endif
         <div class="workspace-card">
             <div class="panel-body">
                 <div class="row g-4 align-items-center">

@@ -745,6 +745,219 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* ==========================================================================
+   PANDUAN PENDAFTARAN (GUIDE PAGE) STYLES
+   ========================================================================== */
+.guide-hero-banner {
+  background: linear-gradient(135deg, var(--ppg-purple-darker) 0%, var(--ppg-purple-primary) 60%, var(--ppg-purple-medium) 100%);
+  border-radius: 20px;
+  color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--ppg-shadow-md);
+}
+
+.guide-hero-banner::after {
+  content: "";
+  position: absolute;
+  right: -40px;
+  bottom: -40px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(255, 179, 0, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.whatsapp-alert-card {
+  background: linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 100%);
+  border: 1.5px solid #BBF7D0;
+  border-left: 6px solid #16A34A;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(22, 163, 74, 0.08);
+}
+
+.whatsapp-icon-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #16A34A 0%, #15803D 100%);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3);
+  flex-shrink: 0;
+}
+
+.guide-step-card {
+  background: #FFFFFF;
+  border: 1.5px solid #EDE6F3;
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(74, 21, 75, 0.05);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.guide-step-card:hover {
+  transform: translateY(-4px);
+  border-color: #CE93D8;
+  box-shadow: 0 12px 28px rgba(74, 21, 75, 0.12);
+}
+
+.guide-step-card.accent-gold {
+  border-top: 4px solid var(--ppg-gold-primary);
+}
+
+.guide-step-card.accent-purple {
+  border-top: 4px solid var(--ppg-purple-primary);
+}
+
+.step-header-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 1.1rem;
+}
+
+.step-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px 5px 6px;
+  border-radius: 50px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.step-pill-badge .step-circle-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.step-pill-badge.step-purple {
+  background: #F4ECF8;
+  color: #4A154B;
+  border: 1px solid #E2D0EB;
+}
+
+.step-pill-badge.step-purple .step-circle-num {
+  background: #4A154B;
+  color: #FFFFFF;
+}
+
+.step-pill-badge.step-gold {
+  background: #FFF8E6;
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+
+.step-pill-badge.step-gold .step-circle-num {
+  background: #D97706;
+  color: #FFFFFF;
+}
+
+.step-mini-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+
+.step-mini-icon.purple {
+  background: linear-gradient(135deg, #F3E5F5, #E1BEE7);
+  color: #4A154B;
+  border: 1px solid #CE93D8;
+}
+
+.step-mini-icon.gold {
+  background: linear-gradient(135deg, #FFF8E1, #FFECB3);
+  color: #B45309;
+  border: 1px solid #FFE082;
+}
+
+.guide-step-card:hover .step-mini-icon {
+  transform: scale(1.1);
+}
+
+.step-card-status-badge {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.step-card-status-badge.status-info {
+  background: #F0FDF4;
+  color: #15803D;
+  border: 1px solid #BBF7D0;
+}
+
+.step-card-status-badge.status-amber {
+  background: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+.step-points-list {
+  list-style: none;
+  padding-left: 0;
+  margin-bottom: 0;
+}
+
+.step-points-list li {
+  position: relative;
+  padding-left: 26px;
+  margin-bottom: 10px;
+  font-size: 0.88rem;
+  color: #4A5568;
+  line-height: 1.55;
+}
+
+.step-points-list li:last-child {
+  margin-bottom: 0;
+}
+
+.step-points-list li::before {
+  content: "\F26E";
+  font-family: "bootstrap-icons";
+  position: absolute;
+  left: 0;
+  top: 1px;
+  color: var(--ppg-purple-medium);
+  font-size: 0.95rem;
+  font-weight: bold;
+}
+
+.step-points-list.gold-checks li::before {
+  color: var(--ppg-gold-dark);
+}
+
 @media (max-width: 575.98px) {
   .hero-title {
     font-size: 1.75rem;

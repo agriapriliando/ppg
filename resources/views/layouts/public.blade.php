@@ -104,7 +104,6 @@
 </head>
 <body>
 <a href="#main-content" class="skip-link btn btn-gold">Lewati ke konten</a>
-<div class="topbar py-2"><div class="container d-flex justify-content-between small"><span>PPG Dalam Jabatan · IAKN Palangka Raya</span><span>Waktu layanan: WIB</span></div></div>
 <nav class="navbar navbar-expand-lg ppg-navbar bg-white" aria-label="Navigasi utama">
     <div class="container">
         <a class="navbar-brand d-flex gap-2 align-items-center" href="{{ route('home') }}">

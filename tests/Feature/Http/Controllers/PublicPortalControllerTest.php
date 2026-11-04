@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\AdmissionPeriod;
+use App\Models\ApplicationSetting;
+use App\Models\PortalQuickLink;
 use App\Models\User;
 
 it('shows an honest empty state without fabricated participants or dates', function () {
@@ -46,4 +48,51 @@ it('renders homepage with complete seo meta tags and og image', function () {
         ->assertSee('name="twitter:card"', false)
         ->assertSee('https://schema.org', false)
         ->assertSee('EducationalOrganization', false);
+});
+
+it('renders the applicant-focused registration guide page correctly', function () {
+    $response = $this->get(route('guide'))->assertOk();
+
+    $response->assertSee('Alur Pendaftaran Peserta PPG')
+        ->assertSee('Pendaftaran Akun Baru')
+        ->assertSee('Pengiriman Akun via WhatsApp')
+        ->assertSee('Login dan Unggah Berkas')
+        ->assertSee('Pastikan Nomor WhatsApp Anda Benar-benar Aktif')
+        ->assertSee('Informasi lanjutan')
+        ->assertDontSee('Masuk dengan Google')
+        ->assertDontSee('Google')
+        ->assertDontSee('Gunakan akun yang telah diprovisikan administrator')
+        ->assertDontSee('Siapkan periode, referensi, dan akun operator');
+});
+
+it('renders top announcement banner between navbar and hero when notice is active', function () {
+    ApplicationSetting::updateOrCreate(
+        ['key' => 'public'],
+        ['value' => ['notice' => 'Jadwal seleksi berkas gelombang 1 resmi dibuka'], 'version' => 1]
+    );
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('top-announcement-wrapper', false)
+        ->assertSee('Jadwal seleksi berkas gelombang 1 resmi dibuka')
+        ->assertDontSee('PPG Dalam Jabatan · IAKN Palangka Raya');
+});
+
+it('renders academic services and important quick links on homepage', function () {
+    PortalQuickLink::create([
+        'title' => 'Portal SIAKAD IAKN',
+        'url' => 'https://siakad.iaknpky.ac.id',
+        'description' => 'Sistem Informasi Akademik',
+        'icon' => 'bi-laptop',
+        'button_color' => 'blue',
+        'sort_order' => 10,
+        'is_active' => true,
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('Layanan Akademik', false)
+        ->assertSee('Tautan Penting', false)
+        ->assertSee('Portal SIAKAD IAKN')
+        ->assertSee('https://siakad.iaknpky.ac.id');
 });
