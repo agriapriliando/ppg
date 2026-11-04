@@ -1,10 +1,99 @@
-@props(['title' => 'PMB PPG IAKN Palangka Raya'])
+@props([
+    'title' => 'PMB PPG IAKN Palangka Raya · Penerimaan Mahasiswa Baru',
+    'description' => 'Portal resmi Penerimaan Mahasiswa Baru (PMB) Pendidikan Profesi Guru (PPG) Dalam Jabatan Bimas Kristen Institut Agama Kristen Negeri (IAKN) Palangka Raya.',
+    'keywords' => 'PPG IAKN Palangka Raya, PMB PPG, PPG Bimas Kristen, Pendaftaran PPG, Guru Agama Kristen, IAKN Palangka Raya, Sertifikasi Guru',
+    'image' => asset('assets/' . rawurlencode('ppg iaknpky seo.jpg')),
+    'type' => 'website',
+    'canonical' => url()->current(),
+])
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}"><meta name="theme-color" content="#4A154B">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#4A154B">
+
+    <!-- SEO Primary Meta Tags -->
     <title>{{ $title }}</title>
+    <meta name="title" content="{{ $title }}">
+    <meta name="description" content="{{ $description }}">
+    <meta name="keywords" content="{{ $keywords }}">
+    <meta name="author" content="IAKN Palangka Raya">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <link rel="canonical" href="{{ $canonical }}">
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="{{ $type }}">
+    <meta property="og:locale" content="id_ID">
+    <meta property="og:site_name" content="PPG IAKN Palangka Raya">
+    <meta property="og:url" content="{{ $canonical }}">
+    <meta property="og:title" content="{{ $title }}">
+    <meta property="og:description" content="{{ $description }}">
+    <meta property="og:image" content="{{ $image }}">
+    <meta property="og:image:secure_url" content="{{ $image }}">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="943">
+    <meta property="og:image:height" content="530">
+    <meta property="og:image:alt" content="{{ $title }}">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="{{ $canonical }}">
+    <meta name="twitter:title" content="{{ $title }}">
+    <meta name="twitter:description" content="{{ $description }}">
+    <meta name="twitter:image" content="{{ $image }}">
+    <meta name="twitter:image:alt" content="{{ $title }}">
+
+    <!-- Schema.org JSON-LD -->
+    <script type="application/ld+json">
+    {!! json_encode([
+        chr(64) . 'context' => 'https://schema.org',
+        chr(64) . 'graph' => [
+            [
+                chr(64) . 'type' => 'EducationalOrganization',
+                chr(64) . 'id' => url('/') . '#organization',
+                'name' => 'PPG IAKN Palangka Raya',
+                'alternateName' => 'Pendidikan Profesi Guru Institut Agama Kristen Negeri Palangka Raya',
+                'url' => url('/'),
+                'logo' => [
+                    chr(64) . 'type' => 'ImageObject',
+                    'url' => asset('favicon_io_new/android-chrome-512x512.png'),
+                ],
+                'image' => $image,
+                'description' => 'Program Pendidikan Profesi Guru (PPG) Dalam Jabatan Bimas Kristen pada Institut Agama Kristen Negeri (IAKN) Palangka Raya.',
+            ],
+            [
+                chr(64) . 'type' => 'WebSite',
+                chr(64) . 'id' => url('/') . '#website',
+                'url' => url('/'),
+                'name' => 'PMB PPG IAKN Palangka Raya',
+                'description' => $description,
+                'publisher' => [
+                    chr(64) . 'id' => url('/') . '#organization',
+                ],
+                'inLanguage' => 'id-ID',
+            ],
+            [
+                chr(64) . 'type' => 'WebPage',
+                chr(64) . 'id' => $canonical . '#webpage',
+                'url' => $canonical,
+                'name' => $title,
+                'description' => $description,
+                'isPartOf' => [
+                    chr(64) . 'id' => url('/') . '#website',
+                ],
+                'primaryImageOfPage' => [
+                    chr(64) . 'type' => 'ImageObject',
+                    'url' => $image,
+                ],
+                'inLanguage' => 'id-ID',
+            ],
+        ],
+    ], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
+    </script>
+
+    <!-- Favicon & Touch Icons -->
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon_io_new/apple-touch-icon.png') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon_io_new/favicon-32x32.png') }}">
     <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon_io_new/favicon-16x16.png') }}">

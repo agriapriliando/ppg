@@ -1,4 +1,7 @@
-<x-layouts::public>
+<x-layouts::public
+    title="Penerimaan Mahasiswa Baru PPG IAKN Palangka Raya · Portal Resmi"
+    description="Portal resmi Penerimaan Mahasiswa Baru (PMB) Pendidikan Profesi Guru (PPG) Dalam Jabatan Bimas Kristen Institut Agama Kristen Negeri (IAKN) Palangka Raya. Pencocokan SK, pendaftaran, dan verifikasi berkas."
+>
     <section class="hero-section position-relative py-5">
         <div class="container py-4">
             <div class="row align-items-center g-4">

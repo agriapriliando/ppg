@@ -36,3 +36,14 @@ it('allows applicants to open only their own workspace', function () {
     $this->get(route('admin.audit'))->assertForbidden();
     $this->get(route('admin.periods'))->assertForbidden();
 });
+
+it('renders homepage with complete seo meta tags and og image', function () {
+    $response = $this->get(route('home'))->assertOk();
+
+    $response->assertSee('<meta name="description"', false)
+        ->assertSee('ppg%20iaknpky%20seo.jpg', false)
+        ->assertSee('property="og:image"', false)
+        ->assertSee('name="twitter:card"', false)
+        ->assertSee('https://schema.org', false)
+        ->assertSee('EducationalOrganization', false);
+});
