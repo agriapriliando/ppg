@@ -1,6 +1,6 @@
 /.phpunit.cache
 /node_modules
-/public/build
+# /public/build (Di-unignore agar aset terkompilasi vite dapat di-commit & dideploy ke hosting cPanel tanpa Node.js)
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage

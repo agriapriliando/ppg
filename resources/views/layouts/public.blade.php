@@ -25,7 +25,7 @@
         <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#public-nav" aria-controls="public-nav" aria-expanded="false" aria-label="Buka navigasi"><span class="navbar-toggler-icon"></span></button>
         <div class="collapse navbar-collapse" id="public-nav"><div class="navbar-nav ms-auto align-items-lg-center gap-2">
             <a class="nav-link" href="{{ route('home') }}">Beranda</a><a class="nav-link" href="{{ route('home') }}#alur-pendaftaran">Alur Pendaftaran</a><a class="nav-link" href="{{ route('guide') }}">Panduan</a>
-            @auth<a href="{{ route('dashboard') }}" class="btn btn-purple">Ruang Kerja Saya</a>@else<a href="{{ route('login') }}" class="btn btn-purple"><i class="bi bi-box-arrow-in-right me-2" aria-hidden="true"></i>Masuk Akun</a>@endauth
+            @auth<a href="{{ route('dashboard') }}" class="btn btn-purple"><i class="bi bi-person-circle me-1" aria-hidden="true"></i>Akun Saya</a>@else<a href="{{ route('login') }}" class="btn btn-purple"><i class="bi bi-box-arrow-in-right me-2" aria-hidden="true"></i>Masuk Akun</a>@endauth
         </div></div>
     </div>
 </nav>
