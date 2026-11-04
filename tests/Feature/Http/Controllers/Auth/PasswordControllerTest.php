@@ -38,5 +38,9 @@ it('allows saving the same password after verifying the current password', funct
     ])->assertRedirect(route('dashboard'))->assertSessionHasNoErrors();
 
     expect(Hash::check($password, $user->fresh()->password))->toBeTrue();
-    $this->get(route('password.change'))->assertOk()->assertDontSee('berbeda dari kata sandi sebelumnya');
+    $this->get(route('password.change'))
+        ->assertOk()
+        ->assertDontSee('berbeda dari kata sandi sebelumnya')
+        ->assertSee('btn-password-toggle', false)
+        ->assertSee('bi-eye', false);
 });

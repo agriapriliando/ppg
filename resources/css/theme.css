@@ -958,6 +958,42 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--ppg-gold-dark);
 }
 
+.btn-password-toggle {
+  border: 1px solid #e3d5ec;
+  border-left: none;
+  background: #faf7fc;
+  color: #6a3283;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  transition: all 0.2s ease;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-password-toggle:hover {
+  background: #f1e4f6;
+  color: #4a154b;
+}
+
+.btn-password-toggle:focus {
+  outline: none;
+  box-shadow: none;
+  border-color: #b88ecb;
+}
+
+.input-group:focus-within .btn-password-toggle {
+  border-color: #b88ecb;
+}
+
+.input-group .form-control {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
 @media (max-width: 575.98px) {
   .hero-title {
     font-size: 1.75rem;
