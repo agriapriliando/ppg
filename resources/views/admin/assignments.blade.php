@@ -13,32 +13,44 @@
             <p>Pratinjau memperlihatkan beban awal, penyesuaian, dan beban akhir.</p>
         </div>
         <div class="panel-body">
-            <form method="get">
-                <div class="mb-4">
-                    <label for="assignment-period" class="form-label">Periode *</label>
-                    <select id="assignment-period" name="period_id" class="form-select" required>
-                        <option value="">Pilih periode</option>
-                        @foreach($periods as $option)
-                            <option value="{{ $option->id }}" @selected($period?->id===$option->id)>{{ $option->name }} · {{ $option->code }}</option>
-                        @endforeach
-                    </select>
+            @if($periods->isEmpty())
+                <div class="alert alert-warning p-4 rounded-3 text-center mb-0" role="alert">
+                    <i class="bi bi-calendar-x fs-1 text-warning d-block mb-3"></i>
+                    <h3 class="h5 fw-bold text-dark">Belum Ada Periode Pendaftaran</h3>
+                    <p class="text-muted small mb-4">
+                        Pembagian tugas operator dilakukan per periode pendaftaran. Silakan buat dan aktifkan periode terlebih dahulu.
+                    </p>
+                    <a href="{{ route('admin.periods') }}" class="btn btn-purple btn-sm">
+                        <i class="bi bi-calendar-plus me-1"></i>Kelola Periode & Gelombang
+                    </a>
                 </div>
-                <div class="operator-grid">
-                    @forelse($operators as $operator)
-                        <label class="operator-card">
-                            <input type="checkbox" class="form-check-input" name="operators[]" value="{{ $operator->id }}" @checked(in_array($operator->id, $selected, true))>
-                            <span class="user-avatar">{{ $operator->initials() }}</span>
-                            <h3>{{ $operator->name }}</h3>
-                            <small>{{ $operator->email ?? $operator->login_id }}</small>
-                            <span class="status-pill diterima_lengkap">Aktif</span>
-                            <strong>{{ $loads[$operator->id] ?? 0 }} peserta</strong>
-                        </label>
-                    @empty
-                        <p class="text-muted">Belum ada operator aktif. Tambahkan akun operator melalui Kelola Pengguna.</p>
-                    @endforelse
-                </div>
-                <button class="btn btn-outline-purple mt-4">Tinjau Pembagian</button>
-            </form>
+            @else
+                <form method="get">
+                    <div class="mb-4">
+                        <label for="assignment-period" class="form-label">Periode *</label>
+                        <select id="assignment-period" name="period_id" class="form-select" required>
+                            <option value="">Pilih periode</option>
+                            @foreach($periods as $option)
+                                <option value="{{ $option->id }}" @selected($period?->id===$option->id)>{{ $option->name }} · {{ $option->code }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="operator-grid">
+                        @forelse($operators as $operator)
+                            <label class="operator-card">
+                                <input type="checkbox" class="form-check-input" name="operators[]" value="{{ $operator->id }}" @checked(in_array($operator->id, $selected, true))>
+                                <span class="user-avatar">{{ $operator->initials() }}</span>
+                                <h3>{{ $operator->name }}</h3>
+                                <small>{{ $operator->email ?? $operator->login_id }}</small>
+                                <span class="status-pill diterima_lengkap">Aktif</span>
+                                <strong>{{ $loads[$operator->id] ?? 0 }} peserta</strong>
+                            </label>
+                        @empty
+                            <p class="text-muted">Belum ada operator aktif. Tambahkan akun operator melalui Kelola Pengguna.</p>
+                        @endforelse
+                    </div>
+                    <button class="btn btn-outline-purple mt-4">Tinjau Pembagian</button>
+                </form>
 
             @if($token && $period)
                 <hr class="my-4">
@@ -95,7 +107,8 @@
                 </form>
             @endif
 
-            <a href="{{ route('admin.assignments.bulk', ['period_id'=>$period?->id]) }}" class="btn btn-outline-purple mt-4">Transfer Massal & Penyeimbangan Beban</a>
+                <a href="{{ route('admin.assignments.bulk', ['period_id'=>$period?->id]) }}" class="btn btn-outline-purple mt-4">Transfer Massal & Penyeimbangan Beban</a>
+            @endif
         </div>
     </section>
 </x-layouts::app>

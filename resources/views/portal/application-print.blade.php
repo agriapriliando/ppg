@@ -4,6 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Formulir Pendaftaran - {{ $application->application_number }} - {{ $application->participant->name_on_sk }}</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon_io_new/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon_io_new/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon_io_new/favicon-16x16.png') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon_io_new/favicon.ico') }}">
+    <link rel="manifest" href="{{ asset('favicon_io_new/site.webmanifest') }}">
     @vite(['resources/css/app.css'])
     <style>
         :root {
@@ -290,8 +295,8 @@
     <div class="print-container">
         <!-- Kop Surat Resmi -->
         <header class="kop-wrapper">
-            <div class="kop-logo">
-                <i class="bi bi-mortarboard-fill"></i>
+            <div class="kop-logo" style="background: transparent; border-radius: 0;">
+                <img src="{{ asset('favicon_io_new/android-chrome-192x192.png') }}" alt="Logo IAKN" style="width: 72px; height: 72px; object-fit: contain;">
             </div>
             <div class="kop-text">
                 <h1>Kementerian Agama Republik Indonesia</h1>

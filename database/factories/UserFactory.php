@@ -57,6 +57,11 @@ class UserFactory extends Factory
         return $this->state(fn () => ['role' => UserRole::Operator]);
     }
 
+    public function applicant(): static
+    {
+        return $this->state(fn () => ['role' => UserRole::Applicant]);
+    }
+
     public function disabled(): static
     {
         return $this->state(fn () => ['account_state' => AccountState::Disabled]);

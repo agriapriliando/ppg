@@ -66,7 +66,7 @@
             @endif
         </div>
         <div class="welcome-symbol">
-            <i class="bi bi-mortarboard" aria-hidden="true"></i>
+            <img src="{{ asset('favicon_io_new/android-chrome-192x192.png') }}" alt="Logo PMB PPG IAKN" style="width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));">
             <span>PPG IAKN PALANGKA RAYA</span>
         </div>
     </div>
@@ -123,6 +123,33 @@
 
     @if ($totalSk !== null)
         {{-- TAMPILAN OPERATOR / ADMINISTRATOR --}}
+        @if ($periods->isEmpty())
+            @if (auth()->user()->isAdministrator())
+                <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-3 p-3 mb-4 rounded-3 border" role="alert">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="dayak-shield-badge" style="width: 40px; height: 40px; background: #b45309; color: #fff;">
+                            <i class="bi bi-calendar-plus" aria-hidden="true"></i>
+                        </span>
+                        <div>
+                            <strong class="d-block text-dark">Belum ada periode pendaftaran di sistem</strong>
+                            <span class="text-muted small">Buat dan publikasikan periode penerimaan baru agar pendaftaran calon mahasiswa, impor SK, aturan berkas, dan penugasan operator dapat berjalan.</span>
+                        </div>
+                    </div>
+                    <a href="{{ route('admin.periods') }}" class="btn btn-purple btn-sm">
+                        <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Kelola Periode & Gelombang
+                    </a>
+                </div>
+            @else
+                <div class="alert alert-info d-flex align-items-center gap-3 p-3 mb-4 rounded-3 border" role="alert">
+                    <i class="bi bi-info-circle-fill fs-4 text-primary"></i>
+                    <div>
+                        <strong class="d-block text-dark">Belum ada periode pendaftaran aktif</strong>
+                        <span class="text-muted small">Administrator belum membuat atau mempublikasikan periode pendaftaran penerimaan baru.</span>
+                    </div>
+                </div>
+            @endif
+        @endif
+
         <section class="workspace-card mb-4">
             <div class="panel-body">
                 <form method="get" class="d-flex gap-2">

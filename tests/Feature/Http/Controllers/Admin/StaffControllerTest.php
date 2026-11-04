@@ -2,6 +2,7 @@
 
 use App\Enums\AccountState;
 use App\Models\AuditEvent;
+use App\Models\ReferenceDataset;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
@@ -33,4 +34,116 @@ it('forbids an operator from creating an administrator', function () {
     $operator = User::factory()->operator()->create();
     $this->actingAs($operator)->post(route('admin.users.store'), ['name' => 'Penyusup', 'role' => 'administrator'])->assertForbidden();
     $this->assertDatabaseCount('users', 1);
+});
+
+it('allows an administrator to view the user list with search and filter', function () {
+    $admin = User::factory()->administrator()->create(['name' => 'Kepala Admin', 'login_id' => 'kepala.admin']);
+    $otherAdmin = User::factory()->administrator()->create(['name' => 'Staf Administrator Lain', 'login_id' => 'admin.lain']);
+    $operator = User::factory()->operator()->create(['name' => 'Operator Wilayah', 'login_id' => 'operator.wilayah']);
+
+    $this->actingAs($admin)->get(route('admin.users'))
+        ->assertOk()
+        ->assertSee('Staf Administrator Lain')
+        ->assertSee('Operator Wilayah')
+        ->assertSee('Tambah Pengelola');
+
+    // Pencarian spesifik
+    $this->get(route('admin.users', ['search' => 'Wilayah']))
+        ->assertOk()
+        ->assertSee('Operator Wilayah')
+        ->assertDontSee('Staf Administrator Lain');
+
+    // Filter peran
+    $this->get(route('admin.users', ['role' => 'administrator']))
+        ->assertOk()
+        ->assertSee('Staf Administrator Lain')
+        ->assertDontSee('Operator Wilayah');
+});
+
+it('allows updating a staff account including name, email, role, and password', function () {
+    $admin = User::factory()->administrator()->create();
+    $operator = User::factory()->operator()->create(['login_id' => 'op.lama', 'name' => 'Nama Lama']);
+
+    $this->actingAs($admin)->put(route('admin.users.update', $operator), [
+        'name' => 'Nama Baru Operator',
+        'login_id' => 'op.baru',
+        'email' => 'op.baru@test.local',
+        'role' => 'operator',
+        'password' => 'SandiBaru2026!Aman',
+        'password_confirmation' => 'SandiBaru2026!Aman',
+    ])->assertRedirect(route('admin.users'))->assertSessionHas('status');
+
+    $operator->refresh();
+    expect($operator->name)->toBe('Nama Baru Operator');
+    expect($operator->login_id)->toBe('op.baru');
+    expect($operator->email)->toBe('op.baru@test.local');
+    expect(Hash::check('SandiBaru2026!Aman', $operator->password))->toBeTrue();
+});
+
+it('allows toggling user status without providing an explicit reason', function () {
+    $admin = User::factory()->administrator()->create();
+    $operator = User::factory()->operator()->create();
+
+    // Menonaktifkan tanpa reason
+    $this->actingAs($admin)->patch(route('admin.users.toggle', $operator), [
+        'expected_state' => 'active',
+    ])->assertRedirect(route('admin.users'));
+
+    expect($operator->fresh()->account_state)->toBe(AccountState::Disabled);
+
+    // Mengaktifkan kembali tanpa reason
+    $this->actingAs($admin)->patch(route('admin.users.toggle', $operator), [
+        'expected_state' => 'disabled',
+    ])->assertRedirect(route('admin.users'));
+
+    expect($operator->fresh()->account_state)->toBe(AccountState::Active);
+});
+
+it('prevents an administrator from deleting their own account', function () {
+    $admin = User::factory()->administrator()->create();
+
+    $this->actingAs($admin)->delete(route('admin.users.destroy', $admin))
+        ->assertSessionHasErrors('user');
+
+    expect(User::query()->whereKey($admin->id)->exists())->toBeTrue();
+});
+
+it('prevents deleting the last active administrator', function () {
+    $admin = User::factory()->administrator()->create();
+    $operator = User::factory()->operator()->create();
+
+    $this->actingAs($admin)->delete(route('admin.users.destroy', $admin))
+        ->assertSessionHasErrors('user');
+
+    expect(User::query()->whereKey($admin->id)->exists())->toBeTrue();
+});
+
+it('allows an administrator to delete an operator account safely', function () {
+    $admin = User::factory()->administrator()->create();
+    $operator = User::factory()->operator()->create(['name' => 'Operator Dihapus']);
+
+    $this->actingAs($admin)->delete(route('admin.users.destroy', $operator))
+        ->assertRedirect(route('admin.users'))
+        ->assertSessionHas('status', 'Akun pengelola berhasil dihapus.');
+
+    expect(User::query()->whereKey($operator->id)->exists())->toBeFalse();
+});
+
+it('prevents deleting an account that has official historical records', function () {
+    $admin = User::factory()->administrator()->create();
+    $operator = User::factory()->operator()->create(['name' => 'Operator Berkas']);
+
+    // Operator pernah membuat dataset referensi
+    ReferenceDataset::create([
+        'version' => 'v-ref-test-staff',
+        'source' => 'test.json',
+        'state' => 'active',
+        'created_by' => $operator->id,
+        'activated_at' => now(),
+    ]);
+
+    $this->actingAs($admin)->delete(route('admin.users.destroy', $operator))
+        ->assertSessionHasErrors('user');
+
+    expect(User::query()->whereKey($operator->id)->exists())->toBeTrue();
 });

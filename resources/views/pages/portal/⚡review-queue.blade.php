@@ -101,6 +101,18 @@ new #[Title('Antrean Verifikasi')] class extends Component
         </div>
 
         <div class="panel-body pt-3">
+            @if($this->periods->isEmpty())
+                <div class="alert alert-info d-flex align-items-center justify-content-between flex-wrap gap-2 p-3 mb-3 rounded-3" role="alert">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-info-circle-fill text-primary fs-5"></i>
+                        <span class="small">Belum ada periode pendaftaran aktif. Antrean verifikasi berkas akan muncul setelah periode dibuka dan calon mahasiswa mengirimkan formulir pendaftaran.</span>
+                    </div>
+                    @if(auth()->user()?->isAdministrator())
+                        <a href="{{ route('admin.periods') }}" class="btn btn-sm btn-purple">Kelola Periode</a>
+                    @endif
+                </div>
+            @endif
+
             <div class="row g-3">
                 <div class="col-lg-5">
                     <label for="queue-search" class="visually-hidden">Cari nama atau nomor pendaftaran</label>

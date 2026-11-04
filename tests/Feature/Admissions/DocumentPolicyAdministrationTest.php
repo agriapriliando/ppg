@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Documents\UploadApplicantDocument;
+use App\Models\AdmissionPeriod;
 use App\Models\ApplicantWorkspace;
 use App\Models\DocumentPolicyVersion;
 use App\Models\User;
@@ -118,4 +119,17 @@ it('allows administrator to open pre-claim applicant workspace and manage files'
     $this->actingAs($c['operator'])
         ->get(route('admin.workspaces.documents.show', $preClaimWorkspace))
         ->assertForbidden();
+});
+
+it('shows a friendly empty state when no admission period exists yet instead of 404', function () {
+    $admin = User::factory()->administrator()->create();
+
+    // Pastikan tidak ada periode
+    AdmissionPeriod::query()->delete();
+
+    $this->actingAs($admin)
+        ->get(route('admin.document-policies.index'))
+        ->assertOk()
+        ->assertSee('Belum Ada Periode Pendaftaran')
+        ->assertSee('Kelola Periode');
 });

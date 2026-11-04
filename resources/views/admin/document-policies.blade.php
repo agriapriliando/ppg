@@ -4,18 +4,20 @@
             <h1 class="h4 mb-1 fw-bold text-purple"><i class="bi bi-folder-check me-2" aria-hidden="true"></i>Pengaturan Berkas</h1>
             <p class="text-muted small mb-0">Kelola batas ukuran berkas, kuota, dan format dokumen yang diizinkan untuk periode pendaftaran.</p>
         </div>
-        <div>
-            <form method="get" action="{{ route('admin.document-policies.index') }}" class="d-flex align-items-center gap-2">
-                <label for="period-selector" class="small fw-semibold text-muted text-nowrap">Pilih Periode:</label>
-                <select id="period-selector" name="period_id" class="form-select form-select-sm" onchange="this.form.submit()">
-                    @foreach ($periods as $p)
-                        <option value="{{ $p->id }}" @selected($p->id === $selectedPeriod->id)>
-                            {{ $p->name }} ({{ $p->academic_year }})
-                        </option>
-                    @endforeach
-                </select>
-            </form>
-        </div>
+        @if ($selectedPeriod && $periods->isNotEmpty())
+            <div>
+                <form method="get" action="{{ route('admin.document-policies.index') }}" class="d-flex align-items-center gap-2">
+                    <label for="period-selector" class="small fw-semibold text-muted text-nowrap">Pilih Periode:</label>
+                    <select id="period-selector" name="period_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                        @foreach ($periods as $p)
+                            <option value="{{ $p->id }}" @selected($p->id === $selectedPeriod->id)>
+                                {{ $p->name }} ({{ $p->academic_year }})
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+            </div>
+        @endif
     </div>
 
     @if ($errors->any())
@@ -29,7 +31,24 @@
         </div>
     @endif
 
-    <div class="row g-4">
+    @if (! $selectedPeriod)
+        <div class="workspace-card p-5 text-center">
+            <div class="mb-3">
+                <span class="dayak-shield-badge" style="width: 56px; height: 56px; font-size: 1.5rem; background: #f3e8ff; color: var(--ppg-purple-primary); margin: 0 auto;">
+                    <i class="bi bi-folder-x" aria-hidden="true"></i>
+                </span>
+            </div>
+            <h2 class="h5 fw-bold text-dark mb-2">Belum Ada Periode Pendaftaran</h2>
+            <p class="text-muted small mx-auto mb-4" style="max-width: 520px;">
+                Pengaturan batas ukuran berkas, kuota, dan format dokumen diatur berdasarkan periode pendaftaran resmi. Silakan buat periode pendaftaran terlebih dahulu untuk mulai mengatur aturan berkas.
+            </p>
+            <a href="{{ route('admin.periods') }}" class="btn btn-purple d-inline-flex align-items-center gap-2">
+                <i class="bi bi-calendar-plus" aria-hidden="true"></i>
+                <span>Kelola Periode & Gelombang</span>
+            </a>
+        </div>
+    @else
+        <div class="row g-4">
         <!-- Form Pengaturan & Publikasi Versi -->
         <div class="col-xl-8">
             <section class="workspace-card mb-4">
@@ -142,4 +161,5 @@
             </section>
         </div>
     </div>
+    @endif
 </x-layouts::app>

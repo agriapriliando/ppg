@@ -133,7 +133,9 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::post('/pendaftaran/{application}/koreksi-pemilik', [OwnershipTransferController::class, 'update'])->middleware('throttle:5,1')->name('ownership.update');
         Route::get('/pengguna', [StaffController::class, 'index'])->name('users');
         Route::post('/pengguna', [StaffController::class, 'store'])->name('users.store');
+        Route::put('/pengguna/{user}', [StaffController::class, 'update'])->name('users.update');
         Route::patch('/pengguna/{user}/status', [StaffController::class, 'toggle'])->name('users.toggle');
+        Route::delete('/pengguna/{user}', [StaffController::class, 'destroy'])->name('users.destroy');
         Route::get('/audit', AuditController::class)->name('audit');
         Route::post('/peserta/{participant}/kondisi', [ParticipantsController::class, 'condition'])->name('participants.condition');
         Route::get('/referensi', [ReferenceController::class, 'index'])->name('references');

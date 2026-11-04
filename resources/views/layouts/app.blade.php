@@ -5,6 +5,11 @@
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}"><meta name="theme-color" content="#4A154B">
     <title>{{ $title }} | PMB PPG IAKN</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon_io_new/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon_io_new/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon_io_new/favicon-16x16.png') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon_io_new/favicon.ico') }}">
+    <link rel="manifest" href="{{ asset('favicon_io_new/site.webmanifest') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
@@ -12,7 +17,10 @@
 <a href="#main-content" class="skip-link btn btn-gold">Lewati ke konten</a>
 <div class="portal-shell" x-data="{sidebar:false}" @keydown.escape.window="sidebar=false">
     <aside class="portal-sidebar" :class="{'is-open':sidebar}" x-trap.noscroll.inert="sidebar" aria-label="Menu ruang kerja">
-        <a href="{{ route('home') }}" class="portal-brand"><span class="dayak-shield-badge"><i class="bi bi-mortarboard-fill" aria-hidden="true"></i></span><span>PPG <b>IAKN</b><small>PALANGKA RAYA</small></span></a>
+        <a href="{{ route('home') }}" class="portal-brand">
+            <img src="{{ asset('favicon_io_new/android-chrome-192x192.png') }}" alt="Logo PMB PPG IAKN" style="width: 38px; height: 38px; object-fit: contain; flex-shrink: 0;" class="brand-logo">
+            <span>PPG <b>IAKN</b><small>PALANGKA RAYA</small></span>
+        </a>
         <div class="sidebar-period">Portal Penerimaan<small>PPG</small></div>
         <div class="sidebar-label">RUANG {{ mb_strtoupper(auth()->user()->role->label()) }}</div>
         <nav class="sidebar-nav">

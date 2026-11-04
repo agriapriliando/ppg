@@ -12,8 +12,8 @@ it('seeds every role with working local login and the correct dashboard permissi
     foreach (['admin' => UserRole::Administrator, 'operator' => UserRole::Operator, 'pendaftar' => UserRole::Applicant] as $login => $role) {
         $user = User::query()->where('login_id', $login)->sole();
         expect($user->role)->toBe($role)->and($user->account_state)->toBe(AccountState::Active)
-            ->and($user->must_change_password)->toBeFalse()->and(Hash::check('PpgDemo2026!', $user->password))->toBeTrue();
-        $this->post(route('login.store'), ['login' => $login, 'password' => 'PpgDemo2026!'])->assertRedirect(route('dashboard'))->assertSessionHasNoErrors();
+            ->and($user->must_change_password)->toBeFalse()->and(Hash::check('12345678', $user->password))->toBeTrue();
+        $this->post(route('login.store'), ['login' => $login, 'password' => '12345678'])->assertRedirect(route('dashboard'))->assertSessionHasNoErrors();
         $this->assertAuthenticatedAs($user);
         $this->get(route('dashboard'))->assertOk();
         if ($role === UserRole::Administrator) {

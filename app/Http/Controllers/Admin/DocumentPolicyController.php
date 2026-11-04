@@ -22,8 +22,20 @@ class DocumentPolicyController extends Controller
         $periods = AdmissionPeriod::query()->orderByDesc('id')->get();
         $selectedPeriodId = $request->integer('period_id') ?: $periods->first()?->id;
 
-        $selectedPeriod = $periods->firstWhere('id', $selectedPeriodId);
-        abort_unless($selectedPeriod instanceof AdmissionPeriod, 404);
+        $selectedPeriod = $selectedPeriodId ? $periods->firstWhere('id', $selectedPeriodId) : null;
+        if ($selectedPeriod === null && $periods->isNotEmpty()) {
+            $selectedPeriod = $periods->first();
+        }
+
+        if ($selectedPeriod === null) {
+            return view('admin.document-policies', [
+                'periods' => $periods,
+                'selectedPeriod' => null,
+                'currentPolicy' => null,
+                'history' => collect(),
+                'supportedTypes' => config('document_policy.supported_types', []),
+            ]);
+        }
 
         $currentPolicy = DocumentPolicyVersion::resolveForPeriod($selectedPeriod);
         $history = DocumentPolicyVersion::query()

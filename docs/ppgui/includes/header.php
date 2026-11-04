@@ -18,7 +18,11 @@ if (!isset($pageTitle)) {
     <meta name="theme-color" content="#4A154B">
 
     <!-- Favicon & Icon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><polygon points='50,5 90,25 90,75 50,95 10,75 10,25' fill='%234A154B'/><polygon points='50,15 80,30 80,70 50,85 20,70 20,30' fill='%23FFB300'/><text x='50' y='58' font-size='24' font-weight='bold' text-anchor='middle' fill='%231E0836'>PPG</text></svg>">
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon_io_new/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon_io_new/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon_io_new/favicon-16x16.png">
+    <link rel="shortcut icon" href="/favicon_io_new/favicon.ico">
+    <link rel="manifest" href="/favicon_io_new/site.webmanifest">
 
     <!-- Google Fonts: Plus Jakarta Sans & Cinzel Decorative for Dayak Touch -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
