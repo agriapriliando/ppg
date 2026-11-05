@@ -21,8 +21,8 @@
             <div class="panel-body pt-3">
                 <form method="get" class="row g-3">
                     <div class="col-lg-4">
-                        <label for="participant-search" class="visually-hidden">Nama atau pengenal resmi</label>
-                        <input class="form-control" id="participant-search" name="search" value="{{ $search }}" placeholder="Cari nama atau pengenal resmi…" maxlength="100">
+                        <label for="participant-search" class="visually-hidden">Nama atau Peg ID</label>
+                        <input class="form-control" id="participant-search" name="search" value="{{ $search }}" placeholder="Cari nama atau Peg ID…" maxlength="100">
                     </div>
                     <div class="col-lg-3">
                         <label for="participant-operator" class="visually-hidden">Filter Operator</label>
@@ -53,7 +53,7 @@
                 <table class="table portal-table">
                     <thead>
                         <tr>
-                            <th>Nama / pengenal resmi</th>
+                            <th>Nama / Peg ID</th>
                             <th>Nomor SK</th>
                             <th>Periode</th>
                             <th>Status Akun</th>

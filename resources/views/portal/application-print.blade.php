@@ -355,7 +355,7 @@
                 <td class="val-col">Urut ke-{{ $application->participant->sk_order }}</td>
             </tr>
             <tr>
-                <td class="label-col">Nomor Pengenal Resmi (ID)</td>
+                <td class="label-col">Peg ID</td>
                 <td class="colon-col">:</td>
                 <td class="val-col">{{ $application->participant->official_participant_id ?? '—' }}</td>
             </tr>
@@ -480,15 +480,22 @@
         <div class="section-header">IV. Pendidikan Asal & Kesejahteraan</div>
         <table class="bio-table">
             <tr>
-                <td class="label-col">Perguruan Tinggi Asal (S1)</td>
+                <td class="label-col">Pendidikan Terakhir</td>
                 <td class="colon-col">:</td>
-                <td class="val-col">{{ $application->workspace->education?->pt_name_snapshot ?? 'Belum diisi' }}</td>
+                <td class="val-col">{{ $application->workspace->education?->degree_level ?? 'Belum diisi' }}</td>
             </tr>
-            <tr>
-                <td class="label-col">Program Studi Asal</td>
-                <td class="colon-col">:</td>
-                <td class="val-col">{{ $application->workspace->education?->prodi_name_snapshot ?? 'Belum diisi' }}</td>
-            </tr>
+            @php
+                $education = $application->workspace->education;
+                $history = $education?->education_history ?? [];
+                if ($history === [] && ($education?->pt_name_snapshot || $education?->prodi_name_snapshot)) {
+                    $history[$education?->degree_level ?? 'S1'] = ['pt_name' => $education?->pt_name_snapshot, 'prodi_name' => $education?->prodi_name_snapshot, 'graduation_year' => $education?->graduation_year];
+                }
+            @endphp
+            @foreach($history as $level => $item)
+                <tr><td class="label-col">Perguruan Tinggi {{ $level }}</td><td class="colon-col">:</td><td class="val-col">{{ $item['pt_name'] ?? 'Belum diisi' }}</td></tr>
+                <tr><td class="label-col">Program Studi {{ $level }}</td><td class="colon-col">:</td><td class="val-col">{{ $item['prodi_name'] ?? 'Belum diisi' }}</td></tr>
+                <tr><td class="label-col">Tahun Lulus {{ $level }}</td><td class="colon-col">:</td><td class="val-col">{{ $item['graduation_year'] ?? 'Belum diisi' }}</td></tr>
+            @endforeach
             <tr>
                 <td class="label-col">Penerima KPS</td>
                 <td class="colon-col">:</td>

@@ -17,7 +17,7 @@ new #[Title('Periode & Gelombang')] class extends Component
 
     #[Locked] public ?int $editingId = null;
     #[Locked] public int $version = 0;
-    public array $form = ['code'=>'', 'name'=>'', 'academic_year'=>'', 'wave'=>'', 'state'=>'draft', 'opens_at'=>'', 'closes_at'=>'', 'allow_correction_after_close'=>false, 'correction_closes_at'=>'', 'is_public'=>false];
+    public array $form = ['code'=>'', 'name'=>'', 'academic_year'=>'', 'state'=>'draft', 'opens_at'=>'', 'closes_at'=>'', 'allow_correction_after_close'=>false, 'correction_closes_at'=>'', 'is_public'=>false];
     public string $message = '';
 
     public function mount(): void
@@ -128,17 +128,10 @@ new #[Title('Periode & Gelombang')] class extends Component
                                 <x-field-error name="name" />
                             </div>
 
-                            <div class="col-md-6">
+                            <div class="col-12">
                                 <label for="period-academic_year" class="form-label small fw-semibold">Tahun Akademik *</label>
                                 <input id="period-academic_year" class="form-control" wire:model="form.academic_year" placeholder="Contoh: 2026/2027" required maxlength="20">
                                 <x-field-error name="academic_year" />
-                            </div>
-
-                            <div class="col-md-6">
-                                <label for="period-wave" class="form-label small fw-semibold">Gelombang *</label>
-                                <input id="period-wave" class="form-control" wire:model="form.wave" placeholder="Contoh: 1 atau Khusus" required maxlength="50">
-                                <div class="form-text" style="font-size: 0.72rem;">Cukup masukkan nomor/nama (cth: 1).</div>
-                                <x-field-error name="wave" />
                             </div>
 
                             <div class="col-md-6">

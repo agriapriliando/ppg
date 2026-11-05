@@ -31,6 +31,15 @@ class ApplicantFormController extends Controller
             $dataset = ReferenceDataset::query()->whereKey($workspace->education->reference_dataset_id)->first();
         }
         $data = $workspace ? ApplicantFields::fromWorkspace($workspace) : [];
+        $options = ReferenceOption::query()->where('dataset_id', $dataset?->id)->get()->groupBy('group');
+        if ($workspace?->application === null || $workspace->application->status->editable()) {
+            $data['is_kps_recipient'] ??= false;
+            foreach (['nationality_code' => ['nationality', 'Indonesia'], 'religion_code' => ['religion', 'Kristen'], 'special_need_code' => ['special_need', 'Tidak ada kebutuhan khusus']] as $field => [$group, $label]) {
+                if (empty($data[$field])) {
+                    $data[$field] = $options->get($group)?->firstWhere('label', $label)?->code;
+                }
+            }
+        }
         if (empty($data['whatsapp_number']) && $request->user() !== null) {
             $claim = SkClaim::query()
                 ->where('admission_period_id', $period->id)
@@ -68,7 +77,7 @@ class ApplicantFormController extends Controller
         return view('portal.application-form', [
             'period' => $period, 'workspace' => $workspace, 'application' => $workspace?->application, 'data' => $data,
             'fields' => ApplicantFields::definitions(), 'dataset' => $dataset,
-            'options' => ReferenceOption::query()->where('dataset_id', $dataset?->id)->get()->groupBy('group'),
+            'options' => $options,
             'regions' => ReferenceRegion::query()->where('dataset_id', $dataset?->id)->whereIn('code', $regionCodes)->get(),
             'ptLabel' => $data['pt_name'] ?? (ReferencePt::query()->where('dataset_id', $dataset?->id)->where('external_id', FormInput::old('pt_external_id', $data['pt_external_id'] ?? ''))->value('name') ?? ''),
             'prodiLabel' => $data['prodi_name'] ?? (ReferenceProdi::query()->where('dataset_id', $dataset?->id)->where('external_id', FormInput::old('prodi_external_id', $data['prodi_external_id'] ?? ''))->value('name') ?? ''),
@@ -81,7 +90,7 @@ class ApplicantFormController extends Controller
         $request->validate(['version' => ['required', 'integer', 'min:0'], 'action' => ['required', 'in:draft,submit']]);
         $actor = $request->user();
         abort_unless($actor !== null, 403);
-        $keys = [...array_keys(ApplicantFields::definitions()), 'pt_external_id', 'prodi_external_id', 'pt_name', 'prodi_name', 'consent', 'consent_id'];
+        $keys = [...array_keys(ApplicantFields::definitions()), 'pt_external_id', 'prodi_external_id', 'pt_name', 'prodi_name', 'degree_level', 'graduation_year', 'education_history', 'consent', 'consent_id'];
         $submit = $request->input('action') === 'submit';
         $save->handle($actor, $period->id, $request->integer('version'), $request->only($keys), $submit);
 

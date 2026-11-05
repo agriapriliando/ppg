@@ -6,12 +6,37 @@ use App\Enums\ApplicationStatus;
 use App\Models\ApplicantBiodata;
 use App\Models\ApplicantWorkspace;
 use App\Models\CredentialIssuance;
+use App\Models\ReferenceDataset;
+use App\Models\ReferenceOption;
 use App\Models\User;
 use App\Models\WhatsappVerification;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 require_once __DIR__.'/../../Fixtures/registration.php';
+
+it('defaults nationality to Indonesia and religion to Kristen without replacing saved choices', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
+    $application = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+    $dataset = ReferenceDataset::query()->where('state', 'active')->firstOrFail();
+    ReferenceOption::create(['dataset_id' => $dataset->id, 'group' => 'nationality', 'code' => 'WNI', 'label' => 'Indonesia']);
+    ReferenceOption::create(['dataset_id' => $dataset->id, 'group' => 'religion', 'code' => 'KRISTEN', 'label' => 'Kristen']);
+    ReferenceOption::create(['dataset_id' => $dataset->id, 'group' => 'special_need', 'code' => 'TIDAK', 'label' => 'Tidak ada kebutuhan khusus']);
+
+    $response = $this->actingAs($c['applicant'])->get(route('applicant.form.edit', $c['period']))->assertOk();
+    expect($response->viewData('data')['nationality_code'])->toBe('WNI');
+    expect($response->viewData('data')['religion_code'])->toBe('KRISTEN');
+    expect($response->viewData('data')['is_kps_recipient'])->toBeFalse();
+    expect($response->viewData('data')['special_need_code'])->toBe('TIDAK');
+
+    $application->workspace->biodata->update(['nationality_code' => 'uji', 'religion_code' => 'uji', 'is_kps_recipient' => true, 'special_need_code' => 'uji']);
+    $response = $this->get(route('applicant.form.edit', $c['period']))->assertOk();
+    expect($response->viewData('data')['nationality_code'])->toBe('uji');
+    expect($response->viewData('data')['religion_code'])->toBe('uji');
+    expect($response->viewData('data')['is_kps_recipient'])->toBeTrue();
+    expect($response->viewData('data')['special_need_code'])->toBe('uji');
+});
 
 it('completes Google registration through correction and acceptance while retaining the first registration date', function () {
     $c = registrationContext();
@@ -191,8 +216,8 @@ it('renders district selection and keeps city and province readonly in form', fu
     $response->assertSee('id="picker-province_code"', false);
     $response->assertSee('readonly disabled', false);
     $response->assertSee('name="district_code"', false);
-    $response->assertSee('name="pt_name"', false);
-    $response->assertSee('name="prodi_name"', false);
+    $response->assertSee('name="education_history[S1][pt_name]"', false);
+    $response->assertSee('name="education_history[S1][prodi_name]"', false);
 });
 
 it('renders responsive confirmation modal with simulation consent checkbox before submit', function () {

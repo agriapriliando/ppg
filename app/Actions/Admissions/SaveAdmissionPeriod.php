@@ -27,8 +27,8 @@ class SaveAdmissionPeriod
         $data = Validator::make($input, [
             'code' => ['required', 'string', 'max:40', 'regex:/^[A-Za-z0-9_-]+$/', Rule::unique('admission_periods', 'code')->ignore($id)],
             'name' => ['required', 'string', 'max:255'],
-            'academic_year' => ['required', 'regex:/^\d{4}\/\d{4}$/'],
-            'wave' => ['required', 'string', 'max:50'],
+            'academic_year' => ['required', 'string', 'max:20'],
+            'wave' => ['sometimes', 'required', 'string', 'max:50'],
             'state' => ['required', Rule::enum(PeriodState::class)],
             'opens_at' => ['required', 'date_format:Y-m-d\TH:i'],
             'closes_at' => ['required', 'date_format:Y-m-d\TH:i', 'after:opens_at'],
@@ -54,6 +54,7 @@ class SaveAdmissionPeriod
                 throw ValidationException::withMessages(['conflict' => 'Periode yang diarsipkan tidak dapat diubah.']);
             }
             $values = $data;
+            $values['wave'] = $data['wave'] ?? $period->wave ?? '1';
             if ($id !== null && $data['state'] === PeriodState::Archived->value && (
                 Application::query()->where('admission_period_id', $id)->where('status', '!=', 'diterima_lengkap')->whereHas('participant', fn ($query) => $query->where('roster_state', 'active'))->exists()
                 || SkClaim::query()->where('admission_period_id', $id)->whereIn('status', ['pending', 'needs_information'])->exists()

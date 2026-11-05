@@ -42,7 +42,7 @@
                 <dt>Nomor Urut SK</dt>
                 <dd>{{ $participant->sk_order }}</dd>
 
-                <dt>Pengenal Resmi SK</dt>
+                <dt>Peg ID</dt>
                 <dd>{{ $participant->official_participant_id ?? 'Tidak tersedia' }}</dd>
 
                 <dt>Periode Penerimaan</dt>
@@ -172,37 +172,9 @@
                 </div>
 
                 <h3 class="h6 fw-bold text-purple mt-4 mb-3 border-bottom pb-2">
-                    <i class="bi bi-mortarboard me-1"></i>Pendidikan Asal S1 / D-IV
+                    <i class="bi bi-mortarboard me-1"></i>Pendidikan Terakhir
                 </h3>
-                <div class="row g-4">
-                    <div class="col-lg-6">
-                        <dl class="detail-list">
-                            <dt>Jenjang Pendidikan</dt>
-                            <dd>{{ $education?->degree_level ?? '-' }}</dd>
-
-                            <dt>Perguruan Tinggi Asal</dt>
-                            <dd class="fw-semibold text-dark">{{ $education?->institution_name ?? '-' }}</dd>
-
-                            <dt>Program Studi Asal</dt>
-                            <dd>{{ $education?->study_program_name ?? '-' }}</dd>
-
-                            <dt>Nomor Induk Mahasiswa (NIM)</dt>
-                            <dd><code>{{ $education?->student_id_number ?? '-' }}</code></dd>
-                        </dl>
-                    </div>
-                    <div class="col-lg-6">
-                        <dl class="detail-list">
-                            <dt>Tahun Masuk / Tahun Lulus</dt>
-                            <dd>{{ $education?->entry_year ?? '-' }} / {{ $education?->graduation_year ?? '-' }}</dd>
-
-                            <dt>Indeks Prestasi Kumulatif (IPK)</dt>
-                            <dd class="fw-bold text-purple">{{ $education?->gpa ?? '-' }}</dd>
-
-                            <dt>Nomor Ijazah</dt>
-                            <dd><code>{{ $education?->diploma_number ?? '-' }}</code></dd>
-                        </dl>
-                    </div>
-                </div>
+                <x-education-history :education="$education" />
             @else
                 <div class="text-center py-4 text-muted">
                     <i class="bi bi-person-x display-6 d-block mb-2 text-muted"></i>
@@ -435,7 +407,7 @@
                             <input type="number" id="edit-sk-order" name="sk_order" class="form-control" value="{{ old('sk_order', $participant->sk_order) }}" required min="1" max="999999">
                         </div>
                         <div class="col-md-7">
-                            <label for="edit-official-id" class="form-label fw-bold">Pengenal Resmi SK / No. Peserta</label>
+                            <label for="edit-official-id" class="form-label fw-bold">Peg ID</label>
                             <input type="text" id="edit-official-id" name="official_participant_id" class="form-control" value="{{ old('official_participant_id', $participant->official_participant_id) }}" maxlength="100" placeholder="Contoh: 30200325189001">
                         </div>
                     </div>

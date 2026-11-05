@@ -3,14 +3,58 @@
 use App\Actions\Admissions\ApproveClaim;
 use App\Actions\Admissions\SubmitSkClaim;
 use App\Enums\AccountState;
+use App\Models\AdmissionPeriod;
 use App\Models\AuditEvent;
 use App\Models\CredentialIssuance;
 use App\Models\User;
 use App\Models\WhatsappVerification;
+use App\Support\ApplicantPassword;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 require_once __DIR__.'/../../Fixtures/registration.php';
+
+it('selects a candidate and approves the account in one submission without checkboxes', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
+    $claim->forceFill(['candidate_sk_participant_id' => null])->save();
+
+    $this->actingAs($c['operator'])->get(route('claims.show', $claim))->assertOk()
+        ->assertDontSee('name="identity_checked"', false)->assertDontSee('name="sk_checked"', false)
+        ->assertDontSee('Simpan Kandidat')->assertDontSee('Pencocokan administratif');
+    $this->post(route('claims.approve', $claim), ['version' => 0, 'candidate_id' => $c['participant']->id])
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    expect($claim->fresh()->status)->toBe('approved');
+    expect($claim->fresh()->candidate_sk_participant_id)->toBe($c['participant']->id);
+    $this->assertDatabaseHas('applications', ['sk_participant_id' => $c['participant']->id]);
+});
+
+it('rejects a candidate from a different period without approving the claim', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
+    $otherPeriod = AdmissionPeriod::factory()->create();
+    $participant = $c['participant']->replicate();
+    $participant->admission_period_id = $otherPeriod->id;
+    $participant->save();
+
+    $this->actingAs($c['admin'])->post(route('claims.approve', $claim), ['version' => 0, 'candidate_id' => $participant->id])
+        ->assertSessionHasErrors('claim');
+
+    expect($claim->fresh()->status)->toBe('pending');
+    expect($claim->fresh()->candidate_sk_participant_id)->toBe($c['participant']->id);
+    $this->assertDatabaseCount('applications', 0);
+});
+
+it('accepts public WhatsApp claims while staff are logged in without linking their account', function (string $staff) {
+    $c = registrationContext();
+
+    $this->actingAs($c[$staff])->post(route('public.claim.store'), claimInput($c))
+        ->assertRedirect(route('public.claim'))->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('sk_claims', ['admission_period_id' => $c['period']->id, 'requester_user_id' => null, 'access_path' => 'whatsapp']);
+    $this->assertAuthenticatedAs($c[$staff]);
+})->with(['admin', 'operator']);
 
 it('approves a WhatsApp claim and delivers access without requiring recorded reply evidence', function () {
     $c = registrationContext();
@@ -19,18 +63,44 @@ it('approves a WhatsApp claim and delivers access without requiring recorded rep
         ->assertDontSee('Bukti nomor WhatsApp aktif')->assertDontSee('wa-evidence');
     $this->post(route('claims.approve', $claim), ['version' => 0, 'identity_checked' => 1, 'sk_checked' => 1])
         ->assertRedirect()->assertSessionHasNoErrors();
-    $this->get(route('claims.show', $claim))->assertOk()->assertSee('Generate Akun')
-        ->assertDontSee('credential-reason')->assertDontSee('Terbitkan Akses Sekali Tampil');
-    $response = $this->post(route('credentials.issue', $claim));
-    $response->assertOk();
-    $secret = $response->viewData('secret');
     $issuance = CredentialIssuance::query()->sole();
-    $this->post(route('credentials.deliver', $issuance), ['delivered' => 1])->assertRedirect()->assertSessionHasNoErrors();
+    $secret = $issuance->encrypted_secret;
+    expect($secret)->toBeIn(ApplicantPassword::NAMES);
+    $this->get(route('claims.show', $claim))->assertOk()
+        ->assertSee($claim->fresh()->requester->login_id)->assertSee($secret)
+        ->assertSee('Kirim Akun ke WhatsApp')->assertSee('name="open_whatsapp"', false)
+        ->assertDontSee('Catat Sudah Diserahkan')->assertDontSee('Saya telah menyerahkan akses')
+        ->assertDontSee('Generate Akun')->assertDontSee('credential-reason')
+        ->assertHeader('Cache-Control', 'max-age=0, no-store, private');
+    $this->assertDatabaseCount('credential_issuances', 1);
+    $response = $this->post(route('credentials.deliver', $issuance), ['delivered' => 1, 'open_whatsapp' => 1]);
+    $response->assertRedirect()->assertSessionHasNoErrors();
+    expect($response->headers->get('Location'))->toStartWith('https://wa.me/6281234567890?text=');
+    expect($issuance->fresh()->delivered_at)->not->toBeNull();
     $this->post(route('logout'));
     $this->post(route('login.store'), ['login' => $claim->fresh()->requester->login_id, 'password' => $secret])
         ->assertRedirect(route('dashboard'));
     $this->assertDatabaseCount('applications', 1);
     $this->assertDatabaseCount('whatsapp_verifications', 0);
+});
+
+it('regenerates credentials on the claim page and hides them after the password changes', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
+    $this->actingAs($c['operator'])->post(route('claims.approve', $claim), ['version' => 0])->assertSessionHasNoErrors();
+    $first = CredentialIssuance::query()->sole();
+
+    $this->post(route('credentials.regenerate', $claim), ['return_to_claim' => 1])
+        ->assertRedirect(route('claims.show', $claim))->assertSessionHasNoErrors();
+    $latest = CredentialIssuance::query()->latest('id')->firstOrFail();
+    expect($latest->encrypted_secret)->toBeIn(ApplicantPassword::NAMES)->not->toBe($first->encrypted_secret);
+    expect($first->fresh()->revoked_at)->not->toBeNull();
+    $this->get(route('claims.show', $claim))->assertOk()->assertSee($latest->encrypted_secret);
+
+    $user = $claim->fresh()->requester;
+    $user->forceFill(['account_state' => AccountState::Active, 'password' => Hash::make('PasswordBaruUji123')])->save();
+    $this->get(route('claims.show', $claim))->assertOk()
+        ->assertDontSee($latest->encrypted_secret)->assertDontSee('Kirim Akun ke WhatsApp');
 });
 
 it('activates the account on first login and retains the delivered password for future logins', function () {
@@ -48,7 +118,7 @@ it('activates the account on first login and retains the delivered password for 
     expect(Hash::check($secret, $issuance->secret_hash))->toBeTrue();
     expect(json_encode(AuditEvent::query()->get()->toArray()))->not->toContain($secret);
     $this->post(route('logout'));
-    $this->post(route('login.store'), ['login' => $user->login_id, 'password' => $secret])->assertSessionHasErrors('login');
+    $this->post(route('login.store'), ['login' => $user->login_id, 'password' => 'kata-sandi-salah'])->assertSessionHasErrors('login');
     $this->assertGuest();
     $this->actingAs($c['operator'])->post(route('credentials.deliver', $issuance), ['delivered' => 1])->assertRedirect()->assertSessionHasNoErrors();
     $this->post(route('logout'));
@@ -61,6 +131,41 @@ it('activates the account on first login and retains the delivered password for 
     $this->get(route('dashboard'))->assertOk();
     $this->post(route('logout'));
     $this->post(route('login.store'), ['login' => $user->login_id, 'password' => $secret])->assertRedirect(route('dashboard'));
+});
+
+it('allows the issued password to activate the account without a delivery marker', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
+    $this->actingAs($c['operator'])->post(route('claims.approve', $claim), ['version' => 0])
+        ->assertSessionHasNoErrors();
+    $issuance = CredentialIssuance::query()->sole();
+    $user = $claim->fresh()->requester;
+    expect($issuance->delivered_at)->toBeNull();
+    $this->post(route('logout'));
+
+    $this->post(route('login.store'), ['login' => $user->login_id, 'password' => $issuance->encrypted_secret])
+        ->assertRedirect(route('dashboard'))->assertSessionHasNoErrors();
+
+    $this->assertAuthenticatedAs($user);
+    expect($user->fresh()->account_state)->toBe(AccountState::Active);
+    expect($issuance->fresh()->used_at)->not->toBeNull();
+    expect($issuance->fresh()->delivered_at)->toBeNull();
+    $this->get(route('dashboard'))->assertOk();
+});
+
+it('rejects a revoked credential even without requiring a delivery marker', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
+    $this->actingAs($c['operator'])->post(route('claims.approve', $claim), ['version' => 0])->assertSessionHasNoErrors();
+    $issuance = CredentialIssuance::query()->sole();
+    $issuance->update(['revoked_at' => now()]);
+    $this->post(route('logout'));
+
+    $this->post(route('login.store'), ['login' => $claim->fresh()->requester->login_id, 'password' => $issuance->encrypted_secret])
+        ->assertSessionHasErrors('login');
+
+    $this->assertGuest();
+    expect($claim->fresh()->requester->account_state)->toBe(AccountState::PendingActivation);
 });
 
 it('rejects an expired temporary credential without opening an activation session', function () {

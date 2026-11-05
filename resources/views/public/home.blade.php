@@ -154,7 +154,7 @@
                 <p class="text-muted">Kepemilikan akun dan kepesertaan dalam SK diperiksa secara terpisah.</p>
             </div>
             <div class="row g-4">
-                @foreach (['Cocokkan kepesertaan SK' => 'Gunakan nama dan pengenal resmi. Operator akan memeriksa kecocokan identitas Anda.', 'Lengkapi biodata' => 'Isi identitas, alamat, informasi tambahan, serta perguruan tinggi dan program studi asal.', 'Tinjau dan kirim' => 'Periksa kembali data dan pernyataan sebelum mengirim untuk pemeriksaan operator.', 'Pantau hasil pemeriksaan' => 'Perbaiki data sesuai catatan operator sampai dinyatakan diterima lengkap.'] as $heading => $description)
+                @foreach (['Cocokkan kepesertaan SK' => 'Gunakan nama dan Peg ID. Operator akan memeriksa kecocokan identitas Anda.', 'Lengkapi biodata' => 'Isi identitas, alamat, informasi tambahan, serta perguruan tinggi dan program studi asal.', 'Tinjau dan kirim' => 'Periksa kembali data dan pernyataan sebelum mengirim untuk pemeriksaan operator.', 'Pantau hasil pemeriksaan' => 'Perbaiki data sesuai catatan operator sampai dinyatakan diterima lengkap.'] as $heading => $description)
                     <div class="col-md-6 col-lg-3">
                         <article class="workspace-card h-100">
                             <div class="panel-body"><span class="avatar-mini mb-3">{{ $loop->iteration }}</span>

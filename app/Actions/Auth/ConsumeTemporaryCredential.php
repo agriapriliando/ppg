@@ -17,7 +17,7 @@ class ConsumeTemporaryCredential
             if ($locked->account_state !== AccountState::PendingActivation) {
                 return null;
             }
-            $issuance = CredentialIssuance::query()->where('user_id', $user->id)->whereNotNull('delivered_at')->whereNull('used_at')->whereNull('revoked_at')->where('expires_at', '>', now())->orderByDesc('id')->lockForUpdate()->first();
+            $issuance = CredentialIssuance::query()->where('user_id', $user->id)->whereNull('used_at')->whereNull('revoked_at')->where('expires_at', '>', now())->orderByDesc('id')->lockForUpdate()->first();
             if ($issuance === null || ! Hash::check($password, $issuance->secret_hash)) {
                 return null;
             }

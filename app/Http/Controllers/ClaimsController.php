@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Actions\Admissions\ApproveClaim;
 use App\Actions\Admissions\CancelClaimApproval;
+use App\Actions\Admissions\IssueClaimCredentials;
 use App\Actions\Admissions\SubmitSkClaim;
+use App\Actions\Admissions\UpdateClaimWhatsapp;
 use App\Actions\RecordAudit;
 use App\Enums\AccountState;
 use App\Enums\UserRole;
@@ -19,6 +21,7 @@ use App\Models\User;
 use App\Models\WhatsappVerification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -30,12 +33,19 @@ class ClaimsController extends Controller
 {
     public function create(): View
     {
-        return view('public.claim', ['periods' => AdmissionPeriod::query()->where('state', 'published')->orderByDesc('id')->get(), 'consent' => ConsentText::query()->where('purpose', 'claim')->latest('id')->first(), 'requestKey' => (string) Str::uuid()]);
+        $periods = AdmissionPeriod::query()->where('state', 'published')->orderByDesc('id')->get();
+        $openPeriods = $periods->filter(fn (AdmissionPeriod $period) => $period->acceptsApplications());
+
+        return view('public.claim', ['periods' => $periods, 'defaultPeriodId' => $openPeriods->count() === 1 ? $openPeriods->first()->id : null, 'consent' => ConsentText::query()->where('purpose', 'claim')->latest('id')->first(), 'requestKey' => (string) Str::uuid()]);
     }
 
     public function store(Request $request, SubmitSkClaim $submit): RedirectResponse
     {
-        $claim = $submit->handle($request->user(), $request->only(['period_id', 'name', 'identifier', 'whatsapp_number', 'request_key', 'consent_id', 'consent']));
+        $requester = $request->user();
+        if ($requester?->role !== UserRole::Applicant) {
+            $requester = null;
+        }
+        $claim = $submit->handle($requester, $request->only(['period_id', 'name', 'identifier', 'whatsapp_number', 'request_key', 'consent_id', 'consent']));
 
         return redirect()->route('public.claim')->with('status', 'Permohonan diterima untuk pemeriksaan. Referensi: '.$claim->public_reference.'. Operator akan menindaklanjuti melalui kanal resmi. Permohonan belum memberikan akses dashboard.');
     }
@@ -86,30 +96,49 @@ class ClaimsController extends Controller
         ]);
     }
 
-    public function show(SkClaim $claim): View
+    public function show(SkClaim $claim, IssueClaimCredentials $access): Response
     {
         abort_unless(Gate::allows('review', $claim), 404);
 
         $actor = auth()->user();
         $isStaff = $actor?->isAdministrator() || $actor?->role === UserRole::Operator;
 
-        return view('portal.claim-detail', [
+        $credentials = $claim->status === 'approved' && $claim->access_path === 'whatsapp'
+            ? $access->details($actor, $claim)
+            : [];
+
+        return response()->view('portal.claim-detail', [
             'claim' => $claim->load(['period', 'candidate.assignedOperator', 'requester', 'responses', 'reviewOwner']),
             'operators' => $isStaff ? User::query()->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->where('must_change_password', false)->whereIn('id', DB::table('period_operators')->where('admission_period_id', $claim->admission_period_id)->where('is_active', true)->select('user_id'))->orderBy('name')->get() : collect(),
-            'candidates' => $isStaff ? SkParticipant::query()->where('admission_period_id', $claim->admission_period_id)->whereNull('claimed_user_id')->orderBy('name_on_sk')->limit(1000)->get() : collect(),
             'application' => $claim->status === 'approved' ? Application::query()->with('workspace.biodata')->where('sk_participant_id', $claim->candidate_sk_participant_id)->first() : null,
-        ]);
+            'credentials' => $credentials,
+        ], headers: ['Cache-Control' => 'private, no-store, max-age=0', 'Pragma' => 'no-cache', 'Referrer-Policy' => 'no-referrer']);
     }
 
-    public function approve(Request $request, SkClaim $claim, ApproveClaim $approve): RedirectResponse
+    public function approve(Request $request, SkClaim $claim, ApproveClaim $approve, IssueClaimCredentials $access): RedirectResponse
     {
         Gate::authorize('review', $claim);
-        $data = $request->validate(['version' => ['required', 'integer', 'min:0'], 'identity_checked' => ['accepted'], 'sk_checked' => ['accepted']]);
+        $data = $request->validate(['version' => ['required', 'integer', 'min:0'], 'candidate_id' => ['sometimes', 'required', 'integer', 'exists:sk_participants,id']]);
         $actor = $request->user();
         abort_unless($actor !== null, 403);
-        $approve->handle($actor, $claim, (int) $data['version']);
+        DB::transaction(function () use ($actor, $claim, $data, $approve, $access): void {
+            $approve->handle($actor, $claim, (int) $data['version'], isset($data['candidate_id']) ? (int) $data['candidate_id'] : null);
+            $claim->refresh();
+            if ($claim->access_path === 'whatsapp') {
+                $access->handle($actor, $claim);
+            }
+        });
 
-        return back()->with('status', 'Klaim disetujui dan satu pendaftaran resmi dibuat.');
+        return redirect()->route('claims.show', $claim)->with('status', 'Klaim disetujui dan akun siap dikirim kepada peserta.');
+    }
+
+    public function updateWhatsapp(Request $request, SkClaim $claim, UpdateClaimWhatsapp $update): RedirectResponse
+    {
+        Gate::authorize('review', $claim);
+        $data = $request->validate(['version' => ['required', 'integer', 'min:0'], 'whatsapp_number' => ['required', 'string', 'max:30']]);
+        $update->handle($request->user(), $claim, (int) $data['version'], $data['whatsapp_number']);
+
+        return redirect()->route('claims.show', $claim)->with('status', 'Nomor permohonan dan tujuan pengiriman akun berhasil diperbarui.');
     }
 
     public function cancelApproval(Request $request, SkClaim $claim, CancelClaimApproval $cancelApproval): RedirectResponse

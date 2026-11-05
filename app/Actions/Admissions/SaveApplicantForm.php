@@ -137,12 +137,22 @@ class SaveApplicantForm
                 ? (ReferenceProdi::query()->where('dataset_id', $datasetId)->where('external_id', $prodiInput)->value('name') ?: $prodiInput)
                 : null;
 
+            foreach ($data['education_history'] ?? [] as $level => $education) {
+                $data['education_history'][$level]['pt_name'] = ! empty($education['pt_name'])
+                    ? (ReferencePt::query()->where('dataset_id', $datasetId)->where('external_id', $education['pt_name'])->value('name') ?: $education['pt_name']) : null;
+                $data['education_history'][$level]['prodi_name'] = ! empty($education['prodi_name'])
+                    ? (ReferenceProdi::query()->where('dataset_id', $datasetId)->where('external_id', $education['prodi_name'])->value('name') ?: $education['prodi_name']) : null;
+            }
+
             OriginEducation::query()->updateOrCreate(['workspace_id' => $workspace->id], [
                 'reference_dataset_id' => $datasetId ?: null,
-                'pt_external_id' => $data['pt_external_id'] ?? $ptInput,
-                'prodi_external_id' => $data['prodi_external_id'] ?? $prodiInput,
+                'pt_external_id' => ReferencePt::query()->where('dataset_id', $datasetId)->where('external_id', $ptInput)->value('external_id'),
+                'prodi_external_id' => ReferenceProdi::query()->where('dataset_id', $datasetId)->where('external_id', $prodiInput)->value('external_id'),
                 'pt_name_snapshot' => $ptNameSnapshot,
                 'prodi_name_snapshot' => $prodiNameSnapshot,
+                'degree_level' => $data['degree_level'] ?? null,
+                'graduation_year' => $data['graduation_year'] ?? null,
+                'education_history' => $data['education_history'] ?? null,
             ]);
             $workspace->lock_version++;
             $workspace->saved_at = now();

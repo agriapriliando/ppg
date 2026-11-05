@@ -23,9 +23,9 @@ class ApproveClaim
 {
     public function __construct(private RecordAudit $audit, private AssignApplicantUsername $assignUsername) {}
 
-    public function handle(User $actor, SkClaim $claim, int $expectedVersion): Application
+    public function handle(User $actor, SkClaim $claim, int $expectedVersion, ?int $candidateId = null): Application
     {
-        return DB::transaction(function () use ($actor, $claim, $expectedVersion): Application {
+        return DB::transaction(function () use ($actor, $claim, $expectedVersion, $candidateId): Application {
             $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($claim->admission_period_id);
             $locked = SkClaim::query()->lockForUpdate()->findOrFail($claim->id);
             Gate::forUser($actor)->authorize('review', $locked);
@@ -35,11 +35,12 @@ class ApproveClaim
             if ($period->state === PeriodState::Archived || $locked->lock_version !== $expectedVersion || ! in_array($locked->status, ['pending', 'needs_information'], true)) {
                 throw ValidationException::withMessages(['claim' => 'Klaim telah berubah atau periode diarsipkan. Muat ulang pemeriksaan.']);
             }
-            $participant = SkParticipant::query()->whereKey($locked->candidate_sk_participant_id)->lockForUpdate()->first();
+            $participant = SkParticipant::query()->whereKey($candidateId ?? $locked->candidate_sk_participant_id)->lockForUpdate()->first();
             if ($participant === null || $participant->admission_period_id !== $period->id || $participant->claimed_user_id !== null || $participant->roster_state !== 'active' || $participant->admin_hold) {
                 throw ValidationException::withMessages(['claim' => 'Pilih kepesertaan sah yang belum diklaim dan selesaikan konflik administratif.']);
             }
             Gate::forUser($actor)->authorize('view', $participant);
+            $locked->candidate_sk_participant_id = $participant->id;
             $verification = WhatsappVerification::query()->where('claim_id', $locked->id)->where('number', $locked->whatsapp_number)->whereNull('invalidated_at')->latest('id')->first();
             $user = $locked->requester;
             if ($user === null) {

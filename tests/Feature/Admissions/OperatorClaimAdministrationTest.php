@@ -21,9 +21,9 @@ it('allows operators to match administrative candidates on claims', function () 
 
     $this->actingAs($c['operator'])->get(route('claims.show', $claim))
         ->assertOk()
-        ->assertSee('Pencocokan administratif')
+        ->assertSee('Kandidat resmi pada periode ini')
         ->assertDontSee('Dasar pencocokan')
-        ->assertSee($c['participant']->name_on_sk);
+        ->assertSee('Ketik minimal 2 karakter nama, Peg ID, atau nomor SK');
 
     $this->post(route('claims.candidate', $claim), [
         'candidate_id' => $c['participant']->id,
@@ -117,7 +117,7 @@ it('allows operators to access and perform whatsapp recovery when old number is 
 
     $this->actingAs($c['operator'])->get(route('claims.show', $claim))
         ->assertOk()
-        ->assertSee('Pemulihan Saat Nomor Lama Hilang');
+        ->assertSee('Edit nomor HP')->assertDontSee('Pemulihan Saat Nomor Lama Hilang');
 
     $this->get(route('admin.whatsapp-recovery.edit', $claim))
         ->assertOk()

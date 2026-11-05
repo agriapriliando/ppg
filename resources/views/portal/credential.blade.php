@@ -7,11 +7,12 @@
             $waNumber = $digits;
         }
 
-        $waMessage = "Halo Bapak/Ibu {$user->name},\n\nBerikut informasi akun untuk masuk ke Portal PMB PPG IAKN Palangka Raya:\n\n• ID Login: {$user->login_id}\n"
-            . ($secret !== null ? "• Kata Sandi: {$secret}\n" : "")
-            . "• Tautan Masuk: " . route('login') . "\n"
-            . ($issuance && $issuance->expires_at && $user->account_state === App\Enums\AccountState::PendingActivation ? "• Batas Waktu Masuk: " . $issuance->expires_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') . " WIB\n" : "")
-            . "\nMohon segera masuk ke portal dan lakukan aktivasi akun. Jaga kerahasiaan informasi akun Anda.\n\nSalam,\nPengelola PMB PPG IAKN Palangka Raya";
+        $waMessage = "Halo Bapak/Ibu {$user->name}, Berikut informasi akun Portal PMB PPG IAKN Palangka Raya:\n"
+            . "ID Login: {$user->login_id}\n"
+            . ($secret !== null ? "Kata Sandi: {$secret}\n" : "")
+            . "Tautan Masuk: " . route('login') . "\n"
+            . "Segera login untuk melengkapi Formulir Biodata dan Unggah Berkas\n"
+            . "Terima Kasih.";
 
         $waUrl = !empty($waNumber) ? 'https://wa.me/' . $waNumber . '?text=' . rawurlencode($waMessage) : null;
     @endphp
@@ -61,21 +62,27 @@
                         </p>
                     </div>
                     <div>
-                        <a href="{{ $waUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-success d-inline-flex align-items-center gap-2 px-3 py-2 shadow-sm">
+                        @if($canDeliver)
+                            <form method="post" action="{{ route('credentials.deliver', $issuance) }}" target="_blank" rel="noopener noreferrer">
+                                @csrf
+                                <input type="hidden" name="delivered" value="1">
+                                <input type="hidden" name="open_whatsapp" value="1">
+                                <button type="submit" class="btn btn-success d-inline-flex align-items-center gap-2 px-3 py-2 shadow-sm">
+                                    <i class="bi bi-whatsapp fs-5" aria-hidden="true"></i>
+                                    <span class="fw-semibold">Kirim Akun ke WhatsApp</span>
+                                </button>
+                            </form>
+                        @else
+                            <a href="{{ $waUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-success d-inline-flex align-items-center gap-2 px-3 py-2 shadow-sm">
                             <i class="bi bi-whatsapp fs-5"></i>
                             <span class="fw-semibold">Kirim Kredensial WhatsApp</span>
                         </a>
+                        @endif
                     </div>
                 </div>
             @endif
 
-            @if($canDeliver)
-                <form method="post" action="{{ route('credentials.deliver', $issuance) }}">
-                    @csrf
-                    <label class="consent-box mb-3"><input name="delivered" value="1" type="checkbox" class="form-check-input" required><span>Saya telah menyerahkan akses melalui nomor WhatsApp yang ditampilkan.</span></label>
-                    <button class="btn btn-purple">Catat Sudah Diserahkan</button>
-                </form>
-            @endif
+
         </div>
     </section>
 </x-layouts::app>

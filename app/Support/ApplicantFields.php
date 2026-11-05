@@ -25,6 +25,14 @@ class ApplicantFields
         $data['prodi_name'] = $education ? ($education->prodi_name_snapshot ?? $education->prodi_external_id) : null;
         $data['pt_external_id'] = $education?->pt_external_id;
         $data['prodi_external_id'] = $education?->prodi_external_id;
+        $data['degree_level'] = $education?->degree_level;
+        $data['graduation_year'] = $education?->graduation_year;
+        $data['education_history'] = $education->education_history ?? [];
+        if ($data['education_history'] === [] && ($data['pt_name'] || $data['prodi_name'])) {
+            $data['education_history'][$education->degree_level ?? 'S1'] = [
+                'pt_name' => $data['pt_name'], 'prodi_name' => $data['prodi_name'], 'graduation_year' => $data['graduation_year'],
+            ];
+        }
 
         if (empty($data['whatsapp_number'])) {
             $claim = SkClaim::query()
@@ -129,15 +137,60 @@ class ApplicantFields
         } elseif (isset($input['prodi_external_id']) && ! isset($input['prodi_name'])) {
             $input['prodi_name'] = $input['prodi_external_id'];
         }
-        $rules['pt_name'] = [$final ? 'required' : 'nullable', 'string', 'max:255'];
-        $rules['prodi_name'] = [$final ? 'required' : 'nullable', 'string', 'max:255'];
+        $rules['pt_name'] = ['nullable', 'string', 'max:255'];
+        $rules['prodi_name'] = ['nullable', 'string', 'max:255'];
         $rules['pt_external_id'] = ['nullable', 'string', 'max:255'];
         $rules['prodi_external_id'] = ['nullable', 'string', 'max:255'];
+        $rules['degree_level'] = [$final ? 'required' : 'nullable', Rule::in(['S1', 'S2', 'S3'])];
+        $rules['graduation_year'] = ['nullable', 'integer', 'between:1900,'.now()->year];
+        // Accept older clients while storing education in one consistent structure.
+        if (! array_key_exists('education_history', $input) && in_array($input['degree_level'] ?? null, ['S1', 'S2', 'S3'], true)) {
+            $input['education_history'][$input['degree_level']] = [
+                'pt_name' => $input['pt_name'] ?? null, 'prodi_name' => $input['prodi_name'] ?? null,
+                'graduation_year' => $input['graduation_year'] ?? null,
+            ];
+        }
+        $levels = ['S1', 'S2', 'S3'];
+        $highest = array_search($input['degree_level'] ?? '', $levels, true);
+        $rules['education_history'] = [$final ? 'required' : 'nullable', 'array:S1,S2,S3'];
+        foreach ($levels as $index => $level) {
+            $included = $highest !== false && $index <= $highest;
+            $prefix = 'education_history.'.$level;
+            $rules[$prefix] = [Rule::excludeIf(! $included), $final ? 'required' : 'nullable', 'array:pt_name,prodi_name,graduation_year'];
+            $rules[$prefix.'.pt_name'] = [Rule::excludeIf(! $included), $final ? 'required' : 'nullable', 'string', 'max:255'];
+            $rules[$prefix.'.prodi_name'] = [Rule::excludeIf(! $included), $final ? 'required' : 'nullable', 'string', 'max:255'];
+            $rules[$prefix.'.graduation_year'] = [Rule::excludeIf(! $included), $final ? 'required' : 'nullable', 'integer', 'between:1900,'.now()->year];
+            $labels[$prefix] = 'Data pendidikan '.$level;
+            $labels[$prefix.'.pt_name'] = 'Perguruan tinggi '.$level;
+            $labels[$prefix.'.prodi_name'] = 'Program studi '.$level;
+            $labels[$prefix.'.graduation_year'] = 'Tahun lulus '.$level;
+        }
+        $labels['degree_level'] = 'Pendidikan terakhir';
+        $labels['graduation_year'] = 'Tahun lulus';
         $labels['pt_name'] = 'Perguruan tinggi asal';
         $labels['prodi_name'] = 'Program studi asal';
         $labels['pt_external_id'] = 'Perguruan tinggi asal';
         $labels['prodi_external_id'] = 'Program studi asal';
         $data = Validator::make($input, $rules, ['required' => ':attribute wajib diisi.', 'exists' => ':attribute tidak tersedia pada referensi aktif.', 'digits' => ':attribute harus terdiri dari :digits digit.', 'birth_date.before' => 'Tanggal lahir harus sebelum hari ini.'], $labels)->validate();
+        $history = $data['education_history'] ?? [];
+        $previousYear = null;
+        foreach ($levels as $level) {
+            $year = $history[$level]['graduation_year'] ?? null;
+            if ($year !== null && $previousYear !== null && (int) $year < $previousYear) {
+                throw ValidationException::withMessages(['education_history.'.$level.'.graduation_year' => 'Tahun lulus '.$level.' tidak boleh sebelum jenjang sebelumnya.']);
+            }
+            if ($year !== null) {
+                $previousYear = (int) $year;
+            }
+        }
+        $latest = $history[$data['degree_level'] ?? ''] ?? null;
+        if ($latest !== null) {
+            $data['pt_name'] = $latest['pt_name'] ?? null;
+            $data['prodi_name'] = $latest['prodi_name'] ?? null;
+            $data['graduation_year'] = $latest['graduation_year'] ?? null;
+            $data['pt_external_id'] = $data['pt_name'];
+            $data['prodi_external_id'] = $data['prodi_name'];
+        }
         if ($final && ! $datasetId) {
             throw ValidationException::withMessages(['references' => 'Referensi formulir belum tersedia. Hubungi pengelola; draf tetap dapat disimpan.']);
         }

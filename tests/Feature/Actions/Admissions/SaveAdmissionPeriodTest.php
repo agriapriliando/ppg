@@ -12,13 +12,32 @@ function validPeriodForm(): array
 
 it('creates a period through the Livewire form and converts WIB to UTC', function () {
     $user = User::factory()->administrator()->create();
-    Livewire::actingAs($user)->test('pages::admin.periods')->set('form', validPeriodForm())->call('save')->assertHasNoErrors()->assertSee('Periode berhasil disimpan.');
+    $data = validPeriodForm();
+    $data['academic_year'] = '2026 Semester Ganjil';
+    unset($data['wave']);
+    Livewire::actingAs($user)->test('pages::admin.periods')->assertDontSeeHtml('id="period-wave"')->set('form', $data)->call('save')->assertHasNoErrors()->assertSee('Periode berhasil disimpan.');
     $period = AdmissionPeriod::query()->sole();
+    expect($period->academic_year)->toBe('2026 Semester Ganjil');
+    expect($period->wave)->toBe('1');
     expect($period->opens_at->format('Y-m-d H:i'))->toBe('2026-10-01 01:00');
     expect($period->closes_at->format('Y-m-d H:i'))->toBe('2026-10-31 09:00');
     expect($period->state)->toBe(PeriodState::Published);
     $this->assertDatabaseHas('audit_events', ['actor_id' => $user->id, 'action' => 'Membuat periode']);
     $this->get(route('home'))->assertSee('Periode Uji Resmi');
+});
+
+it('preserves the existing wave when editing without a wave input', function () {
+    $user = User::factory()->administrator()->create();
+    $period = AdmissionPeriod::factory()->create(['wave' => 'Khusus']);
+
+    Livewire::actingAs($user)->test('pages::admin.periods')
+        ->call('edit', $period->id)
+        ->set('form.academic_year', 'TA 2027')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($period->fresh()->academic_year)->toBe('TA 2027');
+    expect($period->fresh()->wave)->toBe('Khusus');
 });
 
 it('requires a correction deadline when revisions after closing are allowed', function () {

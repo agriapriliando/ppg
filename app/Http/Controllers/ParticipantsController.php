@@ -199,7 +199,7 @@ class ParticipantsController extends Controller
             'Nomor SK',
             'Tanggal SK',
             'Urut SK',
-            'Nomor Pengenal SK',
+            'Peg ID',
             'Nama Sesuai SK',
             'Kondisi Roster SK',
             'Status Penahanan SK',
@@ -241,6 +241,11 @@ class ParticipantsController extends Controller
             'Kebutuhan Khusus',
             'Perguruan Tinggi Asal',
             'Program Studi Asal',
+            'Pendidikan Terakhir',
+            'Tahun Lulus',
+            'Perguruan Tinggi S1', 'Program Studi S1', 'Tahun Lulus S1',
+            'Perguruan Tinggi S2', 'Program Studi S2', 'Tahun Lulus S2',
+            'Perguruan Tinggi S3', 'Program Studi S3', 'Tahun Lulus S3',
         ];
 
         $sheet->fromArray($headers, null, 'A1');
@@ -258,6 +263,13 @@ class ParticipantsController extends Controller
             $ws = $app?->workspace;
             $bio = $ws?->biodata;
             $edu = $ws?->education;
+            $educationHistory = $edu->education_history ?? [];
+            if ($educationHistory === [] && ($edu?->pt_name_snapshot || $edu?->prodi_name_snapshot)) {
+                $educationHistory[$edu->degree_level ?? 'S1'] = [
+                    'pt_name' => $edu->pt_name_snapshot, 'prodi_name' => $edu->prodi_name_snapshot,
+                    'graduation_year' => $edu->graduation_year ?? null,
+                ];
+            }
 
             if ($participant->claimed_user_id) {
                 $accountState = $participant->claimedUser?->account_state;
@@ -333,6 +345,17 @@ class ParticipantsController extends Controller
                 $resolveOption('special_need', $bio?->special_need_code),
                 $edu !== null ? ($edu->pt_name_snapshot ?? '') : '',
                 $edu !== null ? ($edu->prodi_name_snapshot ?? '') : '',
+                $edu->degree_level ?? '',
+                $edu->graduation_year ?? '',
+                $educationHistory['S1']['pt_name'] ?? '',
+                $educationHistory['S1']['prodi_name'] ?? '',
+                $educationHistory['S1']['graduation_year'] ?? '',
+                $educationHistory['S2']['pt_name'] ?? '',
+                $educationHistory['S2']['prodi_name'] ?? '',
+                $educationHistory['S2']['graduation_year'] ?? '',
+                $educationHistory['S3']['pt_name'] ?? '',
+                $educationHistory['S3']['prodi_name'] ?? '',
+                $educationHistory['S3']['graduation_year'] ?? '',
             ];
 
             foreach ($row as $colIdx => $val) {

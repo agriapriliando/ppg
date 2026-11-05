@@ -57,12 +57,9 @@
                                 </div>
                             @endforeach
                             <div class="review-block">
-                                <h3>Pendidikan asal</h3>
+                                <h3>Riwayat pendidikan</h3>
+                                <x-education-history :education="$application->workspace->education" />
                                 <dl>
-                                    <dt>Perguruan tinggi</dt>
-                                    <dd>{{ $application->workspace->education?->pt_name_snapshot??'Belum diisi' }}</dd>
-                                    <dt>Program studi</dt>
-                                    <dd>{{ $application->workspace->education?->prodi_name_snapshot??'Belum diisi' }}</dd>
                                     <dt>Tanggal kirim pertama</dt>
                                     <dd>{{ $application->submitted_at?->timezone('Asia/Jakarta')->format('d/m/Y H:i')??'Belum dikirim' }}</dd>
                                     <dt>WhatsApp</dt>

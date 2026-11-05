@@ -71,7 +71,7 @@ class ValidateSkImport
                         $value = Date::excelToDateTimeObject((float) $value)->format('Y-m-d');
                     }
                     if ($header === 'id_peserta_sk' && $value !== null && ! is_string($value)) {
-                        $errors[] = 'id_peserta_sk harus disimpan sebagai teks agar nol awal tetap utuh.';
+                        $errors[] = 'Peg ID harus disimpan sebagai teks agar nol awal tetap utuh.';
                     }
                     $values[$header] = trim((string) $value);
                 }
@@ -119,7 +119,7 @@ class ValidateSkImport
                 $keys[$key] = true;
                 if ($payload['official_participant_id'] !== null) {
                     if (isset($identifiers[$payload['official_participant_id']])) {
-                        $errors[] = 'Pengenal resmi berulang dalam berkas.';
+                        $errors[] = 'Peg ID berulang dalam berkas.';
                     }
                     $identifiers[$payload['official_participant_id']] = true;
                 }
@@ -130,7 +130,7 @@ class ValidateSkImport
                 $existing = SkParticipant::query()->where('admission_period_id', $period->id)->where('sk_number', $payload['sk_number'])->where('sk_order', $payload['sk_order'])->first();
                 $result = 'new';
                 if ($payload['official_participant_id'] !== null && SkParticipant::query()->where('admission_period_id', $period->id)->where('official_participant_id', $payload['official_participant_id'])->when($existing !== null, fn ($query) => $query->where('id', '!=', $existing->id))->exists()) {
-                    $errors[] = 'Pengenal resmi sudah digunakan pada baris SK lain.';
+                    $errors[] = 'Peg ID sudah digunakan pada baris SK lain.';
                 }
                 if ($existing !== null) {
                     // An omitted operator preserves the current assignment on reimport.

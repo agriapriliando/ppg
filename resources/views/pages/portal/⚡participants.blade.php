@@ -2,11 +2,16 @@
 
 use App\Enums\AccountState;
 use App\Enums\UserRole;
+use App\Enums\PeriodState;
+use App\Actions\RecordAudit;
 use App\Models\AdmissionPeriod;
 use App\Models\SkParticipant;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -27,6 +32,67 @@ new #[Title('Daftar Peserta SK')] class extends Component
 
     #[Url(as: 'per_page', except: 25)]
     public int $perPage = 25;
+
+    public bool $showCreate = false;
+    public string $message = '';
+    public array $form = ['admission_period_id' => '', 'name_on_sk' => '', 'sk_number' => '', 'sk_date' => '', 'sk_order' => '', 'official_participant_id' => '', 'internal_note' => ''];
+
+    public function openCreate(): void
+    {
+        $this->mount();
+        $this->reset('form');
+        $this->resetValidation();
+        $this->form['admission_period_id'] = $this->periodId;
+        $this->showCreate = true;
+    }
+
+    public function saveParticipant(RecordAudit $audit): void
+    {
+        $this->mount();
+        foreach ($this->form as $key => $value) {
+            if (is_string($value)) {
+                $this->form[$key] = trim($value);
+            }
+        }
+        $data = $this->validate([
+            'form.admission_period_id' => ['required', 'integer', 'exists:admission_periods,id'],
+            'form.name_on_sk' => ['required', 'string', 'min:3', 'max:255'],
+            'form.sk_number' => ['required', 'string', 'max:100'],
+            'form.sk_date' => ['required', 'date_format:Y-m-d'],
+            'form.sk_order' => ['required', 'integer', 'min:1', 'max:999999'],
+            'form.official_participant_id' => ['nullable', 'string', 'max:100'],
+            'form.internal_note' => ['nullable', 'string', 'max:1000'],
+        ], ['required' => ':attribute wajib diisi.'], [
+            'form.admission_period_id' => 'Periode', 'form.name_on_sk' => 'Nama sesuai SK',
+            'form.sk_number' => 'Nomor SK', 'form.sk_date' => 'Tanggal SK', 'form.sk_order' => 'Nomor urut SK',
+        ])['form'];
+
+        DB::transaction(function () use ($data, $audit): void {
+            $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($data['admission_period_id']);
+            if ($period->state === PeriodState::Archived) {
+                throw ValidationException::withMessages(['form.admission_period_id' => 'Periode yang diarsipkan tidak dapat menerima peserta baru.']);
+            }
+            $data['sk_number'] = mb_strtoupper($data['sk_number']);
+            $participants = SkParticipant::query()->where('admission_period_id', $period->id);
+            if ((clone $participants)->where('sk_number', $data['sk_number'])->where('sk_order', $data['sk_order'])->exists()) {
+                throw ValidationException::withMessages(['form.sk_order' => 'Nomor urut pada SK ini sudah digunakan dalam periode tersebut.']);
+            }
+            $data['official_participant_id'] = $data['official_participant_id'] ?: null;
+            if ($data['official_participant_id'] !== null && (clone $participants)->where('official_participant_id', $data['official_participant_id'])->exists()) {
+                throw ValidationException::withMessages(['form.official_participant_id' => 'Peg ID sudah digunakan dalam periode tersebut.']);
+            }
+            $data['normalized_name'] = mb_strtolower(Str::squish($data['name_on_sk']));
+            $participant = SkParticipant::query()->create($data);
+            $period->lock_version++;
+            $period->save();
+            $audit->handle(auth()->user(), 'Menambah peserta SK', $participant, ['period_id' => $period->id]);
+        });
+
+        $this->periodId = (string) $data['admission_period_id'];
+        $this->reset('form', 'showCreate', 'search', 'operatorId');
+        $this->resetPage();
+        $this->message = 'Peserta SK berhasil ditambahkan.';
+    }
 
     public function updatedSearch(): void
     {
@@ -54,7 +120,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
     public function mount(): void
     {
         $user = auth()->user();
-        abort_unless($user !== null && in_array($user->role, [UserRole::Operator, UserRole::Administrator], true), 403);
+        abort_unless($user !== null && $user->account_state === AccountState::Active && ! $user->must_change_password && in_array($user->role, [UserRole::Operator, UserRole::Administrator], true), 403);
     }
 
     /** @return LengthAwarePaginator<SkParticipant> */
@@ -91,13 +157,20 @@ new #[Title('Daftar Peserta SK')] class extends Component
 ?>
 
 <div x-data="{ showGuide: false }">
+    @if($message)
+        <div class="alert alert-success" role="status">{{ $message }}</div>
+    @endif
     <section class="workspace-card">
         <div class="panel-heading d-flex flex-wrap align-items-center justify-content-between gap-3 pb-3 border-bottom">
             <div>
                 <h2 class="h5 mb-1 fw-bold text-purple">Daftar Seluruh Peserta SK</h2>
                 <p class="text-muted small mb-0">Pantau kepesertaan SK resmi, aktivasi akun, dan progres antrean pendaftaran seluruh operator.</p>
             </div>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <button type="button" wire:click="openCreate" class="btn btn-purple d-inline-flex align-items-center gap-2" wire:loading.attr="disabled" @disabled($this->periods->where('state', '!=', PeriodState::Archived)->isEmpty())>
+                    <i class="bi bi-person-plus" aria-hidden="true"></i>
+                    <span>Tambah Peserta SK</span>
+                </button>
                 <a href="{{ route('participants.export', array_filter(['search' => $search, 'operator_id' => $operatorId, 'period_id' => $periodId])) }}" class="btn btn-outline-success d-inline-flex align-items-center gap-2" title="Ekspor seluruh data peserta & biodata ke Excel">
                     <i class="bi bi-file-earmark-excel" aria-hidden="true"></i>
                     <span>Ekspor Excel</span>
@@ -124,10 +197,10 @@ new #[Title('Daftar Peserta SK')] class extends Component
 
             <div class="row g-3">
                 <div class="col-lg-5">
-                    <label for="participant-search" class="visually-hidden">Nama atau pengenal resmi</label>
+                    <label for="participant-search" class="visually-hidden">Nama atau Peg ID</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
-                        <input class="form-control" id="participant-search" wire:model.live.debounce.300ms="search" placeholder="Cari nama atau pengenal resmi…" maxlength="100">
+                        <input class="form-control" id="participant-search" wire:model.live.debounce.300ms="search" placeholder="Cari nama atau Peg ID…" maxlength="100">
                     </div>
                 </div>
                 <div class="col-lg-4">
@@ -174,7 +247,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
             <table class="table portal-table">
                 <thead>
                     <tr>
-                        <th>Nama / pengenal resmi</th>
+                        <th>Nama / Peg ID</th>
                         <th>Nomor SK</th>
                         <th>Periode</th>
                         <th>Status Akun</th>
@@ -239,6 +312,71 @@ new #[Title('Daftar Peserta SK')] class extends Component
             </div>
         </div>
     </section>
+
+    <div x-cloak x-show="$wire.showCreate" x-trap.inert.noscroll="$wire.showCreate"
+        @keydown.escape.window="$wire.showCreate = false" @click.self="$wire.showCreate = false"
+        class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="create-participant-title">
+        <div class="ui-modal">
+            <div class="ui-modal-header">
+                <h2 id="create-participant-title" class="h6 fw-bold text-purple">Tambah Peserta SK</h2>
+                <button type="button" class="btn-close" @click="$wire.showCreate = false" aria-label="Tutup"></button>
+            </div>
+            <form wire:submit="saveParticipant">
+                <div class="ui-modal-body">
+                    <p class="text-muted small">Masukkan data sesuai SK resmi. Kolom bertanda * wajib diisi.</p>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="create-participant-period" class="form-label">Periode *</label>
+                            <select id="create-participant-period" class="form-select" wire:model="form.admission_period_id" required>
+                                <option value="">Pilih periode</option>
+                                @foreach($this->periods->where('state', '!=', PeriodState::Archived) as $period)
+                                    <option wire:key="create-period-{{ $period->id }}" value="{{ $period->id }}">{{ $period->name }} ({{ $period->academic_year }})</option>
+                                @endforeach
+                            </select>
+                            <x-field-error name="form.admission_period_id" />
+                        </div>
+                        <div class="col-12">
+                            <label for="create-participant-name" class="form-label">Nama sesuai SK *</label>
+                            <input id="create-participant-name" class="form-control" wire:model="form.name_on_sk" required minlength="3" maxlength="255" autocomplete="off">
+                            <x-field-error name="form.name_on_sk" />
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="create-participant-sk" class="form-label">Nomor SK *</label>
+                            <input id="create-participant-sk" class="form-control" wire:model="form.sk_number" required maxlength="100">
+                            <x-field-error name="form.sk_number" />
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="create-participant-date" class="form-label">Tanggal SK *</label>
+                            <input id="create-participant-date" type="date" class="form-control" wire:model="form.sk_date" required>
+                            <x-field-error name="form.sk_date" />
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="create-participant-order" class="form-label">Nomor urut SK *</label>
+                            <input id="create-participant-order" type="number" class="form-control" wire:model="form.sk_order" required min="1" max="999999">
+                            <x-field-error name="form.sk_order" />
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="create-participant-id" class="form-label">Peg ID</label>
+                            <input id="create-participant-id" class="form-control" wire:model="form.official_participant_id" maxlength="100">
+                            <x-field-error name="form.official_participant_id" />
+                        </div>
+                        <div class="col-12">
+                            <label for="create-participant-note" class="form-label">Catatan internal</label>
+                            <textarea id="create-participant-note" class="form-control" wire:model="form.internal_note" rows="3" maxlength="1000"></textarea>
+                            <x-field-error name="form.internal_note" />
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex flex-column flex-sm-row justify-content-end gap-2 border-top p-3 bg-light">
+                    <button type="button" class="btn btn-outline-purple" @click="$wire.showCreate = false" wire:loading.attr="disabled" wire:target="saveParticipant">Batal</button>
+                    <button type="submit" class="btn btn-purple" wire:loading.attr="disabled" wire:target="saveParticipant">
+                        <span wire:loading.remove wire:target="saveParticipant">Simpan Peserta</span>
+                        <span wire:loading wire:target="saveParticipant">Menyimpan…</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Pop-up Modal Petunjuk Peserta SK (Alpine.js Mobile Responsive) -->
     <div 
@@ -339,7 +477,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
                     </h3>
                     <p class="text-muted small mb-2">Halaman ini telah menggunakan Livewire reaktif tanpa reload halaman:</p>
                     <ul class="text-muted small ps-3 mb-0">
-                        <li class="mb-1"><strong>Filter Real-time:</strong> Pencarian nama/pengenal resmi, pilihan operator penugasan, dan filter periode langsung memperbarui daftar secara instan.</li>
+                        <li class="mb-1"><strong>Filter Real-time:</strong> Pencarian nama/Peg ID, pilihan operator penugasan, dan filter periode langsung memperbarui daftar secara instan.</li>
                         <li class="mb-1"><strong>Jumlah Data Per Halaman:</strong> Tombol pilihan <strong>10, 25, 50, 100</strong> diletakkan di atas tabel untuk memudahkan navigasi data sebelum menelusuri tabel.</li>
                         <li><strong>Pindah Halaman Instan:</strong> Berpindah halaman navigasi berlangsung cepat tanpa memuat ulang seluruh halaman browser.</li>
                     </ul>

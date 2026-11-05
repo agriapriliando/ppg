@@ -71,7 +71,7 @@ class SkImportController extends Controller
             $book = new Spreadsheet;
             $sheet = $book->getActiveSheet();
             $sheet->setTitle('Kesalahan_SK');
-            $sheet->fromArray(['Baris Excel', 'Nomor SK', 'Nomor urut', 'Nama sesuai SK', 'ID peserta SK', 'Hasil', 'Catatan perbaikan']);
+            $sheet->fromArray(['Baris Excel', 'Nomor SK', 'Nomor urut', 'Nama sesuai SK', 'Peg ID', 'Hasil', 'Catatan perbaikan']);
             $index = 2;
             foreach ($import->rows()->whereIn('result', ['error', 'conflict'])->orderBy('row_number')->lazyById(100) as $row) {
                 $values = [(string) $row->row_number, $row->normalized_payload['sk_number'] ?? '', (string) ($row->normalized_payload['sk_order'] ?? ''), $row->normalized_payload['name_on_sk'] ?? '', $row->normalized_payload['official_participant_id'] ?? '', $row->result === 'conflict' ? 'Konflik' : 'Kesalahan', implode("\n", $row->errors)];
@@ -113,7 +113,7 @@ class SkImportController extends Controller
                 ['Template SK versi 1'],
                 ['Kolom A–E wajib. Isi periode menggunakan kode periode tujuan.'],
                 ['Tanggal SK: YYYY-MM-DD. Nomor urut harus bilangan bulat positif.'],
-                ['ID peserta harus teks agar nol awal utuh. Nama bukan kunci unik.'],
+                ['Peg ID harus teks agar nol awal utuh. Nama bukan kunci unik.'],
                 ['Operator email opsional; harus aktif dan terdaftar pada periode.'],
                 ['Jangan gunakan formula, macro, atau tautan eksternal.'],
                 ['Satu berkas memuat satu periode, maksimal 5.000 baris.'],

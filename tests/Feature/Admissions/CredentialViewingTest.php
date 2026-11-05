@@ -156,9 +156,10 @@ it('provides a manual whatsapp link with credentials prefilled for the target nu
     $response = $this->actingAs($c['operator'])->post(route('credentials.issue', $c['claim']))->assertOk();
     $secret = $response->viewData('secret');
 
-    $response->assertSee('Kirim Kredensial WhatsApp')
-        ->assertSee('Kirim via WhatsApp')
-        ->assertSee('https://wa.me/', false)
-        ->assertSee(rawurlencode($secret), false)
-        ->assertSee(rawurlencode($c['owner']->login_id), false);
+    $response->assertSee('Kirim Akun ke WhatsApp')->assertSee('name="open_whatsapp"', false);
+    $issuance = CredentialIssuance::query()->sole();
+    $response = $this->post(route('credentials.deliver', $issuance), ['delivered' => 1, 'open_whatsapp' => 1])
+        ->assertRedirect()->assertSessionHasNoErrors();
+    expect($response->headers->get('Location'))->toStartWith('https://wa.me/')
+        ->toContain(rawurlencode($secret))->toContain(rawurlencode($c['owner']->login_id));
 });
