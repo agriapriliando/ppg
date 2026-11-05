@@ -8,12 +8,15 @@ use App\Enums\PeriodState;
 use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
 use App\Models\ApplicantWorkspace;
+use App\Models\OriginEducation;
 use App\Models\PeriodOperator;
+use App\Models\ReferenceDataset;
 use App\Models\ReferenceOption;
 use App\Models\ReferenceRegion;
 use App\Models\SkParticipant;
 use App\Models\User;
 use App\Support\ApplicantFields;
+use App\Support\SubmittedRegistrationData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -170,7 +173,6 @@ class ParticipantsController extends Controller
                 'claimedUser',
                 'application.workspace.biodata',
                 'application.workspace.education',
-                'application.workspace.verifications',
             ])
             ->orderBy('sk_number')
             ->orderBy('sk_order')
@@ -212,7 +214,6 @@ class ParticipantsController extends Controller
             'Nomor PMB',
             'Tanggal Kirim Pertama',
             'Revisi Pengajuan',
-            'Status WhatsApp',
             'Nama Lengkap (Biodata)',
             'Jenis Kelamin',
             'Tempat Lahir',
@@ -290,10 +291,6 @@ class ParticipantsController extends Controller
 
             $queueStatus = $app !== null ? $app->status->label() : 'Belum Masuk Antrean';
 
-            $number = $effectiveData['whatsapp_number'] ?? null;
-            $isWaVerified = $number !== null && $ws->verifications->contains(fn ($v) => $v->number === $number && $v->invalidated_at === null);
-            $waStatus = $isWaVerified ? 'Terverifikasi' : ($number ? 'Belum Terverifikasi' : 'Belum Diisi');
-
             $birthDate = (string) ($effectiveData['birth_date'] ?? '');
             $submittedAt = $app?->submitted_at ? $app->submitted_at->timezone('Asia/Jakarta')->format('d/m/Y H:i').' WIB' : '';
 
@@ -319,7 +316,6 @@ class ParticipantsController extends Controller
                 $app !== null ? $app->application_number : '',
                 $submittedAt,
                 $app !== null ? (string) $app->submission_revision : '',
-                $waStatus,
                 $effectiveData['full_name'] ?? '',
                 $resolveOption('gender', $effectiveData['gender_code'] ?? null),
                 $effectiveData['birth_place'] ?? '',
@@ -397,6 +393,7 @@ class ParticipantsController extends Controller
             'application.workspace.biodata',
             'application.workspace.education',
             'application.workspace.availableDocuments.uploader',
+            'application.submissions.configVersion',
             'claimedUser',
         ]);
 
@@ -409,8 +406,36 @@ class ParticipantsController extends Controller
                 ->first();
         }
 
+        $application = $participant->application;
+        $submitted = $application?->hasCurrentOwnerSubmission() ?? false;
+        $data = [];
+        if ($submitted) {
+            $data = SubmittedRegistrationData::forDisplay($application);
+            $workspace = $application->workspace;
+        } elseif ($workspace !== null) {
+            $data = ApplicantFields::fromWorkspace($workspace);
+        }
         $biodata = $workspace?->biodata;
         $education = $workspace?->education;
+        if (! $submitted && $workspace?->draft_payload !== null) {
+            $education = $education !== null ? clone $education : new OriginEducation;
+            $education->fill(['degree_level' => $data['degree_level'] ?? null, 'education_history' => $data['education_history'] ?? null, 'graduation_year' => $data['graduation_year'] ?? null]);
+        }
+        $submission = $application?->submissions->where('ownership_epoch', $application->ownership_epoch)->sortByDesc('revision')->first();
+        $datasetId = $submission?->configVersion?->reference_version_ids['biodata'] ?? $education->reference_dataset_id
+            ?? ReferenceDataset::query()->where('state', 'active')->latest('id')->value('id');
+        $options = ReferenceOption::query()->where('dataset_id', $datasetId)->get()->groupBy('group');
+        $regions = ReferenceRegion::query()->where('dataset_id', $datasetId)->whereIn('code', array_filter([$data['district_code'] ?? null, $data['city_code'] ?? null, $data['province_code'] ?? null]))->pluck('name', 'code');
+        $display = [];
+        foreach (ApplicantFields::definitions() as $key => $field) {
+            $value = $data[$key] ?? null;
+            $display[$key] = match ($field['type']) {
+                'select' => $options->get($field['reference'] ?? '')?->firstWhere('code', $value)->label ?? ($value ?: 'Belum diisi'),
+                'region' => $regions->get($value) ?? ($value ?: 'Belum diisi'),
+                'boolean' => $value === null || $value === '' ? 'Belum diisi' : ((bool) $value ? 'Ya' : 'Tidak'),
+                default => $value === null || $value === '' ? 'Belum diisi' : $value,
+            };
+        }
         $documents = $workspace ? $workspace->availableDocuments : collect();
 
         return view('portal.participant', [
@@ -419,6 +444,8 @@ class ParticipantsController extends Controller
             'biodata' => $biodata,
             'education' => $education,
             'documents' => $documents,
+            'data' => $data, 'display' => $display, 'fields' => ApplicantFields::definitions(),
+            'biodataSource' => $submitted ? 'Data pada pengiriman terakhir peserta.' : 'Draf peserta yang belum dikirim.',
             'operators' => User::query()
                 ->where('role', 'operator')
                 ->where('account_state', 'active')

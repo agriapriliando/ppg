@@ -107,7 +107,7 @@ it('submits biodata and file manifests together and retains a detached revision 
     expect($document->fresh()->detached_at)->not->toBeNull();
     expect($c['workspace']->fresh()->availableDocuments)->toHaveCount(0);
     Storage::disk('local')->assertExists($document->object_key);
-    $this->actingAs($c['operator'])->get(route('reviews.show', $c['application']))->assertOk()->assertSee('ijazah.png');
+    $this->actingAs($c['operator'])->get(route('reviews.print', $c['application']))->assertOk()->assertSee('ijazah.png');
 });
 
 it('rejects document changes after confirmation and unfinished or failed upload batches', function () {

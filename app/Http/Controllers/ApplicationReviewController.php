@@ -8,7 +8,6 @@ use App\Models\Application;
 use App\Models\ReferenceOption;
 use App\Models\ReferenceRegion;
 use App\Models\SkClaim;
-use App\Models\WhatsappVerification;
 use App\Support\ApplicantFields;
 use App\Support\SubmittedRegistrationData;
 use Illuminate\Http\RedirectResponse;
@@ -46,7 +45,7 @@ class ApplicationReviewController extends Controller
             }
         }
 
-        return view('portal.review-detail', ['application' => $application, 'fields' => ApplicantFields::definitions(), 'data' => $values, 'display' => $display, 'claim' => SkClaim::query()->where('candidate_sk_participant_id', $application->sk_participant_id)->where('status', 'approved')->first(), 'verified' => WhatsappVerification::query()->where('workspace_id', $application->workspace_id)->where('number', $application->workspace->biodata?->whatsapp_number)->whereNull('invalidated_at')->exists()]);
+        return view('portal.review-detail', ['application' => $application, 'fields' => ApplicantFields::definitions(), 'data' => $values, 'display' => $display, 'claim' => SkClaim::query()->where('candidate_sk_participant_id', $application->sk_participant_id)->where('status', 'approved')->first()]);
     }
 
     public function print(Application $application): View
@@ -83,7 +82,6 @@ class ApplicationReviewController extends Controller
             'values' => $values,
             'display' => $display,
             'documents' => $documents,
-            'verified' => WhatsappVerification::query()->where('workspace_id', $application->workspace_id)->where('number', $application->workspace->biodata?->whatsapp_number)->whereNull('invalidated_at')->exists(),
         ]);
     }
 

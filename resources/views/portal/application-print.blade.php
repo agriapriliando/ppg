@@ -422,9 +422,7 @@
                 <td class="colon-col">:</td>
                 <td class="val-col">
                     {{ $values['whatsapp_number'] ?? '—' }}
-                    @if($verified)
-                        <span class="text-success small ms-2"><i class="bi bi-check-circle-fill"></i> Terverifikasi</span>
-                    @endif
+
                 </td>
             </tr>
             <tr>

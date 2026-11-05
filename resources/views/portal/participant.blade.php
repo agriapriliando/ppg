@@ -10,7 +10,7 @@
                     <i class="bi bi-arrow-left me-1"></i>Kembali ke Daftar Peserta
                 </a>
                 @if($participant->application)
-                    <a class="btn btn-outline-purple" href="{{ route('reviews.documents', $participant->application) }}">
+                    <a class="btn btn-outline-purple" href="{{ route('reviews.show', $participant->application) }}#berkas-pendaftar">
                         <i class="bi bi-folder2-open me-1"></i>Ruang Pemeriksaan Berkas
                     </a>
                 @endif
@@ -101,74 +101,34 @@
     <section class="workspace-card mb-4">
         <div class="panel-heading">
             <h2 class="h5 mb-1"><i class="bi bi-person-vcard text-purple me-2"></i>Biodata Calon Mahasiswa</h2>
-            <p class="text-muted small mb-0">Rincian data identitas diri, alamat domisili/KTP, dan pendidikan asal.</p>
+            <p class="text-muted small mb-0">{{ $biodataSource }}</p>
         </div>
         <div class="panel-body">
             @if($biodata)
                 <div class="row g-4">
-                    <div class="col-lg-6">
-                        <h3 class="h6 fw-bold text-purple mb-3 border-bottom pb-2">
-                            <i class="bi bi-person me-1"></i>Identitas Diri
-                        </h3>
-                        <dl class="detail-list">
-                            <dt>Nama Lengkap (dengan Gelar)</dt>
-                            <dd class="fw-bold text-dark fs-6">{{ $biodata->full_name_with_title }}</dd>
-
-                            <dt>NIK (Nomor Induk Kependudukan)</dt>
-                            <dd><code>{{ $biodata->nik }}</code></dd>
-
-                            <dt>Jenis Kelamin</dt>
-                            <dd>{{ $biodata->gender?->label() ?? '-' }}</dd>
-
-                            <dt>Tempat & Tanggal Lahir</dt>
-                            <dd>{{ $biodata->birth_place ?? '-' }}, {{ $biodata->birth_date ? $biodata->birth_date->format('d/m/Y') : '-' }}</dd>
-
-                            <dt>Nama Ibu Kandung</dt>
-                            <dd>{{ $biodata->mother_maiden_name ?? '-' }}</dd>
-
-                            <dt>Agama</dt>
-                            <dd>{{ $biodata->religion?->label() ?? '-' }}</dd>
-
-                            <dt>Nomor WhatsApp Aktif</dt>
-                            <dd>
-                                @if($biodata->whatsapp_number)
-                                    <a href="https://wa.me/{{ preg_replace('/^0/', '62', preg_replace('/[^0-9]/', '', $biodata->whatsapp_number)) }}" target="_blank" rel="noopener noreferrer" class="text-success fw-semibold text-decoration-none">
-                                        <i class="bi bi-whatsapp me-1"></i>{{ $biodata->whatsapp_number }}
-                                    </a>
-                                @else
-                                    <span class="text-muted">-</span>
-                                @endif
-                            </dd>
-                        </dl>
-                    </div>
-
-                    <div class="col-lg-6">
-                        <h3 class="h6 fw-bold text-purple mb-3 border-bottom pb-2">
-                            <i class="bi bi-geo-alt me-1"></i>Alamat Sesuai KTP
-                        </h3>
-                        <dl class="detail-list">
-                            <dt>Alamat Lengkap</dt>
-                            <dd>{{ $biodata->full_address ?? '-' }}</dd>
-
-                            <dt>RT / RW</dt>
-                            <dd>{{ $biodata->rt ?? '-' }} / {{ $biodata->rw ?? '-' }}</dd>
-
-                            <dt>Desa / Kelurahan</dt>
-                            <dd>{{ $biodata->village ?? '-' }}</dd>
-
-                            <dt>Kecamatan</dt>
-                            <dd>{{ $biodata->district ?? '-' }}</dd>
-
-                            <dt>Kabupaten / Kota</dt>
-                            <dd>{{ $biodata->city ?? '-' }}</dd>
-
-                            <dt>Provinsi</dt>
-                            <dd>{{ $biodata->province ?? '-' }}</dd>
-
-                            <dt>Kode Pos</dt>
-                            <dd>{{ $biodata->postal_code ?? '-' }}</dd>
-                        </dl>
-                    </div>
+                    @foreach([1 => 'Identitas & Kontak', 2 => 'Alamat Tempat Tinggal', 3 => 'Informasi Tambahan'] as $step => $heading)
+                        <div class="col-12 col-lg-6">
+                            <h3 class="h6 fw-bold text-purple mb-3 border-bottom pb-2">{{ $heading }}</h3>
+                            <dl class="detail-list">
+                                @foreach($fields as $key => $field)
+                                    @continue($field['step'] !== $step)
+                                    @continue($key === 'kps_number' && !($data['is_kps_recipient'] ?? false))
+                                    <dt>{{ $field['label'] }}</dt>
+                                    <dd class="text-break">
+                                        @if($key === 'whatsapp_number' && !empty($data[$key]))
+                                            <a href="https://wa.me/{{ preg_replace('/^0/', '62', preg_replace('/[^0-9]/', '', $data[$key])) }}" target="_blank" rel="noopener noreferrer" class="text-success fw-semibold text-decoration-none">
+                                                <i class="bi bi-whatsapp me-1" aria-hidden="true"></i>{{ $display[$key] }}
+                                            </a>
+                                        @elseif(in_array($key, ['nik', 'nisn', 'npwp', 'kps_number']))
+                                            <code>{{ $display[$key] }}</code>
+                                        @else
+                                            {{ $display[$key] }}
+                                        @endif
+                                    </dd>
+                                @endforeach
+                            </dl>
+                        </div>
+                    @endforeach
                 </div>
 
                 <h3 class="h6 fw-bold text-purple mt-4 mb-3 border-bottom pb-2">

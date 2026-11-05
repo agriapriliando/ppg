@@ -6,15 +6,15 @@ use App\Models\ApplicantDocument;
 use App\Models\ApplicantWorkspace;
 use App\Models\Application;
 use App\Policies\ApplicantDocumentPolicy;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class StaffDocumentController extends Controller
 {
-    public function show(Request $request, Application $application): View
+    public function show(Request $request, Application $application): RedirectResponse
     {
         $user = $request->user();
         abort_unless($user !== null, 401);
@@ -27,12 +27,7 @@ class StaffDocumentController extends Controller
 
         abort_unless(app(ApplicantDocumentPolicy::class)->canAccessWorkspace($user, $workspace, false), 403);
 
-        return view('portal.staff-documents', [
-            'application' => $application,
-            'workspace' => $workspace,
-            'period' => $application->period,
-            'participant' => $application->participant,
-        ]);
+        return redirect()->to(route('reviews.show', $application).'#berkas-pendaftar');
     }
 
     public function preview(Request $request, Application $application, ApplicantDocument $document): BinaryFileResponse

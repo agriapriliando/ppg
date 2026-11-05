@@ -9,7 +9,6 @@ use App\Models\AdmissionPeriod;
 use App\Models\Application;
 use App\Models\ApplicationReview;
 use App\Models\User;
-use App\Models\WhatsappVerification;
 use App\Support\ApplicantFields;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -56,9 +55,8 @@ class ReviewApplication
                 ApplicantFields::validate(ApplicantFields::fromWorkspace($locked->workspace), true);
             }
             if ($action === 'accept') {
-                $number = $locked->workspace->biodata?->whatsapp_number;
-                if ($number === null || ! WhatsappVerification::query()->where('workspace_id', $locked->workspace_id)->where('number', $number)->whereNull('invalidated_at')->exists() || $locked->participant->claimed_user_id !== $locked->user_id || $locked->participant->admin_hold || $locked->participant->roster_state !== 'active') {
-                    throw ValidationException::withMessages(['review' => 'Keputusan memerlukan kepesertaan sah, WhatsApp nomor saat ini terverifikasi, serta seluruh konflik selesai.']);
+                if ($locked->participant->claimed_user_id !== $locked->user_id || $locked->participant->admin_hold || $locked->participant->roster_state !== 'active') {
+                    throw ValidationException::withMessages(['review' => 'Keputusan memerlukan kepesertaan sah serta seluruh konflik administratif selesai.']);
                 }
                 $locked->forceFill(['accepted_at' => now(), 'accepted_by' => $actor->id]);
             }

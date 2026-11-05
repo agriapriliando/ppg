@@ -62,8 +62,6 @@
                                 <dl>
                                     <dt>Tanggal kirim pertama</dt>
                                     <dd>{{ $application->submitted_at?->timezone('Asia/Jakarta')->format('d/m/Y H:i')??'Belum dikirim' }}</dd>
-                                    <dt>WhatsApp</dt>
-                                    <dd>{{ $verified?'Terverifikasi':'Perlu pemeriksaan' }}</dd>
                                 </dl>
                             </div>
                         </div>
@@ -71,7 +69,18 @@
                 </section>
 
                 @include('portal.partials.submission-history')
-                <x-submission-documents :application="$application" />
+                <section id="berkas-pendaftar" class="mb-4" aria-labelledby="berkas-pendaftar-title">
+                    <div class="mb-3">
+                        <h2 id="berkas-pendaftar-title" class="h5 fw-bold text-purple">Berkas Pendaftar</h2>
+                        <p class="small text-muted mb-0">Lihat, unduh, dan kelola berkas langsung pada halaman ini. Pengubahan mengikuti status pendaftaran.</p>
+                    </div>
+                    <livewire:documents.document-manager
+                        :workspaceId="$application->workspace_id"
+                        :periodId="$application->admission_period_id"
+                        :applicationId="$application->id"
+                        mode="reviewer"
+                    />
+                </section>
 
                 <section class="workspace-card">
                     <div class="panel-heading">
@@ -94,69 +103,102 @@
                 </section>
             </div>
 
-            <div class="col-xl-4">
-                <a class="btn btn-purple w-100 mb-2" href="{{ route('reviews.documents', $application) }}">
-                    <i class="bi bi-folder2-open me-2"></i>Berkas Pendaftar
-                </a>
-                <a class="btn btn-outline-secondary w-100 mb-3" href="{{ route('reviews.print', $application) }}" target="_blank">
-                    <i class="bi bi-printer me-2" aria-hidden="true"></i>Cetak Formulir Biodata
-                </a>
-
-                <section class="workspace-card mb-4">
+            <aside class="col-xl-4 review-actions" aria-label="Tindakan pemeriksaan pendaftaran">
+                <section class="workspace-card mb-3">
                     <div class="panel-heading">
-                        <h2>Tindak lanjut pendaftaran</h2>
+                        <h2><i class="bi bi-folder2-open me-2 text-purple" aria-hidden="true"></i>Bahan Pemeriksaan</h2>
+                        <p>Periksa biodata dan berkas sebelum menentukan hasil.</p>
+                    </div>
+                    <div class="panel-body d-grid gap-2">
+                        <a class="btn btn-outline-purple d-flex align-items-center justify-content-center gap-2" href="#berkas-pendaftar">
+                            <i class="bi bi-files" aria-hidden="true"></i>Lihat Berkas Pendaftar
+                        </a>
+                        <a class="btn btn-light border d-flex align-items-center justify-content-center gap-2" href="{{ route('reviews.print', $application) }}" target="_blank" rel="noopener noreferrer">
+                            <i class="bi bi-printer" aria-hidden="true"></i>Cetak Formulir Biodata
+                            <i class="bi bi-box-arrow-up-right small" aria-hidden="true"></i>
+                        </a>
+                    </div>
+                </section>
+
+                <section class="workspace-card mb-3">
+                    <div class="panel-heading">
+                        <h2><i class="bi bi-clipboard-check me-2 text-purple" aria-hidden="true"></i>Hasil Pemeriksaan</h2>
+                        <p>Tentukan satu tindak lanjut sesuai hasil pemeriksaan Anda.</p>
                     </div>
                     <div class="panel-body">
-                        <form id="review-action-form" method="post" action="{{ route('reviews.update',$application) }}" novalidate>
+                        <form id="review-action-form" method="post" action="{{ route('reviews.update', $application) }}" novalidate>
                             @csrf
                             <input type="hidden" name="version" value="{{ $application->lock_version }}">
                             <input type="hidden" name="identity_checked" value="1">
                             <input type="hidden" name="sk_checked" value="1">
                             <input type="hidden" name="data_checked" value="1">
-                            <div class="d-grid gap-2 mt-3">
-                                <button type="button"
-                                    @click="showAcceptModal = true"
-                                    class="btn btn-gold"
-                                    @disabled(!in_array($application->status, [App\Enums\ApplicationStatus::Submitted, App\Enums\ApplicationStatus::Verified], true) || !$verified)>
-                                    Tetapkan Diterima Lengkap
-                                </button>
-                                @if($application->status === App\Enums\ApplicationStatus::Accepted)
-                                    <button type="submit" class="btn btn-outline-danger w-100 mt-2 fw-semibold" name="action" value="revert" onclick="return confirm('Apakah Anda yakin ingin mengembalikan status Berkas Diterima Lengkap pendaftar ini ke antrean pemeriksaan?')">
-                                        <i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Kembalikan Berkas Diterima Lengkap
+                            @if(in_array($application->status, [App\Enums\ApplicationStatus::Submitted, App\Enums\ApplicationStatus::Verified], true))
+                                <div class="review-decision-box mb-3">
+                                    <h3 class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-check-circle text-success" aria-hidden="true"></i>Data dan berkas sudah lengkap</h3>
+                                    <p class="review-action-description mb-3">Pilih jika biodata, kepesertaan SK, dan seluruh berkas sudah sesuai.</p>
+                                    <button type="button" @click="showAcceptModal = true" class="btn btn-gold w-100">
+                                        <i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Tetapkan Diterima Lengkap
                                     </button>
-                                @endif
-                            </div>
-                            <hr>
-                            <label for="review-note" class="form-label">Catatan spesifik kepada pendaftar</label>
-                            <textarea id="review-note" class="form-control mb-3" name="public_note" minlength="10" maxlength="1000" rows="4" placeholder="Tuliskan catatan perbaikan jika berkas/biodata perlu diperbaiki...">{{ \App\Support\FormInput::old('public_note') }}</textarea>
-                            <button class="btn btn-outline-purple w-100" name="action" value="correction" @disabled(!in_array($application->status,[App\Enums\ApplicationStatus::Submitted,App\Enums\ApplicationStatus::Verified],true))>
-                                Minta Perbaikan
-                            </button>
-                            @if(auth()->user()->isAdministrator() && $application->status===App\Enums\ApplicationStatus::Accepted)
-                                <button class="btn btn-light border w-100 mt-2" name="action" value="reopen">
-                                    Buka Kembali dengan Alasan di Atas
-                                </button>
+                                </div>
+                                <div class="review-choice-divider" aria-hidden="true"><span>atau</span></div>
+                                <div x-data="{ note: @js((string) \App\Support\FormInput::old('public_note', '')) }">
+                                    <h3 class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-pencil-square text-purple" aria-hidden="true"></i>Ada yang perlu diperbaiki</h3>
+                                    <p class="review-action-description mb-3">Jelaskan bagian yang salah dan tindakan yang perlu dilakukan peserta.</p>
+                                    <label for="review-note" class="form-label">Catatan perbaikan untuk peserta</label>
+                                    <textarea id="review-note" class="form-control" name="public_note" x-model="note" minlength="10" maxlength="1000" rows="4" aria-describedby="review-note-help" placeholder="Contoh: Transkrip belum terbaca jelas. Unggah ulang hasil pindai yang lebih jelas.">{{ \App\Support\FormInput::old('public_note') }}</textarea>
+                                    <div id="review-note-help" class="d-flex justify-content-between gap-2 mt-2 small text-muted">
+                                        <span>Catatan akan dibaca peserta. Minimal 10 karakter.</span><span class="text-nowrap"><span x-text="note.length">0</span>/1000</span>
+                                    </div>
+                                    <x-field-error name="public_note" />
+                                    <button type="submit" class="btn btn-outline-purple w-100 mt-3" name="action" value="correction" :disabled="note.trim().length < 10">
+                                        <i class="bi bi-arrow-return-left me-1" aria-hidden="true"></i>Kirim Permintaan Perbaikan
+                                    </button>
+                                </div>
+                            @elseif($application->status === App\Enums\ApplicationStatus::Accepted)
+                                <div class="alert alert-success mb-0"><strong>Pendaftaran diterima lengkap.</strong><span class="d-block mt-1">Keputusan pemeriksaan sudah tersimpan.</span></div>
+                                <details class="mt-3 review-advanced" @if($errors->has('public_note')) open @endif>
+                                    <summary class="small fw-semibold">Ubah keputusan pemeriksaan</summary>
+                                    <p class="review-action-description mt-3">Kembalikan ke antrean jika keputusan lengkap perlu ditinjau ulang.</p>
+                                    <button type="submit" class="btn btn-outline-danger w-100" name="action" value="revert" onclick="return confirm('Kembalikan pendaftaran ini ke antrean pemeriksaan?')">
+                                        <i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Kembalikan ke Antrean Pemeriksaan
+                                    </button>
+                                    @if(auth()->user()->isAdministrator())
+                                        <div class="border-top mt-3 pt-3" x-data="{ reason: @js((string) \App\Support\FormInput::old('public_note', '')) }">
+                                            <label for="review-reopen-note" class="form-label">Alasan membuka perbaikan</label>
+                                            <textarea id="review-reopen-note" class="form-control" name="public_note" x-model="reason" minlength="10" maxlength="1000" rows="3" placeholder="Tuliskan alasan peserta perlu memperbaiki data."></textarea>
+                                            <x-field-error name="public_note" />
+                                            <button type="submit" class="btn btn-outline-purple w-100 mt-2" name="action" value="reopen" :disabled="reason.trim().length < 10">Buka Perbaikan untuk Peserta</button>
+                                        </div>
+                                    @endif
+                                </details>
+                            @elseif($application->status === App\Enums\ApplicationStatus::Correction)
+                                <div class="alert alert-warning mb-0"><strong>Menunggu perbaikan peserta.</strong><span class="d-block mt-1">Pemeriksaan dapat dilanjutkan setelah peserta mengirim ulang biodata dan berkas.</span></div>
+                            @else
+                                <div class="alert alert-info mb-0"><strong>Pendaftaran belum dikirim.</strong><span class="d-block mt-1">Keputusan tersedia setelah peserta mengirim biodata dan berkas.</span></div>
                             @endif
                         </form>
                     </div>
                 </section>
 
-                @if($claim)
-                    <a class="btn btn-outline-purple w-100 mb-4" href="{{ route('claims.show',$claim) }}">
-                        <i class="bi bi-person-lines-fill me-2" aria-hidden="true"></i>Lihat Akun dan Whatsapp
-                    </a>
+                @if($claim || auth()->user()->isAdministrator())
+                    <section class="workspace-card mb-3">
+                        <div class="panel-heading"><h2><i class="bi bi-person-vcard me-2 text-purple" aria-hidden="true"></i>Akun Peserta</h2><p>Informasi login dan kontak peserta.</p></div>
+                        <div class="panel-body">
+                            @if($claim)
+                                <a class="btn btn-outline-purple w-100" href="{{ route('claims.show', $claim) }}"><i class="bi bi-person-lines-fill me-1" aria-hidden="true"></i>Lihat Akun dan WhatsApp</a>
+                            @endif
+                            @if(auth()->user()->isAdministrator())
+                                <details class="review-advanced mt-3">
+                                    <summary class="small fw-semibold">Pengaturan kepemilikan akun</summary>
+                                    <p class="review-action-description mt-3">Gunakan hanya jika pendaftaran terhubung ke akun yang keliru.</p>
+                                    <a class="btn btn-outline-danger w-100" href="{{ route('admin.ownership.edit', $application) }}">Koreksi Kepemilikan Akun</a>
+                                </details>
+                            @endif
+                        </div>
+                    </section>
                 @endif
-
-                @if(auth()->user()->isAdministrator())
-                    <a class="btn btn-outline-danger w-100 mb-4" href="{{ route('admin.ownership.edit', $application) }}">
-                        Koreksi Kepemilikan Akun
-                    </a>
-                @endif
-
-                <a class="btn btn-light border w-100" href="{{ route('reviews.index') }}">
-                    Kembali ke Antrean
-                </a>
-            </div>
+                <a class="btn btn-light border w-100" href="{{ route('reviews.index') }}"><i class="bi bi-arrow-left me-2" aria-hidden="true"></i>Kembali ke Antrean</a>
+            </aside>
         </div>
 
         <!-- Modal Petunjuk Pemeriksaan Pendaftaran (Alpine.js Mobile Responsive) -->
@@ -210,21 +252,21 @@
                             <span class="guide-step-num">2</span>
                             <div class="guide-step-content">
                                 <strong>Pemeriksaan Berkas Unggahan</strong>
-                                <span>Klik tombol <em>Berkas Pendaftar</em> untuk memeriksa dokumen pratinjau ijazah, transkrip nilai, dan berkas persyaratan lainnya.</span>
+                                <span>Periksa ijazah, transkrip nilai, dan dokumen lainnya pada bagian <em>Berkas Pendaftar</em> di halaman ini.</span>
                             </div>
                         </div>
                         <div class="guide-step">
                             <span class="guide-step-num">3</span>
                             <div class="guide-step-content">
-                                <strong>Status Akun & Verifikasi WhatsApp</strong>
-                                <span>Gunakan tombol <em>Lihat Akun dan Whatsapp</em> untuk memastikan riwayat klaim akun dan nomor WhatsApp pemohon telah terverifikasi aktif.</span>
+                                <strong>Informasi Akun & Nomor WhatsApp</strong>
+                                <span>Gunakan tombol <em>Lihat Akun dan Whatsapp</em> untuk melihat akun dan nomor WhatsApp pemohon.</span>
                             </div>
                         </div>
                         <div class="guide-step">
                             <span class="guide-step-num">4</span>
                             <div class="guide-step-content">
                                 <strong>Keputusan & Tindak Lanjut</strong>
-                                <span>Bila data valid dan WhatsApp terverifikasi, klik <em>Tetapkan Diterima Lengkap</em>. Bila ada kekeliruan, isi catatan perbaikan lalu klik <em>Minta Perbaikan</em>.</span>
+                                <span>Bila data dan kepesertaan valid, klik <em>Tetapkan Diterima Lengkap</em>. Bila ada kekeliruan, isi catatan perbaikan lalu klik <em>Kirim Permintaan Perbaikan</em>.</span>
                             </div>
                         </div>
                     </div>
@@ -295,7 +337,7 @@
 
                         <div class="col-sm-4 text-muted">WhatsApp</div>
                         <div class="col-sm-8 text-success fw-semibold">
-                            <i class="bi bi-check-circle-fill me-1"></i>{{ $application->workspace->biodata?->whatsapp_number ?? '-' }} (Terverifikasi)
+                            {{ $application->workspace->biodata?->whatsapp_number ?? '-' }}
                         </div>
                     </div>
                 </div>

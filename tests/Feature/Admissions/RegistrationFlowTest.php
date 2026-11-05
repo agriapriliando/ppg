@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Admissions\ApproveClaim;
+use App\Actions\Admissions\SaveApplicantForm;
 use App\Actions\Admissions\SubmitSkClaim;
 use App\Enums\ApplicationStatus;
 use App\Models\ApplicantBiodata;
@@ -15,6 +16,22 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 require_once __DIR__.'/../../Fixtures/registration.php';
+
+it('accepts a complete application without a separate WhatsApp verification step', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
+    $application = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+    app(SaveApplicantForm::class)->handle($c['applicant'], $c['period']->id, 0, completeApplicantForm($c), true);
+    $application->refresh();
+
+    $this->actingAs($c['operator'])->get(route('reviews.show', $application))->assertOk()
+        ->assertDontSee('Perlu pemeriksaan')->assertDontSee('Terverifikasi');
+    $this->post(route('reviews.update', $application), ['version' => $application->lock_version, 'action' => 'accept'])
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    expect($application->fresh()->status)->toBe(ApplicationStatus::Accepted);
+    $this->assertDatabaseCount('whatsapp_verifications', 0);
+});
 
 it('defaults nationality to Indonesia and religion to Kristen without replacing saved choices', function () {
     $c = registrationContext();
@@ -71,8 +88,6 @@ it('completes Google registration through correction and acceptance while retain
     $application->refresh();
     $this->actingAs($c['operator'])->post(route('reviews.update', $application), ['version' => $application->lock_version, 'action' => 'verify', 'identity_checked' => 1, 'sk_checked' => 1, 'data_checked' => 1])->assertRedirect()->assertSessionHasNoErrors();
     $application->refresh();
-    $this->post(route('reviews.update', $application), ['version' => $application->lock_version, 'action' => 'accept'])->assertSessionHasErrors('review');
-    $this->post(route('claims.verify-whatsapp', $claim), ['evidence' => 'Balasan nomor yang sama diterima operator pukul layanan.', 'confirmed' => 1])->assertRedirect()->assertSessionHasNoErrors();
     $this->post(route('reviews.update', $application), ['version' => $application->lock_version, 'action' => 'accept'])->assertRedirect()->assertSessionHasNoErrors();
     $application->refresh();
     expect($application->status)->toBe(ApplicationStatus::Accepted);
@@ -83,7 +98,7 @@ it('completes Google registration through correction and acceptance while retain
     // Operator melihat tombol untuk mengembalikan Berkas Diterima Lengkap
     $this->actingAs($c['operator'])->get(route('reviews.show', $application))
         ->assertOk()
-        ->assertSee('Kembalikan Berkas Diterima Lengkap');
+        ->assertSee('Kembalikan ke Antrean Pemeriksaan');
 
     // Operator mengembalikan status Berkas Diterima Lengkap ke antrean
     $this->actingAs($c['operator'])->post(route('reviews.update', $application), [

@@ -96,6 +96,14 @@ button:focus-visible,a:focus-visible{outline:3px solid #b880d3;outline-offset:3p
 .panel-heading p,.section-heading p{font-size:.7rem;color:#93869c;margin:7px 0 0}
 .panel-body{padding:22px 24px}
 .workspace-card .btn{font-size:.72rem}
+.review-actions .btn{font-size:.84rem;min-height:44px;white-space:normal;line-height:1.45}
+.review-actions .form-label{font-size:.82rem}
+.review-actions .form-control{font-size:.875rem;line-height:1.6}
+.review-actions .panel-heading p,.review-action-description{font-size:.81rem;line-height:1.6;color:#75667f}
+.review-decision-box{padding:16px;background:#f5faf6;border:1px solid #dcecdf;border-radius:12px}
+.review-choice-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:#93869c;font-size:.78rem}
+.review-choice-divider::before,.review-choice-divider::after{content:"";height:1px;background:#ece5f0;flex:1}
+.review-advanced summary{cursor:pointer;color:#67536e;min-height:32px;padding:6px 0}
 .workspace-card h3{font-size:.86rem}
 .workspace-card .form-label,.ui-modal .form-label{font-size:.72rem;font-weight:600;color:#67536e}
 .workspace-card .form-control,.workspace-card .form-select,.ui-modal .form-control,.ui-modal .form-select{font-size:.78rem;border-color:#e6dfed;border-radius:8px;min-height:43px}
