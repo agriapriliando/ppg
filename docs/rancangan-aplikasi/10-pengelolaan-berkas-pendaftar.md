@@ -241,3 +241,9 @@ Skenario penerimaan wajib:
 Rilis awal belum mencakup penilaian valid/tidak valid per berkas, tanda tangan digital, OCR, sinkronisasi Neo Feeder, unggah folder, ZIP massal, penggantian isi di tempat, versioning isi, atau tempat sampah. Daftar dokumen resmi kampus dan konfigurasi operasionalnya diisi admin; rancangan tidak mengarang persyaratan wajib akademik.
 
 Hasil akhir implementasi harus menyediakan empat hal yang dapat diperiksa: **pengaturan admin**, **halaman berkas pendaftar**, **halaman berkas pengelola**, dan **penghapusan permanen yang benar-benar menyelesaikan penghapusan fisik**.
+
+## 12. Unggah pengelola tanpa pembatasan status formulir
+
+Administrator dan operator aktif yang ditugaskan dapat menambah berkas dari halaman pemeriksaan pendaftaran pada status Draf, Terkirim, Diverifikasi, Perlu perbaikan, maupun Diterima lengkap. Izin unggah diperiksa secara terpisah dari izin mengubah nama atau menghapus berkas. Status dan keputusan pendaftaran serta manifest pengiriman sebelumnya tetap dipertahankan; berkas tambahan muncul pada daftar berkas ruang kerja dengan pengunggah dan audit tercatat.
+
+Aturan format, ukuran, kuota, akses akun, penugasan operator, serta pembatasan periode arsip tetap berlaku. Pendaftar tetap mengikuti pembatasan status formulir. Pengujian mencakup unggah Livewire oleh kedua peran pada kelima status serta penolakan pendaftar terkunci, operator tanpa penugasan, dan periode arsip.

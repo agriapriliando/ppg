@@ -110,8 +110,9 @@
                         <h3 class="h6 fw-bold mb-3 text-purple border-bottom pb-2">3. Petunjuk Umum</h3>
                         <div class="mb-4">
                             <label for="general_instructions" class="form-label small fw-semibold">Petunjuk yang Ditampilkan pada Layar Pendaftar & Pengelola</label>
-                            <textarea id="general_instructions" name="general_instructions" rows="3" class="form-control"
-                                placeholder="Contoh: Pastikan berkas scan terbaca jelas...">{{ old('general_instructions', $currentPolicy->general_instructions) }}</textarea>
+                            <textarea id="general_instructions" name="general_instructions" rows="6" class="form-control" maxlength="2000" aria-describedby="general-instructions-help"
+                                placeholder="Contoh:&#10;1. Pastikan hasil pindai terbaca jelas.&#10;2. Unggah setiap dokumen secara terpisah.&#10;3. Periksa kembali berkas sebelum mengirim.">{{ old('general_instructions', $currentPolicy->general_instructions) }}</textarea>
+                            <div id="general-instructions-help" class="form-text">Tekan Enter untuk membuat baris baru. Baris baru dan paragraf akan ditampilkan sesuai penulisan pada panduan unggah berkas. Maksimal 2.000 karakter.</div>
                         </div>
 
                         <div class="d-flex justify-content-end gap-2">

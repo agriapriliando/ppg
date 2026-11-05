@@ -35,7 +35,7 @@ class ApplicantDocumentPolicy
 
     public function upload(User $user, ApplicantWorkspace $workspace): bool
     {
-        return $this->canAccessWorkspace($user, $workspace, true);
+        return $this->canAccessWorkspace($user, $workspace, true, forUpload: true);
     }
 
     public function update(User $user, ApplicantDocument $document): bool
@@ -57,7 +57,7 @@ class ApplicantDocumentPolicy
         return $this->update($user, $document);
     }
 
-    public function canAccessWorkspace(User $user, ApplicantWorkspace $workspace, bool $isModify = false): bool
+    public function canAccessWorkspace(User $user, ApplicantWorkspace $workspace, bool $isModify = false, bool $forUpload = false): bool
     {
         if ($user->account_state !== AccountState::Active || $user->must_change_password) {
             return false;
@@ -74,11 +74,12 @@ class ApplicantDocumentPolicy
         }
 
         $application = Application::query()->where('workspace_id', $workspace->id)->with('participant')->first();
-        if ($isModify && $application !== null && ! $application->status->editable()) {
+        $staffUpload = $forUpload && ($user->isAdministrator() || $user->role === UserRole::Operator);
+        if ($isModify && ! $staffUpload && $application !== null && ! $application->status->editable()) {
             return false;
         }
 
-        // Submitted revisions are immutable for every role.
+        // Staff may append documents; submitted revisions remain immutable.
         if ($user->isAdministrator()) {
             return true;
         }

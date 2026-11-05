@@ -146,6 +146,7 @@ class DocumentManager extends Component
         $policy = DocumentPolicyVersion::resolveForPeriod($period);
 
         $canModify = app(ApplicantDocumentPolicy::class)->canAccessWorkspace($user, $workspace, true);
+        $canUpload = app(ApplicantDocumentPolicy::class)->upload($user, $workspace);
         $isArchived = $period->state === PeriodState::Archived;
 
         $participant = $workspace->application?->participant;
@@ -169,6 +170,7 @@ class DocumentManager extends Component
             'policy' => $policy,
             'documents' => $documents,
             'canModify' => $canModify,
+            'canUpload' => $canUpload,
             'isArchived' => $isArchived,
             'isAdminHold' => $isAdminHold,
             'totalBytesUsed' => $totalBytesUsed,
@@ -216,7 +218,7 @@ class DocumentManager extends Component
             return;
         }
 
-        if (! app(ApplicantDocumentPolicy::class)->canAccessWorkspace($user, $workspace, true)) {
+        if (! app(ApplicantDocumentPolicy::class)->upload($user, $workspace)) {
             $this->addError('uploadedFiles', 'Anda tidak memiliki hak untuk mengunggah berkas pada workspace ini.');
 
             return;

@@ -38,11 +38,25 @@
             @if($errorMessage && $uploadedFiles)<button type="button" class="btn btn-sm btn-outline-purple" wire:click="retryFailedUpload" wire:loading.attr="disabled">Coba ulang file gagal</button>@endif
         </div>
     @endif
-    @if(!$canModify && !$isArchived && !$isAdminHold)
+    @if(!$canUpload && !$isArchived && !$isAdminHold)
         <div class="alert alert-info">Berkas pada pendaftaran terkirim dikunci selama pemeriksaan. Pengubahan dibuka saat perbaikan.</div>
     @endif
+    @if (filled($policy->general_instructions))
+        <section class="workspace-card mb-4 border-start border-4 border-warning" aria-label="Panduan unggah berkas">
+            <div class="panel-heading bg-warning-subtle">
+                <div>
+                    <h2 class="h5 mb-1"><i class="bi bi-info-circle-fill text-purple me-2" aria-hidden="true"></i>Panduan Unggah Berkas</h2>
+                    <p class="text-dark mb-0">Baca petunjuk berikut sebelum memilih dan mengunggah file.</p>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="text-dark" style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;font-size:0.95rem">{{ $policy->general_instructions }}</div>
+            </div>
+        </section>
+    @endif
+
     <!-- Upload Section -->
-    @if ($canModify)
+    @if ($canUpload)
         <section class="workspace-card mb-4"
             x-data="{
                 isDragOver: false,
@@ -87,12 +101,6 @@
                 </div>
             </div>
             <div class="panel-body">
-                @if ($policy->general_instructions)
-                    <div class="alert alert-light border small text-muted mb-3">
-                        <i class="bi bi-info-circle me-1 text-purple"></i>{{ $policy->general_instructions }}
-                    </div>
-                @endif
-
                 <div class="p-2 border rounded-3 bg-light mb-3">
                     <div class="small text-muted mb-1">
                         <strong>Ketentuan Berkas:</strong> Format didukung: <span class="fw-semibold text-dark">{{ $policy->allowedExtensionLabels() }}</span>
