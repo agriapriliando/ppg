@@ -401,6 +401,7 @@ it('tests the Livewire document manager component upload and reactive flow', fun
             'periodId' => $c['period']->id,
             'mode' => 'applicant',
         ])
+        ->call('beginUploadBatch')
         ->set('uploadedFiles', [$file])
         ->call('upload')
         ->assertSet('errorMessage', null)
@@ -471,6 +472,7 @@ it('automatically uploads files immediately upon selection or drop into uploaded
             'periodId' => $c['period']->id,
             'mode' => 'applicant',
         ])
+        ->call('beginUploadBatch')
         ->set('uploadedFiles', [$file1, $file2])
         // Without manually calling 'upload', it should have auto-uploaded immediately!
         ->assertSet('errorMessage', null)

@@ -10,6 +10,7 @@ use App\Models\ReferenceRegion;
 use App\Models\SkClaim;
 use App\Models\WhatsappVerification;
 use App\Support\ApplicantFields;
+use App\Support\SubmittedRegistrationData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -30,10 +31,10 @@ class ApplicationReviewController extends Controller
     public function show(Application $application): View
     {
         abort_unless(Gate::allows('review', $application), 404);
-        $application->load(['participant.assignedOperator', 'workspace.biodata', 'workspace.education', 'period', 'reviews', 'submissions.configVersion']);
+        $application->load(['participant.assignedOperator', 'workspace.biodata', 'workspace.education', 'period', 'reviews', 'submissions.configVersion', 'submissions.documents.document']);
         $datasetId = $application->workspace->education?->reference_dataset_id;
         $display = [];
-        $values = ApplicantFields::fromWorkspace($application->workspace);
+        $values = SubmittedRegistrationData::forDisplay($application);
         $options = ReferenceOption::query()->where('dataset_id', $datasetId)->get();
         $regions = ReferenceRegion::query()->where('dataset_id', $datasetId)->whereIn('code', [$values['province_code'] ?? '', $values['city_code'] ?? '', $values['district_code'] ?? ''])->pluck('name', 'code');
         foreach (ApplicantFields::definitions() as $key => $field) {
@@ -51,10 +52,10 @@ class ApplicationReviewController extends Controller
     public function print(Application $application): View
     {
         abort_unless(Gate::allows('review', $application), 404);
-        $application->load(['participant.assignedOperator', 'workspace.biodata', 'workspace.education', 'period', 'workspace.availableDocuments']);
+        $application->load(['participant.assignedOperator', 'workspace.biodata', 'workspace.education', 'period', 'workspace.availableDocuments', 'submissions.documents.document']);
         $datasetId = $application->workspace->education?->reference_dataset_id;
         $display = [];
-        $values = ApplicantFields::fromWorkspace($application->workspace);
+        $values = SubmittedRegistrationData::forDisplay($application);
         $options = ReferenceOption::query()->where('dataset_id', $datasetId)->get();
         $regions = ReferenceRegion::query()->where('dataset_id', $datasetId)->whereIn('code', [$values['province_code'] ?? '', $values['city_code'] ?? '', $values['district_code'] ?? ''])->pluck('name', 'code');
         foreach (ApplicantFields::definitions() as $key => $field) {
@@ -65,7 +66,17 @@ class ApplicationReviewController extends Controller
                 $display[$key] = $regions[$values[$key] ?? ''] ?? '—';
             }
         }
-        $documents = $application->workspace->availableDocuments()->orderBy('created_at')->get();
+        $submission = $application->submissions->where('ownership_epoch', $application->ownership_epoch)->sortByDesc('revision')->first();
+        $documents = $submission !== null && $submission->documents_version !== null
+            ? $submission->documents->map(function ($item) {
+                $document = clone $item->document;
+                $document->display_name = pathinfo($item->file_name, PATHINFO_FILENAME);
+                $document->original_name = $item->file_name;
+                $document->byte_size = $item->byte_size;
+
+                return $document;
+            })
+            : $application->workspace->availableDocuments()->orderBy('created_at')->get();
 
         return view('portal.application-print', [
             'application' => $application,

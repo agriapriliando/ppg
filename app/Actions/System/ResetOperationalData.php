@@ -19,6 +19,9 @@ class ResetOperationalData
      * @var list<string>
      */
     protected array $operationalTables = [
+        'application_submission_documents',
+        'applicant_draft_operations',
+        'applicant_upload_batches',
         'application_reviews',
         'application_submissions',
         'application_ownership_transfers',

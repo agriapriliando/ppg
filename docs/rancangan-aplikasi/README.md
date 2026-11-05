@@ -24,6 +24,8 @@ Tujuan aplikasi adalah menangani peserta yang telah ditetapkan dalam SK: mempero
 
 ## Cara menggunakan
 
+Perluasan terbaru: **[11 — Formulir, berkas, dan autosave](11-formulir-berkas-dan-autosave.md)**, usulan 5 November 2026 untuk menggabungkan perjalanan pengisian dan unggah, menyimpan draf otomatis, serta memindahkan pengiriman final ke halaman berkas. Dokumen ini juga mengusulkan perubahan eksplisit atas aturan pengubahan berkas setelah kirim pada rancangan 10.
+
 1. Baca 00–02 untuk menyamakan pemahaman bisnis. Cocokkan setiap layar pada 03 dengan prototipe.
 2. Gunakan 04–06 sebagai rancangan teknis yang saling melengkapi. Nama tabel dan berkas di sana adalah sasaran pembangunan, kecuali diberi label **sudah ada**.
 3. Kerjakan tiket pada 07 secara berurutan menurut dependensi; tandai selesai hanya jika keluaran dan uji penerimaannya tersedia.

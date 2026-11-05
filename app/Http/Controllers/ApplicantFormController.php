@@ -16,6 +16,7 @@ use App\Models\ReferenceRegion;
 use App\Models\SkClaim;
 use App\Support\ApplicantFields;
 use App\Support\FormInput;
+use App\Support\SubmittedRegistrationData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -92,16 +93,20 @@ class ApplicantFormController extends Controller
         abort_unless($actor !== null, 403);
         $keys = [...array_keys(ApplicantFields::definitions()), 'pt_external_id', 'prodi_external_id', 'pt_name', 'prodi_name', 'degree_level', 'graduation_year', 'education_history', 'consent', 'consent_id'];
         $submit = $request->input('action') === 'submit';
+        if ($submit) {
+            $request->validate(['documents_version' => ['required', 'integer', 'min:0'], 'document_policy_id' => ['required', 'integer'], 'submission_request_id' => ['required', 'uuid']]);
+            $keys = [...$keys, 'documents_version', 'document_policy_id', 'submission_request_id'];
+        }
         $save->handle($actor, $period->id, $request->integer('version'), $request->only($keys), $submit);
 
-        return redirect()->route($submit ? 'applicant.application.status' : 'applicant.form.edit', $period)->with('status', $submit ? 'Pendaftaran telah dikirim. Pantau hasil pemeriksaan operator.' : 'Draf berhasil disimpan di server.');
+        return redirect()->route($submit ? 'applicant.application.status' : ($request->boolean('continue_documents') ? 'applicant.documents.index' : 'applicant.form.edit'), $period)->with('status', $submit ? 'Pendaftaran telah dikirim. Pantau hasil pemeriksaan operator.' : 'Draf berhasil disimpan di server.');
     }
 
     public function status(Request $request, AdmissionPeriod $period): View
     {
         $application = Application::query()->where('user_id', $request->user()?->id)->where('admission_period_id', $period->id)->with(['period', 'participant.assignedOperator'])->first();
         if ($application !== null) {
-            $application->load(['reviews' => fn ($query) => $query->where('ownership_epoch', $application->ownership_epoch)]);
+            $application->load(['reviews' => fn ($query) => $query->where('ownership_epoch', $application->ownership_epoch), 'submissions.documents.document']);
         }
 
         return view('portal.application-status', ['period' => $period, 'application' => $application]);
@@ -109,7 +114,8 @@ class ApplicantFormController extends Controller
 
     public function proof(Request $request, AdmissionPeriod $period): View
     {
-        $application = Application::query()->where('user_id', $request->user()?->id)->where('admission_period_id', $period->id)->whereNotNull('submitted_at')->where(fn ($query) => $query->where('ownership_epoch', 0)->orWhereNotNull('current_owner_submitted_at'))->with(['period', 'participant.assignedOperator', 'workspace.biodata', 'workspace.education'])->firstOrFail();
+        $application = Application::query()->where('user_id', $request->user()?->id)->where('admission_period_id', $period->id)->whereNotNull('submitted_at')->where(fn ($query) => $query->where('ownership_epoch', 0)->orWhereNotNull('current_owner_submitted_at'))->with(['period', 'participant.assignedOperator', 'workspace.biodata', 'workspace.education', 'submissions.documents.document'])->firstOrFail();
+        SubmittedRegistrationData::forDisplay($application);
 
         return view('portal.application-proof', ['application' => $application]);
     }

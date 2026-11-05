@@ -1,15 +1,23 @@
 <x-layouts::app title="Formulir Pendaftaran">
 @php
     $locked=($application && (!$application->status->editable() || $application->participant->roster_state!=='active' || $application->participant->admin_hold)) || $period->state!==App\Enums\PeriodState::Published;
-    $initialStep=1;
+    $initialStep=max(1, min(5, request()->integer('section', 1)));
     foreach(array_keys($errors->messages()) as $errorKey) { if(isset($fields[$errorKey])) { $initialStep=$fields[$errorKey]['step']; break; } if(str_starts_with($errorKey,'education_history.') || in_array($errorKey,['pt_external_id','prodi_external_id','pt_name','prodi_name','degree_level','graduation_year','education_history'])) {$initialStep=4;break;} }
     $labels=[];
     foreach($regions as $region) { $labels[$region->code]=$region->name; }
 @endphp
+<x-registration-progress :active="1" />
 <div class="form-topline"><div><span class="status-pill {{ $application?->status->value ?? 'draf' }}">{{ $application?->status->label() ?? 'Draf pribadi · kepesertaan belum disetujui' }}</span><span class="small text-muted ms-2">{{ $workspace?->saved_at ? 'Disimpan: '.$workspace->saved_at->timezone('Asia/Jakarta')->format('d/m/Y H:i').' WIB' : 'Belum ada draf tersimpan' }}</span></div><strong>{{ $period->name }}</strong></div>
 @if($locked)<div class="notice-box info"><i class="bi bi-lock" aria-hidden="true"></i><p class="mb-0">Formulir dapat dibaca. Pengubahan dibuka jika operator meminta perbaikan.</p></div>@endif
 @if(!$dataset)<div class="notice-box warning"><i class="bi bi-info-circle" aria-hidden="true"></i><p class="mb-0">Referensi formulir belum diterbitkan pengelola. Anda dapat menyimpan draf sambil menunggu.</p></div>@endif
+@if(!config('pmb.autosave_enabled'))<div class="alert alert-warning">Mode simpan manual aktif. Gunakan Simpan Draf atau Simpan &amp; Lanjut ke Berkas sebelum meninggalkan halaman.</div>@endif
+<script src="{{ asset('js/applicant-autosave.js') }}?v={{ filemtime(public_path('js/applicant-autosave.js')) }}"></script>
 <section x-effect="if(step===5) refreshSummary()" x-data="{
+    ...applicantAutosave({
+        url: @js(route('applicant.form.autosave', $period)), documentsUrl: @js(route('applicant.documents.index', $period)),
+        csrf: @js(csrf_token()), version: {{ $workspace?->lock_version ?? 0 }}, locked: @js($locked || !config('pmb.autosave_enabled')),
+        fields: @js([...array_keys($fields), 'degree_level', 'education_history', 'pt_name', 'prodi_name', 'pt_external_id', 'prodi_external_id', 'graduation_year'])
+    }),
     step:{{ $initialStep }},
     showConfirmModal: false,
     consentChecked: false,
@@ -41,9 +49,10 @@
         }
     }
     if($event.detail.field==='pt_external_id') pt=$event.detail.value;
+    $nextTick(() => captureChanges(true));
 ">
-<nav class="form-steps" aria-label="Tahapan formulir">@foreach(['Identitas','Alamat','Tambahan','Pendidikan','Tinjau & kirim'] as $stepName)<button type="button" @click="step={{ $loop->iteration }}" :class="{'active':step==={{ $loop->iteration }}}" :aria-current="step==={{ $loop->iteration }}?'step':null"><span>{{ $loop->iteration }}</span><b>{{ $stepName }}</b></button>@endforeach</nav>
-<form method="post" action="{{ route('applicant.form.update',$period) }}" class="workspace-card" x-ref="applicationForm" novalidate>@csrf<input type="hidden" name="version" value="{{ \App\Support\FormInput::old('version',$workspace?->lock_version??0) }}"><div class="panel-body form-panel">
+<nav class="form-steps" aria-label="Tahapan formulir">@foreach(['Identitas','Alamat','Tambahan','Pendidikan','Ringkasan'] as $stepName)<button type="button" @click="moveStep({{ $loop->iteration }})" :class="{'active':step==={{ $loop->iteration }}}" :aria-current="step==={{ $loop->iteration }}?'step':null"><span>{{ $loop->iteration }}</span><b>{{ $stepName }}</b></button>@endforeach</nav>
+<form method="post" action="{{ route('applicant.form.update',$period) }}" class="workspace-card" x-ref="applicationForm" novalidate @if(config('pmb.autosave_enabled')) @input="captureChanges()" @change="captureChanges(true)" @focusout="captureChanges(true)" @submit.prevent="captureChanges(true)" @endif>@csrf<input type="hidden" name="version" value="{{ \App\Support\FormInput::old('version',$workspace?->lock_version??0) }}"><div class="panel-body form-panel">
 @foreach([1=>'Identitas & kontak',2=>'Alamat tempat tinggal',3=>'Informasi tambahan'] as $stepNumber=>$heading)<div x-show="step==={{ $stepNumber }}" @if($stepNumber!==$initialStep)x-cloak @endif><div class="section-heading"><h2>{{ $heading }}</h2><p>Kolom bertanda * wajib saat mengirim formulir.</p></div>@if($stepNumber===1 && $application)<div class="mb-3"><label for="sk-name" class="form-label">Nama sesuai SK</label><input id="sk-name" class="form-control bg-light" value="{{ $application->participant->name_on_sk }}" readonly></div>@endif<div class="row g-3">
 @foreach($fields as $key=>$field)@continue($field['step']!==$stepNumber)<div class="col-md-6" @if($key==='kps_number') x-show="kps==='1'" @endif>
 @if($field['type']==='region')
@@ -122,8 +131,9 @@
                 </div>
                 <div class="col-md-4">
                     <label for="education-{{ $level }}-year" class="form-label">Tahun Lulus {{ $level }} <span class="text-danger">*</span></label>
-                    <input id="education-{{ $level }}-year" name="education_history[{{ $level }}][graduation_year]" type="number" class="form-control"
-                        data-review-label="Tahun lulus {{ $level }}" min="1900" max="{{ now()->year }}" inputmode="numeric"
+                    <input id="education-{{ $level }}-year" name="education_history[{{ $level }}][graduation_year]" type="text" class="form-control"
+                        data-review-label="Tahun lulus {{ $level }}" maxlength="4" pattern="[0-9]{4}" inputmode="numeric"
+                        @input="$el.value = $el.value.replace(/[^0-9]/g, '').slice(0, 4)"
                         value="{{ \App\Support\FormInput::old('education_history.'.$level.'.graduation_year', $data['education_history'][$level]['graduation_year'] ?? '') }}"
                         placeholder="Contoh: 2020" @disabled($locked)>
                     <x-field-error :name="'education_history.'.$level.'.graduation_year'" />
@@ -134,6 +144,35 @@
     @endforeach
     <p class="small text-muted">Semua kolom pada jenjang yang ditampilkan wajib dilengkapi sebelum pendaftaran dikirim. Anda dapat menyimpan draf terlebih dahulu.</p>
 </div>
-<div x-show="step===5" @if($initialStep!==5)x-cloak @endif><div class="section-heading"><h2>Tinjau & kirim</h2><p>Periksa seluruh isian pada tahap sebelumnya. Tanggal daftar ditetapkan sekali pada pengiriman pertama.</p></div><div class="review-grid mb-4"><template x-for="item in summary" :key="item.key"><div class="review-block"><h3 x-text="item.label"></h3><p class="mb-0" x-text="item.value||'—'"></p></div></template></div><div class="notice-box info mb-3"><i class="bi bi-calendar-check" aria-hidden="true"></i><p class="mb-0">Perbaikan dan kirim ulang mempertahankan tanggal pendaftaran pertama. Setelah dikirim, formulir dikunci selama pemeriksaan.</p></div>@if(!$application)<div class="notice-box warning mb-3"><i class="bi bi-patch-check" aria-hidden="true"></i><p class="mb-0">Kepesertaan SK belum disetujui. Simpan draf dan <a href="{{ route('applicant.claims') }}">pantau pencocokan SK</a> sebelum mengirim.</p></div>@endif @if($consent && !$locked)<div class="notice-box info mb-3"><i class="bi bi-shield-check" aria-hidden="true"></i><div><strong>Konfirmasi Pernyataan</strong><p class="mb-0">Klik tombol <strong>Kirim Pendaftaran</strong> di bawah untuk membaca dan menyetujui pernyataan simulasi pendaftaran pada jendela konfirmasi.</p></div></div>@elseif(!$consent)<p class="text-muted">Naskah pernyataan belum diterbitkan pengelola; pengiriman belum tersedia.</p>@endif</div>
-</div>@if($consent && !$locked)<input type="hidden" name="consent_id" value="{{ $consent->id }}"><div x-show="showConfirmModal" class="ui-modal-backdrop" @keydown.escape.window="showConfirmModal = false" @click.self="showConfirmModal = false" style="display: none;" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" role="dialog" aria-modal="true" aria-labelledby="modal-confirm-submit-title"><div class="ui-modal" x-show="showConfirmModal" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"><div class="ui-modal-header d-flex align-items-center justify-content-between"><div class="d-flex align-items-center gap-2"><span class="dayak-shield-badge" style="width: 32px; height: 32px; font-size: 0.85rem;"><i class="bi bi-shield-check" aria-hidden="true"></i></span><h2 id="modal-confirm-submit-title" class="h6 mb-0 fw-bold text-purple">Konfirmasi Pengiriman Pendaftaran</h2></div><button type="button" class="btn-close" @click="showConfirmModal = false" aria-label="Tutup"></button></div><div class="ui-modal-body"><p class="text-muted mb-3">Pastikan seluruh data yang Anda masukkan sudah sesuai dan benar. Setelah formulir dikirim, data pendaftaran Anda akan <strong>dikunci</strong> untuk proses pemeriksaan administrasi.</p><div class="p-3 mb-3 rounded-3 border bg-light" style="border-left: 4px solid var(--purple, #4a1d6d) !important;"><label class="form-check d-flex align-items-start gap-2 mb-0 cursor-pointer"><input type="checkbox" class="form-check-input mt-1 flex-shrink-0" name="consent" value="1" x-model="consentChecked" required><span class="text-dark small lh-base">{{ $consent->body }}@if(!empty($consent->version))<small class="d-block text-muted mt-1">Pernyataan versi {{ $consent->version }}</small>@endif</span></label></div><div class="small text-muted mb-3" x-show="!consentChecked"><i class="bi bi-info-circle text-warning me-1"></i>Centang kotak pernyataan di atas untuk mengaktifkan tombol kirim.</div><div class="modal-actions d-flex align-items-center justify-content-end gap-2 pt-2 border-top"><button type="button" class="btn btn-light border px-3" @click="showConfirmModal = false">Batal</button><button type="submit" name="action" value="submit" class="btn btn-gold px-4 d-inline-flex align-items-center gap-2" :disabled="!consentChecked"><i class="bi bi-send-check" aria-hidden="true"></i><span>Kirim Pendaftaran</span></button></div></div></div></div>@endif<div class="form-actions"><button type="button" class="btn btn-light border" @click="step=Math.max(1,step-1)" :disabled="step===1">Kembali</button><div class="d-flex flex-wrap gap-2">@if(!$locked)<button name="action" value="draft" class="btn btn-outline-purple" formnovalidate>Simpan Draf</button>@endif<button type="button" class="btn btn-purple" @click="step=Math.min(5,step+1)" x-show="step<5">Selanjutnya</button>@if(!$locked)<button type="button" class="btn btn-gold" x-show="step===5" @click="showConfirmModal = true" @disabled(!$application || !$consent || !$dataset)>Kirim Pendaftaran</button>@endif</div></div></form></section>
+<div x-show="step===5" @if($initialStep!==5)x-cloak @endif>
+    <div class="section-heading"><h2>Ringkasan biodata</h2><p>Periksa isian Anda, lalu lanjutkan ke halaman berkas untuk mengirim pendaftaran.</p></div>
+    <div class="review-grid mb-4"><template x-for="item in summary" :key="item.key"><div class="review-block"><h3 x-text="item.label"></h3><p class="mb-0" x-text="item.value || 'Belum diisi'"></p></div></template></div>
+    <div class="notice-box info"><i class="bi bi-info-circle" aria-hidden="true"></i><p class="mb-0">Biodata tersimpan sebagai draf. Pendaftaran baru terkirim setelah Anda menyetujui pernyataan dan menekan Kirim Pendaftaran di halaman berkas.</p></div>
+</div>
+</div>
+<div class="p-3 border-top" role="status" aria-live="polite" @if($locked || !config('pmb.autosave_enabled')) hidden @endif>
+    <span x-show="saveState === 'saved'" class="text-success"><i class="bi bi-check-circle me-1"></i>Draf tersimpan <span x-text="savedTime"></span></span>
+    <span x-show="saveState === 'pending'" class="text-warning-emphasis">Ada perubahan belum tersimpan.</span>
+    <span x-show="saveState === 'saving'" class="text-muted">Menyimpan?</span>
+    <span x-show="['failed','conflict','expired','blocked'].includes(saveState)" class="text-danger" x-text="saveMessage"></span>
+    <button type="button" class="btn btn-sm btn-outline-purple ms-2" x-show="saveState === 'failed'" @click="flushDraft()">Coba simpan lagi</button>
+    <p class="small text-muted mb-0 mt-1">Isian yang belum lengkap tetap disimpan sebagai draf. Periksa kelengkapannya sebelum mengirim.</p>
+</div>
+<div class="form-actions">
+    <button type="button" class="btn btn-light border" @click="moveStep(step - 1)" :disabled="step === 1">Kembali</button>
+    <div class="d-flex flex-wrap gap-2">
+        @if(!$locked)
+            @if(config('pmb.autosave_enabled'))<button type="button" class="btn btn-outline-purple" @click="captureChanges(true)" :disabled="sending || stopped">Simpan sekarang</button>
+            @else<input type="hidden" name="action" value="draft"><button type="submit" class="btn btn-outline-purple">Simpan Draf</button>@endif
+        @endif
+        <button type="button" class="btn btn-purple" @click="moveStep(step + 1)" x-show="step < 5">Selanjutnya</button>
+        @if(!config('pmb.autosave_enabled') && !$locked)
+            <button type="submit" name="continue_documents" value="1" class="btn btn-gold" x-show="step === 5">Simpan &amp; Lanjut ke Berkas</button>
+        @else
+            <button type="button" class="btn btn-gold" x-show="step === 5" @click="goToDocuments()" :disabled="navigating || stopped">Lanjut ke Berkas</button>
+        @endif
+    </div>
+</div>
+</form>
+</section>
 </x-layouts::app>

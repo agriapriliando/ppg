@@ -31,13 +31,38 @@
         </div>
     @endif
 
-    <!-- Upload Section (Mengikuti Pola Teknologi Arsipkan) -->
+    @if($uploadBatchId)
+        <div class="alert alert-warning d-flex flex-wrap gap-2 align-items-center justify-content-between">
+            <span>Unggahan masih berlangsung atau ada file gagal. Selesaikan atau batalkan sebelum mengirim pendaftaran.</span>
+            <button type="button" class="btn btn-sm btn-outline-danger" wire:click="cancelUploadBatch">Batalkan antrean unggah</button>
+            @if($errorMessage && $uploadedFiles)<button type="button" class="btn btn-sm btn-outline-purple" wire:click="retryFailedUpload" wire:loading.attr="disabled">Coba ulang file gagal</button>@endif
+        </div>
+    @endif
+    @if(!$canModify && !$isArchived && !$isAdminHold)
+        <div class="alert alert-info">Berkas pada pendaftaran terkirim dikunci selama pemeriksaan. Pengubahan dibuka saat perbaikan.</div>
+    @endif
+    <!-- Upload Section -->
     @if ($canModify)
         <section class="workspace-card mb-4"
             x-data="{
                 isDragOver: false,
                 isUploading: false,
                 uploadProgress: 0,
+                async startUpload(files) {
+                    if (!files?.length || this.isUploading) return;
+                    this.isUploading = true;
+                    this.$dispatch('registration-uploading', { busy: true });
+                    try {
+                        await this.$wire.beginUploadBatch();
+                        this.$wire.$uploadMultiple('uploadedFiles', [...files],
+                            () => { this.isUploading = false; this.uploadProgress = 100; this.$dispatch('registration-uploading', { busy: false }); this.$dispatch('registration-documents-changed'); },
+                            () => { this.isUploading = false; this.$dispatch('registration-uploading', { busy: false }); },
+                            event => { this.uploadProgress = event.detail.progress; });
+                    } catch (error) {
+                        this.isUploading = false;
+                        this.$dispatch('registration-uploading', { busy: false });
+                    }
+                },
                 handleDrop(event) {
                     const files = event.dataTransfer?.files;
                     this.isDragOver = false;
@@ -101,7 +126,7 @@
                     </p>
                 </div>
 
-                <input type="file" id="fileInput" x-ref="fileInput" class="d-none" multiple wire:model="uploadedFiles"
+                <input type="file" id="fileInput" x-ref="fileInput" class="d-none" multiple @change="startUpload($event.target.files)"
                     accept="{{ collect($policy->allowedExtensions())->map(fn($ext) => '.' . $ext)->implode(',') }}"
                     x-bind:disabled="isUploading">
 
@@ -211,7 +236,7 @@
                                                 </button>
                                                 <button type="button" class="doc-btn doc-btn-delete"
                                                     wire:click="confirmDelete('{{ $doc->id }}')" title="Hapus permanen">
-                                                    <i class="bi bi-trash3"></i><span>Hapus</span>
+                                                    <i class="bi bi-trash3"></i><span>Hapus / Lepas</span>
                                                 </button>
                                             @endif
                                         </div>
@@ -263,7 +288,7 @@
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-danger shadow">
                     <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title h6 fw-bold mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Hapus Permanen</h5>
+                        <h5 class="modal-title h6 fw-bold mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Hapus / Lepas Berkas</h5>
                         <button type="button" class="btn-close btn-close-white" wire:click="cancelDelete" aria-label="Tutup"></button>
                     </div>
                     <div class="modal-body">
@@ -278,7 +303,7 @@
                     <div class="modal-footer border-top">
                         <button type="button" class="btn btn-light border" wire:click="cancelDelete">Batal</button>
                         <button type="button" class="btn btn-danger px-4" wire:click="executeDelete">
-                            <i class="bi bi-trash3-fill me-1"></i>Hapus Permanen
+                            <i class="bi bi-trash3-fill me-1"></i>Hapus / Lepas Berkas
                         </button>
                     </div>
                 </div>

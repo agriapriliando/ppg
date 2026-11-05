@@ -71,6 +71,7 @@
                 </section>
 
                 @include('portal.partials.submission-history')
+                <x-submission-documents :application="$application" />
 
                 <section class="workspace-card">
                     <div class="panel-heading">

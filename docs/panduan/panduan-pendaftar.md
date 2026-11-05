@@ -151,8 +151,9 @@ Isi identitas diri Anda sesuai KTP/KK yang sah:
 - *Catatan*: Program studi terhubung langsung dengan perguruan tinggi yang dipilih. Jika kampus diubah, Anda wajib memilih ulang program studinya.
 
 > [!TIP]
-> **Gunakan Tombol "Simpan Draf" Secara Berkala!**  
-> Menekan tombol *Selanjutnya* atau *Kembali* hanya menggeser tampilan tab di layar Anda. Agar data yang Anda ketik benar-benar tersimpan dengan aman ke server, selalu klik tombol **Simpan Draf** dan pastikan muncul notifikasi hijau bertuliskan *"Draf berhasil disimpan di server"*.
+> **Draf disimpan otomatis.** Setelah berhenti mengetik sekitar 700 ms, aplikasi menyimpan perubahan. Tunggu indikator **Draf tersimpan** sebelum menutup halaman. **Selanjutnya**, **Kembali**, dan **Lanjut ke Berkas** menunggu simpan terakhir selesai. Gunakan **Simpan sekarang** atau **Coba simpan lagi** bila diperlukan.
+>
+> Saat koneksi gagal, jangan tutup tab sebelum penyimpanan berhasil. Jika muncul konflik tab/perangkat lain, salin dahulu isian yang belum tersimpan sebelum memuat ulang. Menyimpan draf bukan berarti pendaftaran sudah dikirim.
 
 ---
 
@@ -184,7 +185,7 @@ Selain melengkapi isian teks, pendaftar wajib mengunggah dokumen persyaratan adm
 - **Lihat / Pratinjau**: Membuka dokumen untuk memastikan halaman berkas sudah benar dan jelas.
 - **Unduh**: Mengunduh kembali salinan berkas ke perangkat Anda.
 - **Ubah Nama**: Mengganti label nama dokumen jika ingin memperjelas (contoh: `Ijazah_S1_Budi_Santoso.pdf`).
-- **Hapus Permanen**: Menghapus file jika Anda salah mengunggah file. Berkas yang dihapus tidak dapat dipulihkan, Anda dapat mengunggah file baru yang benar.
+- **Hapus / Lepas**: File yang belum pernah dikirim dapat dihapus permanen. File yang pernah dikirim hanya dilepas dari draf perbaikan; riwayat revisinya tetap disimpan. File terkunci selama pemeriksaan dan dapat diubah kembali ketika status Perlu Perbaikan.
 
 ---
 
@@ -192,19 +193,13 @@ Selain melengkapi isian teks, pendaftar wajib mengunggah dokumen persyaratan adm
 
 Setelah biodata lengkap dan berkas terunggah:
 
-1. Buka kembali formulir pendaftaran pada **Tahap 5 — Tinjau & Kirim**.
-2. Periksa ringkasan seluruh isian Anda dari Tahap 1 sampai Tahap 4:
-   - Pastikan NIK, nama ibu kandung, tanggal lahir, dan alamat sudah benar.
-   - Pastikan nama kampus dan prodi S1 sudah sesuai ijazah.
-3. Gulir ke bagian **Pernyataan Kebenaran Data**:
-   - Baca dengan teliti teks pernyataan pakta integritas dan kebenaran data yang tertera.
-   - Centang kotak persetujuan: *"Saya menyatakan bahwa data dan berkas yang saya berikan adalah benar dan sah..."*.
-4. Klik tombol emas **Kirim Pendaftaran**.
-5. Konfirmasi pengiriman pada jendela yang muncul.
-6. **Hasil Berhasil**:
-   - Muncul pemberitahuan hijau: *"Pendaftaran telah berhasil dikirim"*.
-   - Formulir pendaftaran Anda resmi terkunci untuk proses verifikasi panitia.
-   - Anda akan mendapatkan **Nomor PMB Resmi** (contoh: `PMB-2026PPG1-0012`).
+1. Di ringkasan biodata, tekan **Lanjut ke Berkas**. Anda juga dapat membuka halaman berkas dari ruang kerja.
+2. Periksa kesiapan biodata. Tautan pada pesan isian belum lengkap membuka bagian formulir yang perlu diperbaiki.
+3. Unggah berkas sesuai panduan dan tunggu sampai file tercantum sebagai tersimpan. Selesaikan, coba ulang file gagal, atau batalkan antrean unggah yang tidak dilanjutkan.
+4. Periksa **Berkas yang akan dikirim**, kemudian tekan **Periksa & Kirim Pendaftaran**.
+5. Baca modal konfirmasi, periksa ringkasan, dan centang pernyataan yang berlaku. Jika belum mengunggah file, perhatikan peringatannya dan baca kembali panduan.
+6. Tekan **Kirim Pendaftaran**. Halaman Status Pendaftaran menampilkan hasil pengiriman. Biodata dan berkas dikunci selama pemeriksaan; pengiriman ulang tersedia setelah operator meminta perbaikan.
+7. Pendidikan terakhir menentukan riwayat wajib: S1; S1 dan S2; atau S1, S2, dan S3. Setiap jenjang memiliki perguruan tinggi, program studi, dan tahun lulus.
 
 ---
 

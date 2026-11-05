@@ -21,7 +21,7 @@ class StaffDocumentController extends Controller
 
         Gate::authorize('review', $application);
 
-        $application->load(['participant.assignedOperator', 'period', 'workspace.biodata']);
+        $application->load(['participant.assignedOperator', 'period', 'workspace.biodata', 'submissions.documents.document']);
         $workspace = $application->workspace;
         abort_unless($workspace instanceof ApplicantWorkspace, 404);
 

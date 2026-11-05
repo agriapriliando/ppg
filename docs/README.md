@@ -11,6 +11,8 @@ Tampilan produksi dirancang menggunakan **Bootstrap 5 + Blade + Livewire 4**, me
 | Bahan | Kegunaan |
 | --- | --- |
 | [Rancangan lengkap](rancangan-aplikasi/README.md) | Kebutuhan, alur, layar, skema, arsitektur, integrasi, tahapan kerja, pengujian, dan operasi |
+| [Formulir, berkas, dan autosave](rancangan-aplikasi/11-formulir-berkas-dan-autosave.md) | Usulan 5 November 2026: draf otomatis saat mengetik, satu alur biodata–berkas, dan tombol kirim final di halaman berkas |
+| [Implementasi autosave dan kirim bersama](implementasi/formulir-berkas-autosave.md) | Perilaku aktual, migrasi, pengoperasian, hasil pengujian, dan batas QA browser |
 | [Rancangan berkas pendaftar](rancangan-aplikasi/10-pengelolaan-berkas-pendaftar.md) | Unggah bebas bertahap, ubah nama, hapus permanen, akses pengelola, dan aturan/panduan berkas oleh admin; belum diimplementasikan |
 | [Panduan Reset Data & Berkas](panduan-reset-data.md) | Panduan perintah console Artisan `pmb:reset-data` untuk mereset seluruh data operasional & berkas fisik tanpa menghapus data referensi |
 | [Prototipe UI](ppgui/README.md) | Meninjau contoh tampilan dan simulasi interaksi tiga peran |

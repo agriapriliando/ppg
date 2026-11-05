@@ -3,7 +3,9 @@
 namespace App\Actions\Documents;
 
 use App\Actions\RecordAudit;
+use App\Models\AdmissionPeriod;
 use App\Models\ApplicantDocument;
+use App\Models\ApplicantWorkspace;
 use App\Models\User;
 use App\Policies\ApplicantDocumentPolicy;
 use Illuminate\Support\Facades\DB;
@@ -52,7 +54,10 @@ class RenameApplicantDocument
         $sanitizedName = Str::squish(preg_replace('/[\x00-\x1F\x7F\/\\\\]/', '', $trimmed));
 
         return DB::transaction(function () use ($actor, $document, $sanitizedName, $lockVersion): ApplicantDocument {
+            AdmissionPeriod::query()->lockForUpdate()->findOrFail($document->admission_period_id);
+            $workspace = ApplicantWorkspace::query()->lockForUpdate()->findOrFail($document->workspace_id);
             $locked = ApplicantDocument::query()->lockForUpdate()->findOrFail($document->id);
+            abort_unless($this->policy->update($actor, $locked), 403);
 
             if ($locked->status !== ApplicantDocument::STATUS_AVAILABLE) {
                 throw ValidationException::withMessages([
@@ -71,6 +76,8 @@ class RenameApplicantDocument
                 'display_name' => $sanitizedName,
                 'lock_version' => $locked->lock_version + 1,
             ])->save();
+            $workspace->documents_version++;
+            $workspace->save();
 
             $this->audit->handle(
                 $actor,

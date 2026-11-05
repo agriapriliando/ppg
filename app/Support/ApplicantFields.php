@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 class ApplicantFields
 {
     /** @return array<string, mixed> */
-    public static function fromWorkspace(ApplicantWorkspace $workspace): array
+    public static function fromWorkspace(ApplicantWorkspace $workspace, bool $includeDraft = true): array
     {
         $data = [];
         foreach (self::definitions() as $key => $field) {
@@ -50,6 +50,10 @@ class ApplicantFields
             if ($claim !== null && ! empty($claim->whatsapp_number)) {
                 $data['whatsapp_number'] = $claim->whatsapp_number;
             }
+        }
+
+        if ($includeDraft && ($workspace->application === null || $workspace->application->status->editable()) && $workspace->draft_payload !== null) {
+            $data = array_replace_recursive($data, $workspace->draft_payload);
         }
 
         return $data;
@@ -171,7 +175,7 @@ class ApplicantFields
         $labels['prodi_name'] = 'Program studi asal';
         $labels['pt_external_id'] = 'Perguruan tinggi asal';
         $labels['prodi_external_id'] = 'Program studi asal';
-        $data = Validator::make($input, $rules, ['required' => ':attribute wajib diisi.', 'exists' => ':attribute tidak tersedia pada referensi aktif.', 'digits' => ':attribute harus terdiri dari :digits digit.', 'birth_date.before' => 'Tanggal lahir harus sebelum hari ini.'], $labels)->validate();
+        $data = Validator::make($input, $rules, ['integer' => ':attribute harus berupa bilangan bulat.', 'between.numeric' => ':attribute harus antara :min dan :max.', 'max.string' => ':attribute maksimal :max karakter.', 'in' => ':attribute tidak sesuai pilihan yang tersedia.', 'date_format' => ':attribute harus memakai format :format.', 'required' => ':attribute wajib diisi.', 'exists' => ':attribute tidak tersedia pada referensi aktif.', 'digits' => ':attribute harus terdiri dari :digits digit.', 'birth_date.before' => 'Tanggal lahir harus sebelum hari ini.'], $labels)->validate();
         $history = $data['education_history'] ?? [];
         $previousYear = null;
         foreach ($levels as $level) {

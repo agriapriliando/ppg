@@ -43,6 +43,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'status',
     'lock_version',
     'request_key',
+    'sha256',
+    'detached_at',
 ])]
 class ApplicantDocument extends Model
 {

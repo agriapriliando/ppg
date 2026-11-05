@@ -4,6 +4,8 @@ Tanggal pembaruan: **18 Oktober 2026**. Status: **alur inti MVP dibangun dan lul
 
 ## Yang sudah dapat digunakan
 
+Pembaruan formulir dan berkas: [autosave, pengiriman bersama, dan riwayat revisi](formulir-berkas-autosave.md). Catatan ini menggantikan keterangan lama tentang simpan manual dan lokasi pengiriman formulir di bawah.
+
 | Modul | Perilaku yang tersedia |
 | --- | --- |
 | Portal publik | Beranda bertema ungu/emas, informasi periode dari database, alur/FAQ/panduan, kontak resmi dan pengumuman yang dapat diperbarui admin |

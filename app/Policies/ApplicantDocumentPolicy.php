@@ -16,7 +16,7 @@ class ApplicantDocumentPolicy
 {
     public function view(User $user, ApplicantDocument $document): bool
     {
-        if ($document->status !== ApplicantDocument::STATUS_AVAILABLE) {
+        if ($document->status !== ApplicantDocument::STATUS_AVAILABLE || $document->detached_at !== null) {
             return false;
         }
 
@@ -73,12 +73,16 @@ class ApplicantDocumentPolicy
             return false;
         }
 
-        // Administrator has full access to all workspaces.
+        $application = Application::query()->where('workspace_id', $workspace->id)->with('participant')->first();
+        if ($isModify && $application !== null && ! $application->status->editable()) {
+            return false;
+        }
+
+        // Submitted revisions are immutable for every role.
         if ($user->isAdministrator()) {
             return true;
         }
 
-        $application = Application::query()->where('workspace_id', $workspace->id)->with('participant')->first();
         $participant = $application?->participant;
 
         // Operator access:

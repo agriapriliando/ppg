@@ -22,6 +22,42 @@ function prepareRaceDatabase(): void
     test()->artisan('migrate:fresh', ['--force' => true])->assertSuccessful();
 }
 
+it('serializes competing autosave batches without losing the winning draft', function () {
+    prepareRaceDatabase();
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
+    $application = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+    $base = ['operation' => 'draft', 'actor' => $c['applicant']->id, 'subject' => $c['period']->id, 'version' => 0];
+
+    expect(runAdmissionsRace([
+        [...$base, 'batch_id' => (string) Str::uuid(), 'changes' => ['full_name' => 'Tab Satu']],
+        [...$base, 'batch_id' => (string) Str::uuid(), 'changes' => ['full_name' => 'Tab Dua']],
+    ]))->toBe(['conflict', 'ok']);
+    expect($application->workspace->fresh()->lock_version)->toBe(1);
+    expect($application->workspace->fresh()->draft_payload['full_name'])->toBeIn(['Tab Satu', 'Tab Dua']);
+});
+
+it('serializes autosave against final submission and keeps submitted data immutable', function () {
+    prepareRaceDatabase();
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
+    $application = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+    $base = ['actor' => $c['applicant']->id, 'subject' => $c['period']->id, 'version' => 0];
+
+    expect(runAdmissionsRace([
+        [...$base, 'operation' => 'draft', 'batch_id' => (string) Str::uuid(), 'changes' => ['full_name' => 'Draf Baru']],
+        [...$base, 'operation' => 'submit', 'input' => completeApplicantForm($c)],
+    ]))->toBe(['conflict', 'ok']);
+    $application->refresh();
+    if ($application->status === ApplicationStatus::Submitted) {
+        expect($application->workspace->fresh()->draft_payload)->toBeNull();
+        test()->assertDatabaseCount('application_submissions', 1);
+    } else {
+        expect($application->workspace->fresh()->draft_payload['full_name'])->toBe('Draf Baru');
+        test()->assertDatabaseCount('application_submissions', 0);
+    }
+});
+
 /** @return list<string> */
 function runAdmissionsRace(array $operations): array
 {

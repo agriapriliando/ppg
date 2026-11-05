@@ -5,6 +5,7 @@ use App\Models\DocumentDeletionTask;
 use App\Models\ExportRun;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
 
@@ -56,5 +57,11 @@ Artisan::command('pmb:process-document-deletions', function (): void {
 })->purpose('Memproses dan mencoba ulang tugas penghapusan fisik berkas pendaftar');
 
 Schedule::command('pmb:expire-exports')->hourly()->withoutOverlapping();
+Artisan::command('pmb:prune-draft-operations', function (): void {
+    DB::table('applicant_draft_operations')->where('created_at', '<', now()->subDay())->delete();
+    DB::table('applicant_upload_batches')->where('expires_at', '<', now()->subDay())->delete();
+    $this->info('Metadata draf dan unggahan lama telah dibersihkan.');
+})->purpose('Membersihkan metadata retry tanpa menghapus draf peserta');
+Schedule::command('pmb:prune-draft-operations')->daily()->withoutOverlapping();
 Schedule::command('pmb:process-document-deletions')->everyTenMinutes()->withoutOverlapping();
 Schedule::command('pmb:prune-imports')->dailyAt('02:00')->timezone(config('pmb.business_timezone'))->withoutOverlapping();

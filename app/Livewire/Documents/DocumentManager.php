@@ -13,12 +13,15 @@ use App\Models\DocumentPolicyVersion;
 use App\Policies\ApplicantDocumentPolicy;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
+use Ramsey\Uuid\Uuid;
 use Throwable;
 
 class DocumentManager extends Component
@@ -49,6 +52,55 @@ class DocumentManager extends Component
     public ?string $successMessage = null;
 
     public ?string $errorMessage = null;
+
+    #[Locked]
+    public ?string $uploadBatchId = null;
+
+    public function beginUploadBatch(): string
+    {
+        $workspace = ApplicantWorkspace::findOrFail($this->workspaceId);
+        abort_unless(app(ApplicantDocumentPolicy::class)->upload(Auth::user(), $workspace), 403);
+
+        return DB::transaction(function () use ($workspace): string {
+            AdmissionPeriod::query()->lockForUpdate()->findOrFail($workspace->admission_period_id);
+            $workspace = ApplicantWorkspace::query()->lockForUpdate()->findOrFail($workspace->id);
+            abort_unless(app(ApplicantDocumentPolicy::class)->upload(Auth::user(), $workspace), 403);
+            if ($this->uploadBatchId !== null && DB::table('applicant_upload_batches')->where('id', $this->uploadBatchId)->whereIn('status', ['uploading', 'failed'])->where('expires_at', '>', now())->exists()) {
+                throw ValidationException::withMessages(['upload' => 'Selesaikan atau batalkan unggahan sebelumnya terlebih dahulu.']);
+            }
+            $this->uploadBatchId = (string) Str::uuid();
+            DB::table('applicant_upload_batches')->insert(['id' => $this->uploadBatchId, 'workspace_id' => $workspace->id, 'user_id' => Auth::id(), 'status' => 'uploading', 'expires_at' => now()->addMinutes(30), 'created_at' => now(), 'updated_at' => now()]);
+
+            return $this->uploadBatchId;
+        });
+    }
+
+    public function cancelUploadBatch(): void
+    {
+        $workspace = ApplicantWorkspace::findOrFail($this->workspaceId);
+        abort_unless(app(ApplicantDocumentPolicy::class)->upload(Auth::user(), $workspace), 403);
+        $this->finishBatch('cancelled');
+        $this->uploadBatchId = null;
+        $this->clearUploadedFiles();
+        $this->dispatch('registration-uploading', busy: false);
+    }
+
+    #[On('registration-upload-cancelled')]
+    public function clearCancelledUpload(): void
+    {
+        if ($this->uploadBatchId !== null && DB::table('applicant_upload_batches')->where('id', $this->uploadBatchId)->where('workspace_id', $this->workspaceId)->where('user_id', Auth::id())->where('status', 'cancelled')->exists()) {
+            $this->uploadBatchId = null;
+            $this->clearUploadedFiles();
+        }
+    }
+
+    private function finishBatch(string $status): void
+    {
+        if ($this->uploadBatchId !== null) {
+            DB::table('applicant_upload_batches')->where('id', $this->uploadBatchId)->where('workspace_id', $this->workspaceId)->where('user_id', Auth::id())->update(['status' => $status, 'updated_at' => now()]);
+        }
+        $this->dispatch('registration-documents-changed');
+    }
 
     // State for renaming
     public ?string $renamingDocumentId = null;
@@ -97,11 +149,12 @@ class DocumentManager extends Component
         $isArchived = $period->state === PeriodState::Archived;
 
         $participant = $workspace->application?->participant;
-        $isAdminHold = $participant?->admin_hold || $participant?->roster_state !== 'active';
+        $isAdminHold = $participant !== null && ($participant->admin_hold || $participant->roster_state !== 'active');
 
         $documents = ApplicantDocument::query()
             ->where('workspace_id', $this->workspaceId)
             ->where('status', ApplicantDocument::STATUS_AVAILABLE)
+            ->whereNull('detached_at')
             ->with(['uploader', 'owner'])
             ->orderByDesc('created_at')
             ->get();
@@ -153,8 +206,15 @@ class DocumentManager extends Component
         $this->errorMessage = null;
 
         $workspace = ApplicantWorkspace::findOrFail($this->workspaceId);
-        $period = AdmissionPeriod::findOrFail($this->periodId);
-        $policy = DocumentPolicyVersion::resolveForPeriod($period);
+        if (empty($this->uploadedFiles) && $this->successMessage !== null) {
+            return;
+        }
+        if ($this->uploadBatchId === null) {
+            $this->errorMessage = 'Unggahan dibatalkan atau belum dimulai. Pilih ulang berkas.';
+            $this->clearUploadedFiles();
+
+            return;
+        }
 
         if (! app(ApplicantDocumentPolicy::class)->canAccessWorkspace($user, $workspace, true)) {
             $this->addError('uploadedFiles', 'Anda tidak memiliki hak untuk mengunggah berkas pada workspace ini.');
@@ -172,31 +232,15 @@ class DocumentManager extends Component
             return;
         }
 
-        $allowedExtensions = $policy->allowedExtensions();
-        $allowedMimes = $policy->allowedMimeTypes();
-        $maxKilobytes = (int) ceil($policy->max_file_size_bytes / 1024);
-
-        $rules = [
-            'uploadedFiles' => ['required', 'array', 'min:1'],
-            'uploadedFiles.*' => [
-                'file',
-                'max:'.$maxKilobytes,
-                'extensions:'.implode(',', $allowedExtensions),
-                'mimetypes:'.implode(',', $allowedMimes),
-            ],
-        ];
-
         try {
-            $this->validate($rules, [
-                'uploadedFiles.required' => 'Silakan pilih berkas yang ingin diunggah.',
-                'uploadedFiles.min' => 'Silakan pilih minimal satu berkas.',
-                'uploadedFiles.*.file' => 'Salah satu berkas tidak valid.',
-                'uploadedFiles.*.max' => 'Ukuran salah satu berkas melebihi batas maksimal '.$policy->formattedMaxFileSize().'.',
-                'uploadedFiles.*.extensions' => 'Format salah satu berkas tidak didukung. Gunakan: '.$policy->allowedExtensionLabels().'.',
-                'uploadedFiles.*.mimetypes' => 'Format salah satu berkas tidak valid. Gunakan: '.$policy->allowedExtensionLabels().'.',
-            ]);
+            $this->validate([
+                'uploadedFiles' => ['required', 'array', 'min:1'],
+                'uploadedFiles.*' => ['file'],
+            ], ['uploadedFiles.required' => 'Silakan pilih berkas yang ingin diunggah.']);
         } catch (ValidationException $e) {
             $this->setErrorBag($e->validator->errors());
+            $this->errorMessage = collect($e->errors())->flatten()->implode(' ');
+            $this->finishBatch('failed');
             $this->clearUploadedFiles();
 
             return;
@@ -204,28 +248,40 @@ class DocumentManager extends Component
 
         $successCount = 0;
         $failedFiles = [];
+        $retryFiles = [];
 
         foreach ($this->uploadedFiles as $uploadedFile) {
             $originalName = $uploadedFile->getClientOriginalName();
-            $requestKey = 'req-'.(string) Str::uuid();
+            $requestKey = Uuid::uuid5($this->uploadBatchId, $uploadedFile->getFilename())->toString();
 
             try {
                 $uploader->handle(
                     $user,
                     $workspace,
                     $uploadedFile,
-                    $requestKey
+                    $requestKey,
+                    $this->uploadBatchId,
                 );
                 $successCount++;
             } catch (ValidationException $ve) {
                 $msg = collect($ve->errors())->flatten()->first() ?? 'Gagal divalidasi';
                 $failedFiles[] = "'{$originalName}': {$msg}";
+                $retryFiles[] = $uploadedFile;
             } catch (Throwable $t) {
                 $failedFiles[] = "'{$originalName}': ".$t->getMessage();
+                $retryFiles[] = $uploadedFile;
             }
         }
 
+        $this->finishBatch($failedFiles === [] ? 'complete' : 'failed');
+        if ($failedFiles === []) {
+            $this->uploadBatchId = null;
+        }
         $this->clearUploadedFiles();
+        if ($retryFiles !== []) {
+            $this->uploadedFiles = $retryFiles;
+            $this->syncUploadedFileMetadata();
+        }
 
         if ($successCount > 0 && $failedFiles === []) {
             $this->successMessage = $successCount === 1
@@ -237,6 +293,15 @@ class DocumentManager extends Component
         } else {
             $this->errorMessage = 'Semua berkas gagal diunggah: '.implode('; ', $failedFiles);
         }
+    }
+
+    public function retryFailedUpload(): void
+    {
+        abort_unless($this->uploadBatchId !== null && DB::table('applicant_upload_batches')->where('id', $this->uploadBatchId)->where('workspace_id', $this->workspaceId)->where('user_id', Auth::id())->where('status', 'failed')->exists(), 422);
+        $this->finishBatch('cancelled');
+        $this->uploadBatchId = null;
+        $this->beginUploadBatch();
+        $this->upload();
     }
 
     public function startRename(string $documentId): void
@@ -273,6 +338,7 @@ class DocumentManager extends Component
 
         try {
             $renamer->handle($user, $doc, $this->renameNewName, $this->renameLockVersion);
+            $this->dispatch('registration-documents-changed');
             $this->successMessage = 'Nama berkas berhasil diperbarui.';
             $this->cancelRename();
         } catch (ValidationException $ve) {
@@ -321,11 +387,12 @@ class DocumentManager extends Component
         try {
             $deleted = $deleter->handle($user, $doc, $this->deletingLockVersion);
             if ($deleted) {
-                $this->successMessage = "Berkas '{$this->deletingDocumentName}' telah dihapus permanen.";
+                $this->successMessage = DB::table('application_submission_documents')->where('document_id', $doc->id)->exists() ? 'Berkas dilepas dari draf perbaikan. Riwayat pengiriman tetap tersimpan.' : "Berkas '{$this->deletingDocumentName}' telah dihapus permanen.";
             } else {
                 $this->errorMessage = 'Penghapusan belum selesai; sistem akan mencoba kembali.';
             }
             $this->cancelDelete();
+            $this->dispatch('registration-documents-changed');
         } catch (ValidationException $ve) {
             $this->errorMessage = collect($ve->errors())->flatten()->first() ?? 'Gagal menghapus berkas.';
             $this->cancelDelete();

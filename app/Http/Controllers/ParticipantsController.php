@@ -13,6 +13,7 @@ use App\Models\ReferenceOption;
 use App\Models\ReferenceRegion;
 use App\Models\SkParticipant;
 use App\Models\User;
+use App\Support\ApplicantFields;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -246,6 +247,7 @@ class ParticipantsController extends Controller
             'Perguruan Tinggi S1', 'Program Studi S1', 'Tahun Lulus S1',
             'Perguruan Tinggi S2', 'Program Studi S2', 'Tahun Lulus S2',
             'Perguruan Tinggi S3', 'Program Studi S3', 'Tahun Lulus S3',
+            'Sumber Data Biodata',
         ];
 
         $sheet->fromArray($headers, null, 'A1');
@@ -263,7 +265,9 @@ class ParticipantsController extends Controller
             $ws = $app?->workspace;
             $bio = $ws?->biodata;
             $edu = $ws?->education;
-            $educationHistory = $edu->education_history ?? [];
+            $ws?->setRelation('application', $app);
+            $effectiveData = $ws ? ApplicantFields::fromWorkspace($ws) : [];
+            $educationHistory = $effectiveData['education_history'] ?? ($edu->education_history ?? []);
             if ($educationHistory === [] && ($edu?->pt_name_snapshot || $edu?->prodi_name_snapshot)) {
                 $educationHistory[$edu->degree_level ?? 'S1'] = [
                     'pt_name' => $edu->pt_name_snapshot, 'prodi_name' => $edu->prodi_name_snapshot,
@@ -286,16 +290,16 @@ class ParticipantsController extends Controller
 
             $queueStatus = $app !== null ? $app->status->label() : 'Belum Masuk Antrean';
 
-            $number = $bio?->whatsapp_number;
+            $number = $effectiveData['whatsapp_number'] ?? null;
             $isWaVerified = $number !== null && $ws->verifications->contains(fn ($v) => $v->number === $number && $v->invalidated_at === null);
             $waStatus = $isWaVerified ? 'Terverifikasi' : ($number ? 'Belum Terverifikasi' : 'Belum Diisi');
 
-            $birthDate = $bio?->birth_date ? $bio->birth_date->format('d/m/Y') : '';
+            $birthDate = (string) ($effectiveData['birth_date'] ?? '');
             $submittedAt = $app?->submitted_at ? $app->submitted_at->timezone('Asia/Jakarta')->format('d/m/Y H:i').' WIB' : '';
 
-            $district = $bio !== null && $bio->district_code !== null ? ($regions->get($bio->district_code) ?? $bio->district_code) : '';
-            $city = $bio !== null && $bio->city_code !== null ? ($regions->get($bio->city_code) ?? $bio->city_code) : '';
-            $province = $bio !== null && $bio->province_code !== null ? ($regions->get($bio->province_code) ?? $bio->province_code) : '';
+            $district = ! empty($effectiveData['district_code']) ? ($regions->get($effectiveData['district_code']) ?? $effectiveData['district_code']) : '';
+            $city = ! empty($effectiveData['city_code']) ? ($regions->get($effectiveData['city_code']) ?? $effectiveData['city_code']) : '';
+            $province = ! empty($effectiveData['province_code']) ? ($regions->get($effectiveData['province_code']) ?? $effectiveData['province_code']) : '';
 
             $row = [
                 $index + 1,
@@ -316,37 +320,37 @@ class ParticipantsController extends Controller
                 $submittedAt,
                 $app !== null ? (string) $app->submission_revision : '',
                 $waStatus,
-                $bio !== null ? ($bio->full_name ?? '') : '',
-                $resolveOption('gender', $bio?->gender_code),
-                $bio !== null ? ($bio->birth_place ?? '') : '',
+                $effectiveData['full_name'] ?? '',
+                $resolveOption('gender', $effectiveData['gender_code'] ?? null),
+                $effectiveData['birth_place'] ?? '',
                 $birthDate,
-                $bio !== null ? (string) ($bio->nik_encrypted ?? '') : '',
-                $bio !== null ? (string) ($bio->nisn_encrypted ?? '') : '',
-                $resolveOption('religion', $bio?->religion_code),
-                $resolveOption('nationality', $bio?->nationality_code),
-                $bio !== null ? (string) ($bio->mother_name_encrypted ?? '') : '',
-                $bio !== null ? (string) ($bio->whatsapp_number ?? '') : '',
-                $bio !== null ? ($bio->contact_email ?? '') : '',
-                $bio !== null ? (string) ($bio->other_phone ?? '') : '',
-                $bio !== null ? ($bio->street_address ?? '') : '',
-                $bio !== null ? ($bio->hamlet ?? '') : '',
-                $bio !== null ? (string) ($bio->rt ?? '') : '',
-                $bio !== null ? (string) ($bio->rw ?? '') : '',
-                $bio !== null ? ($bio->village_name ?? '') : '',
+                (string) ($effectiveData['nik'] ?? ''),
+                (string) ($effectiveData['nisn'] ?? ''),
+                $resolveOption('religion', $effectiveData['religion_code'] ?? null),
+                $resolveOption('nationality', $effectiveData['nationality_code'] ?? null),
+                (string) ($effectiveData['mother_name'] ?? ''),
+                (string) ($effectiveData['whatsapp_number'] ?? ''),
+                $effectiveData['contact_email'] ?? '',
+                (string) ($effectiveData['other_phone'] ?? ''),
+                $effectiveData['street_address'] ?? '',
+                $effectiveData['hamlet'] ?? '',
+                (string) ($effectiveData['rt'] ?? ''),
+                (string) ($effectiveData['rw'] ?? ''),
+                $effectiveData['village_name'] ?? '',
                 $district,
                 $city,
                 $province,
-                $bio !== null ? (string) ($bio->postal_code ?? '') : '',
-                $resolveOption('residence', $bio?->residence_type_code),
-                $resolveOption('transport', $bio?->transport_type_code),
-                $bio !== null ? ($bio->is_kps_recipient ? 'Ya' : 'Tidak') : '',
-                $bio !== null ? (string) ($bio->kps_number_encrypted ?? '') : '',
-                $bio !== null ? (string) ($bio->npwp_encrypted ?? '') : '',
-                $resolveOption('special_need', $bio?->special_need_code),
-                $edu !== null ? ($edu->pt_name_snapshot ?? '') : '',
-                $edu !== null ? ($edu->prodi_name_snapshot ?? '') : '',
-                $edu->degree_level ?? '',
-                $edu->graduation_year ?? '',
+                (string) ($effectiveData['postal_code'] ?? ''),
+                $resolveOption('residence', $effectiveData['residence_type_code'] ?? null),
+                $resolveOption('transport', $effectiveData['transport_type_code'] ?? null),
+                isset($effectiveData['is_kps_recipient']) ? ($effectiveData['is_kps_recipient'] ? 'Ya' : 'Tidak') : '',
+                (string) ($effectiveData['kps_number'] ?? ''),
+                (string) ($effectiveData['npwp'] ?? ''),
+                $resolveOption('special_need', $effectiveData['special_need_code'] ?? null),
+                $effectiveData['education_history'][$effectiveData['degree_level'] ?? '']['pt_name'] ?? $effectiveData['pt_name'] ?? '',
+                $effectiveData['education_history'][$effectiveData['degree_level'] ?? '']['prodi_name'] ?? $effectiveData['prodi_name'] ?? '',
+                $effectiveData['degree_level'] ?? '',
+                $effectiveData['education_history'][$effectiveData['degree_level'] ?? '']['graduation_year'] ?? $effectiveData['graduation_year'] ?? '',
                 $educationHistory['S1']['pt_name'] ?? '',
                 $educationHistory['S1']['prodi_name'] ?? '',
                 $educationHistory['S1']['graduation_year'] ?? '',
@@ -356,6 +360,7 @@ class ParticipantsController extends Controller
                 $educationHistory['S3']['pt_name'] ?? '',
                 $educationHistory['S3']['prodi_name'] ?? '',
                 $educationHistory['S3']['graduation_year'] ?? '',
+                $ws?->draft_payload !== null && $app->status->editable() ? 'Draf otomatis belum dikirim' : 'Data tersimpan',
             ];
 
             foreach ($row as $colIdx => $val) {

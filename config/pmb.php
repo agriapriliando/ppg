@@ -2,6 +2,7 @@
 
 return [
     'name' => 'PMB PPG IAKN Palangka Raya',
+    'autosave_enabled' => (bool) env('PMB_AUTOSAVE_ENABLED', true),
     'business_timezone' => 'Asia/Jakarta',
     'temporary_password_minutes' => (int) env('PMB_TEMPORARY_PASSWORD_MINUTES', 1440),
     'activation_session_minutes' => (int) env('PMB_ACTIVATION_SESSION_MINUTES', 10),

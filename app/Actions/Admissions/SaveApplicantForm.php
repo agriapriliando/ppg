@@ -9,12 +9,14 @@ use App\Enums\PeriodState;
 use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
 use App\Models\ApplicantBiodata;
+use App\Models\ApplicantDocument;
 use App\Models\ApplicantWorkspace;
 use App\Models\Application;
 use App\Models\ApplicationSubmission;
 use App\Models\ConsentRecord;
 use App\Models\ConsentText;
 use App\Models\CredentialIssuance;
+use App\Models\DocumentPolicyVersion;
 use App\Models\OriginEducation;
 use App\Models\ReferenceDataset;
 use App\Models\ReferenceProdi;
@@ -25,6 +27,7 @@ use App\Models\User;
 use App\Models\WhatsappVerification;
 use App\Support\ApplicantFields;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -36,12 +39,34 @@ class SaveApplicantForm
     public function handle(User $actor, int $periodId, int $version, array $input, bool $submit): ApplicantWorkspace
     {
         abort_unless($actor->role === UserRole::Applicant && $actor->account_state === AccountState::Active, 403);
+        // Legacy files are hashed before acquiring transaction locks, never during final commit.
+        if ($submit) {
+            $missingHashes = ApplicantDocument::query()->whereIn('workspace_id', ApplicantWorkspace::query()->where('user_id', $actor->id)->where('admission_period_id', $periodId)->select('id'))
+                ->where('status', ApplicantDocument::STATUS_AVAILABLE)->whereNull('detached_at')->whereNull('sha256')->get();
+            foreach ($missingHashes as $document) {
+                $disk = Storage::disk($document->disk);
+                if ($disk->exists($document->object_key)) {
+                    $document->sha256 = hash_file('sha256', $disk->path($document->object_key)) ?: null;
+                    $document->save();
+                }
+            }
+        }
 
         return DB::transaction(function () use ($actor, $periodId, $version, $input, $submit): ApplicantWorkspace {
             $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($periodId);
-            $application = Application::query()->where('user_id', $actor->id)->where('admission_period_id', $periodId)->lockForUpdate()->first();
             $workspace = ApplicantWorkspace::query()->firstOrCreate(['user_id' => $actor->id, 'admission_period_id' => $periodId]);
             $workspace = ApplicantWorkspace::query()->lockForUpdate()->findOrFail($workspace->id);
+            $application = Application::query()->where('user_id', $actor->id)->where('admission_period_id', $periodId)->lockForUpdate()->first();
+            $requestId = $input['submission_request_id'] ?? null;
+            $requestDigest = hash_hmac('sha256', json_encode($input, JSON_THROW_ON_ERROR), (string) config('app.key'));
+            if ($submit && $requestId !== null) {
+                $previous = ApplicationSubmission::query()->where('request_id', $requestId)->first();
+                if ($previous !== null) {
+                    abort_unless($previous->submitted_by === $actor->id && $previous->application_id === $application?->id && hash_equals($previous->request_digest, $requestDigest), 409);
+
+                    return $workspace;
+                }
+            }
             if ($application !== null && ($application->participant->roster_state !== 'active' || $application->participant->admin_hold)) {
                 throw ValidationException::withMessages(['form' => 'Kepesertaan memerlukan pemeriksaan administratif. Hubungi operator.']);
             }
@@ -59,6 +84,26 @@ class SaveApplicantForm
             }
             if ($submit && ($application === null || ! ($application->status === ApplicationStatus::Correction ? $period->acceptsCorrections() : $period->acceptsApplications()))) {
                 throw ValidationException::withMessages(['form' => 'Klaim SK belum disetujui atau waktu pengiriman sudah berakhir.']);
+            }
+            $documents = collect();
+            if ($submit) {
+                if (isset($input['documents_version']) && $workspace->documents_version !== (int) $input['documents_version']) {
+                    throw ValidationException::withMessages(['documents' => 'Daftar berkas berubah. Periksa ulang sebelum mengirim.']);
+                }
+                $policy = DocumentPolicyVersion::resolveForPeriod($period);
+                if (isset($input['document_policy_id']) && (int) $input['document_policy_id'] !== $policy->id) {
+                    throw ValidationException::withMessages(['documents' => 'Panduan berkas berubah. Periksa ulang sebelum mengirim.']);
+                }
+                if (DB::table('applicant_upload_batches')->where('workspace_id', $workspace->id)->whereIn('status', ['uploading', 'failed'])->where('expires_at', '>', now())->exists()
+                    || ApplicantDocument::query()->where('workspace_id', $workspace->id)->where('status', ApplicantDocument::STATUS_DELETING)->exists()) {
+                    throw ValidationException::withMessages(['documents' => 'Selesaikan atau batalkan unggahan/penghapusan yang masih berjalan.']);
+                }
+                $documents = $workspace->availableDocuments()->orderBy('id')->lockForUpdate()->get();
+                foreach ($documents as $document) {
+                    if (! Storage::disk($document->disk)->exists($document->object_key)) {
+                        throw ValidationException::withMessages(['documents' => 'Salah satu berkas tidak tersedia. Hubungi pengelola sebelum mengirim.']);
+                    }
+                }
             }
             $datasetId = (int) (ReferenceDataset::query()->where('state', 'active')->value('id') ?? 0);
             $data = ApplicantFields::validate($input, $submit, $datasetId);
@@ -156,6 +201,7 @@ class SaveApplicantForm
             ]);
             $workspace->lock_version++;
             $workspace->saved_at = now();
+            $workspace->draft_payload = null;
             $workspace->save();
             if ($submit) {
                 $participant = $application->participant;
@@ -180,7 +226,10 @@ class SaveApplicantForm
                 }
                 $record = ConsentRecord::create(['consent_text_id' => $consent->id, 'user_id' => $actor->id, 'application_id' => $application->id, 'revision' => $application->submission_revision, 'accepted_at' => now()]);
                 $snapshot = json_encode($data, JSON_THROW_ON_ERROR);
-                ApplicationSubmission::create(['application_id' => $application->id, 'ownership_epoch' => $application->ownership_epoch, 'config_version_id' => $configuration->id, 'submitted_by' => $actor->id, 'consent_record_id' => $record->id, 'revision' => $application->submission_revision, 'workspace_version' => $workspace->lock_version, 'content_digest' => hash('sha256', $snapshot), 'encrypted_snapshot' => $snapshot, 'submitted_at' => now()]);
+                $submission = ApplicationSubmission::create(['application_id' => $application->id, 'ownership_epoch' => $application->ownership_epoch, 'config_version_id' => $configuration->id, 'submitted_by' => $actor->id, 'consent_record_id' => $record->id, 'revision' => $application->submission_revision, 'workspace_version' => $workspace->lock_version, 'content_digest' => hash('sha256', $snapshot), 'encrypted_snapshot' => $snapshot, 'submitted_at' => now(), 'request_id' => $requestId, 'request_digest' => $requestDigest, 'documents_version' => $workspace->documents_version]);
+                foreach ($documents as $document) {
+                    DB::table('application_submission_documents')->insert(['submission_id' => $submission->id, 'document_id' => $document->id, 'file_name' => $document->file_name, 'mime_type' => $document->mime_type, 'byte_size' => $document->byte_size, 'sha256' => $document->sha256, 'policy_version_id' => $document->policy_version_id]);
+                }
                 $application->status = ApplicationStatus::Submitted;
                 $application->lock_version++;
                 $application->save();

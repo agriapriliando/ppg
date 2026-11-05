@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\SkImportController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\WhatsappRecoveryController;
 use App\Http\Controllers\ApplicantDocumentController;
+use App\Http\Controllers\ApplicantDraftController;
 use App\Http\Controllers\ApplicantFormController;
 use App\Http\Controllers\ApplicationReviewController;
 use App\Http\Controllers\Auth\ActivationController;
@@ -87,6 +88,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::post('/klaim/{claim}/batalkan', [ClaimFollowupController::class, 'cancel'])->name('claims.cancel');
         Route::get('/formulir/{period}', [ApplicantFormController::class, 'edit'])->name('form.edit');
         Route::post('/formulir/{period}', [ApplicantFormController::class, 'update'])->name('form.update');
+        Route::patch('/formulir/{period}/draf', ApplicantDraftController::class)->middleware('throttle:180,1')->name('form.autosave');
         Route::get('/status/{period}', [ApplicantFormController::class, 'status'])->name('application.status');
         Route::get('/bukti/{period}', [ApplicantFormController::class, 'proof'])->name('application.proof');
         Route::get('/berkas/{period}', [ApplicantDocumentController::class, 'index'])->name('documents.index');

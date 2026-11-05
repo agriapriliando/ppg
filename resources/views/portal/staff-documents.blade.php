@@ -26,6 +26,7 @@
         </div>
     </div>
 
+    <x-submission-documents :application="$application" />
     <livewire:documents.document-manager
         :workspaceId="$workspace->id"
         :periodId="$period->id"

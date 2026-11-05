@@ -11,6 +11,7 @@ use App\Models\ReferenceOption;
 use App\Models\User;
 use App\Models\WhatsappVerification;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 require_once __DIR__.'/../../Fixtures/registration.php';
@@ -65,6 +66,7 @@ it('completes Google registration through correction and acceptance while retain
     $this->travel(1)->hours();
     $form['version'] = ApplicantWorkspace::findOrFail($application->workspace_id)->lock_version;
     $form['street_address'] = 'Jalan Uji Nomor 20';
+    $form['submission_request_id'] = (string) Str::uuid();
     $this->actingAs($c['applicant'])->post(route('applicant.form.update', $c['period']), $form)->assertRedirect()->assertSessionHasNoErrors();
     $application->refresh();
     $this->actingAs($c['operator'])->post(route('reviews.update', $application), ['version' => $application->lock_version, 'action' => 'verify', 'identity_checked' => 1, 'sk_checked' => 1, 'data_checked' => 1])->assertRedirect()->assertSessionHasNoErrors();
@@ -227,10 +229,10 @@ it('renders responsive confirmation modal with simulation consent checkbox befor
 
     $response = $this->actingAs($c['applicant'])->get(route('applicant.form.edit', $c['period']));
     $response->assertOk();
-    $response->assertSee('Konfirmasi Pengiriman Pendaftaran');
-    $response->assertSee('showConfirmModal = true', false);
-    $response->assertSee('name="consent"', false);
-    $response->assertSee($c['submitConsent']->body);
+    $response->assertDontSee('name="consent"', false)->assertSee('Lanjut ke Berkas');
+    $response = $this->get(route('applicant.documents.index', $c['period']))->assertOk();
+    $response->assertSee('Konfirmasi Pengiriman Pendaftaran')->assertSee($c['submitConsent']->body);
+
 });
 
 it('does not expose applications or claims to operators outside the assignment', function () {

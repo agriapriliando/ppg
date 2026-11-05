@@ -30,6 +30,7 @@ class UploadApplicantDocument
         ApplicantWorkspace $workspace,
         UploadedFile|TemporaryUploadedFile $file,
         string $requestKey,
+        ?string $batchId = null,
     ): ApplicantDocument {
         abort_unless($this->policy->upload($actor, $workspace), 403);
 
@@ -65,12 +66,18 @@ class UploadApplicantDocument
         $disk = 'local';
         $objectKey = "applicant-documents/{$workspace->id}/{$documentUuid}.{$extension}";
         $storedSuccessfully = false;
+        $sha256 = hash_file('sha256', $file->getRealPath());
 
         try {
+            $stored = Storage::disk($disk)->putFileAs("applicant-documents/{$workspace->id}", $file, "{$documentUuid}.{$extension}");
+            if (! $stored) {
+                throw new \RuntimeException('Gagal menyimpan berkas ke penyimpanan server.');
+            }
+            $storedSuccessfully = true;
+
             return DB::transaction(function () use (
                 $actor,
                 $workspace,
-                $file,
                 $requestKey,
                 $clientOriginalName,
                 $extension,
@@ -80,9 +87,22 @@ class UploadApplicantDocument
                 $disk,
                 $objectKey,
                 &$storedSuccessfully,
+                $sha256,
+                $batchId,
             ): ApplicantDocument {
+                $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($workspace->admission_period_id);
                 $lockedWorkspace = ApplicantWorkspace::query()->lockForUpdate()->findOrFail($workspace->id);
-                $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($lockedWorkspace->admission_period_id);
+                abort_unless($this->policy->upload($actor, $lockedWorkspace), 403);
+                if ($batchId !== null) {
+                    abort_unless(DB::table('applicant_upload_batches')->where('id', $batchId)->where('workspace_id', $workspace->id)->where('user_id', $actor->id)->where('status', 'uploading')->where('expires_at', '>', now())->exists(), 422, 'Unggahan dibatalkan atau kedaluwarsa. Pilih ulang berkas.');
+                }
+                $existing = ApplicantDocument::query()->where('workspace_id', $workspace->id)->where('uploaded_by', $actor->id)->where('request_key', $requestKey)->first();
+                if ($existing !== null) {
+                    Storage::disk($disk)->delete($objectKey);
+                    $storedSuccessfully = false;
+
+                    return $existing;
+                }
 
                 if ($period->state === PeriodState::Archived) {
                     throw ValidationException::withMessages([
@@ -127,19 +147,6 @@ class UploadApplicantDocument
                     }
                 }
 
-                // Store physical file
-                $stored = Storage::disk($disk)->putFileAs(
-                    "applicant-documents/{$lockedWorkspace->id}",
-                    $file,
-                    "{$documentUuid}.{$extension}"
-                );
-
-                if (! $stored) {
-                    throw new \RuntimeException('Gagal menyimpan fisik berkas ke penyimpanan server.');
-                }
-
-                $storedSuccessfully = true;
-
                 // Sanitize base display name
                 $baseName = pathinfo($clientOriginalName, PATHINFO_FILENAME);
                 $baseName = Str::squish(preg_replace('/[\x00-\x1F\x7F\/\\\\]/', '', $baseName));
@@ -165,9 +172,10 @@ class UploadApplicantDocument
                     'status' => ApplicantDocument::STATUS_AVAILABLE,
                     'lock_version' => 0,
                     'request_key' => $requestKey,
+                    'sha256' => $sha256 ?: null,
                 ]);
 
-                $lockedWorkspace->lock_version++;
+                $lockedWorkspace->documents_version++;
                 $lockedWorkspace->save();
 
                 $this->audit->handle(
