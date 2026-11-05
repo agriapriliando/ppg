@@ -14,6 +14,25 @@ use Illuminate\Support\Str;
 
 require_once __DIR__.'/../../Fixtures/registration.php';
 
+it('keeps unavailable periods visible but disabled and defaults to the only open period', function () {
+    $c = registrationContext();
+    $closed = AdmissionPeriod::factory()->published()->create(['name' => 'Periode Jadwal Berakhir', 'closes_at' => now()->subHour()]);
+    $manual = AdmissionPeriod::factory()->published()->create(['name' => 'Periode Ditutup Manual', 'manual_closed_at' => now()]);
+    $future = AdmissionPeriod::factory()->published()->create(['name' => 'Periode Akan Datang', 'opens_at' => now()->addDay(), 'closes_at' => now()->addDays(2)]);
+
+    $response = $this->get(route('public.claim'))->assertOk();
+    foreach ([$closed, $manual, $future] as $period) {
+        $response->assertSee($period->name);
+        preg_match('/<option\b[^>]*value="'.$period->id.'"[^>]*>/', $response->getContent(), $matches);
+        expect($matches[0])->toContain('disabled')->not->toContain('selected');
+    }
+    preg_match('/<option\b[^>]*value="'.$c['period']->id.'"[^>]*>/', $response->getContent(), $matches);
+    expect($matches[0])->toContain('selected')->not->toContain('disabled');
+
+    $this->post(route('public.claim.store'), array_replace(claimInput($c), ['period_id' => $closed->id]))->assertSessionHasErrors('period_id');
+    $this->assertDatabaseCount('sk_claims', 0);
+});
+
 it('selects a candidate and approves the account in one submission without checkboxes', function () {
     $c = registrationContext();
     $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));

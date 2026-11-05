@@ -9,6 +9,22 @@ use Illuminate\Support\Str;
 
 require_once __DIR__.'/../../Fixtures/registration.php';
 
+it('highlights accepted registration prominently only for the accepted status', function (string $status) {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
+    $application = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+    $application->forceFill(['status' => $status, 'accepted_at' => $status === 'diterima_lengkap' ? now() : null])->save();
+
+    $response = $this->actingAs($c['applicant'])->get(route('dashboard'))->assertOk();
+
+    if ($status === 'diterima_lengkap') {
+        $response->assertSee('Pendaftaran Anda Sudah Diterima Lengkap')->assertSee($application->application_number)
+            ->assertSee('Lihat Status Pendaftaran');
+    } else {
+        $response->assertDontSee('Pendaftaran Anda Sudah Diterima Lengkap');
+    }
+})->with(['diterima_lengkap', 'terkirim', 'perbaikan', 'draf']);
+
 it('displays application and sk claim sections directly in workspace dashboard for applicant and hides them from sidebar', function () {
     $c = registrationContext();
     $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));

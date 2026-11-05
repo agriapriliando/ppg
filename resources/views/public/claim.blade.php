@@ -44,9 +44,10 @@
                                     <select id="claim-period" class="form-select" name="period_id" required>
                                         <option value="">Pilih periode</option>
                                         @foreach($periods as $period)
-                                            <option value="{{ $period->id }}" @selected(\App\Support\FormInput::old('period_id', $defaultPeriodId)==$period->id)>{{ $period->name }} · {{ $period->availabilityLabel() }}</option>
+                                            <option value="{{ $period->id }}" @disabled(!$period->acceptsApplications()) @selected($period->acceptsApplications() && \App\Support\FormInput::old('period_id', $defaultPeriodId)==$period->id)>{{ $period->name }} · {{ $period->availabilityLabel() }}</option>
                                         @endforeach
                                     </select>
+                                    <div class="form-text">Hanya periode dengan pendaftaran dibuka yang dapat dipilih.</div>
                                 </div>
                                 @foreach(['name'=>'Nama persis sesuai SK','whatsapp_number'=>'Nomor WhatsApp aktif','identifier'=>'Peg ID (jika tersedia)'] as $key=>$label)
                                     <div class="mb-3">

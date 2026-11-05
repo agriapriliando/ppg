@@ -96,6 +96,14 @@ button:focus-visible,a:focus-visible{outline:3px solid #b880d3;outline-offset:3p
 .panel-heading p,.section-heading p{font-size:.7rem;color:#93869c;margin:7px 0 0}
 .panel-body{padding:22px 24px}
 .workspace-card .btn{font-size:.72rem}
+.acceptance-banner{display:flex;align-items:flex-start;gap:22px;padding:28px;border:2px solid #e6b940;border-radius:18px;background:linear-gradient(125deg,#065b40,#087d51);color:#fff;box-shadow:0 8px 24px #065b4024}
+.acceptance-banner-icon{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:66px;height:66px;border-radius:50%;background:#ffffff1f;color:#ffe08a;font-size:2.5rem}
+.acceptance-banner-label{display:block;color:#ffe8a3;font-size:.72rem;font-weight:750;letter-spacing:.09em;margin-bottom:8px}
+.acceptance-banner h2{color:#fff;font-size:clamp(1.25rem,2.2vw,1.8rem);font-weight:800;line-height:1.3;margin:0 0 12px}
+.acceptance-banner p{font-size:.9rem;line-height:1.6;color:#fff}
+.acceptance-banner small{color:#dcf5e7}
+.acceptance-banner .btn{min-height:44px;font-size:.82rem;white-space:normal}
+@media(max-width:575.98px){.acceptance-banner{padding:20px;gap:14px;flex-direction:column}.acceptance-banner-icon{width:52px;height:52px;font-size:2rem}.acceptance-banner .btn{width:100%}}
 .review-actions .btn{font-size:.84rem;min-height:44px;white-space:normal;line-height:1.45}
 .review-actions .form-label{font-size:.82rem}
 .review-actions .form-control{font-size:.875rem;line-height:1.6}

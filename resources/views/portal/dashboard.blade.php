@@ -5,6 +5,29 @@
         $activeDocCount = $activePeriod && isset($workspaces) ? ($workspaces->get($activePeriod->id)?->documents_count ?? 0) : 0;
     @endphp
 
+    @if(auth()->user()->role === App\Enums\UserRole::Applicant)
+        @foreach($ownApplications->filter(fn ($item) => $item->status === App\Enums\ApplicationStatus::Accepted) as $acceptedApplication)
+            <section class="acceptance-banner mb-4" role="status" aria-label="Hasil pemeriksaan pendaftaran">
+                <div class="acceptance-banner-icon" aria-hidden="true"><i class="bi bi-patch-check-fill"></i></div>
+                <div class="flex-grow-1">
+                    <span class="acceptance-banner-label">HASIL PEMERIKSAAN ADMINISTRASI</span>
+                    <h2>Pendaftaran Anda Sudah Diterima Lengkap</h2>
+                    <p class="mb-2">Biodata dan berkas pendaftaran Anda telah dinyatakan lengkap oleh pengelola.</p>
+                    <p class="mb-0"><strong>{{ $acceptedApplication->period->name }}</strong> &middot; {{ $acceptedApplication->application_number }}</p>
+                    @if($acceptedApplication->accepted_at)
+                        <small class="d-block mt-2">Disetujui {{ $acceptedApplication->accepted_at->timezone('Asia/Jakarta')->translatedFormat('d F Y, H:i') }} WIB</small>
+                    @endif
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <a href="{{ route('applicant.application.status', $acceptedApplication->admission_period_id) }}" class="btn btn-light text-success fw-semibold">Lihat Status Pendaftaran <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></a>
+                        @if($acceptedApplication->hasCurrentOwnerSubmission())
+                            <a href="{{ route('applicant.application.proof', $acceptedApplication->admission_period_id) }}" class="btn btn-outline-light"><i class="bi bi-file-earmark-check me-1" aria-hidden="true"></i>Bukti Pendaftaran</a>
+                        @endif
+                    </div>
+                </div>
+            </section>
+        @endforeach
+    @endif
+
     <div class="welcome-banner dayak-pattern-bg">
         <div>
             <span class="eyebrow">PMB PPG DALAM JABATAN · BIMAS KRISTEN</span>
