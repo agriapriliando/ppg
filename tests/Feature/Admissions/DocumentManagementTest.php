@@ -440,7 +440,7 @@ it('tests the Livewire document manager component upload and reactive flow', fun
     expect(ApplicantDocument::query()->where('id', $doc->id)->exists())->toBeFalse();
 });
 
-it('renders applicant documents page without error and links back to dashboard', function () {
+it('renders applicant documents page with registration step navigation', function () {
     $c = registrationContext();
     $workspace = ApplicantWorkspace::create([
         'user_id' => $c['applicant']->id,
@@ -452,8 +452,9 @@ it('renders applicant documents page without error and links back to dashboard',
 
     $response->assertOk()
         ->assertSee('Berkas Pendaftaran')
-        ->assertSee('Ruang Kerja')
-        ->assertSee(route('dashboard'));
+        ->assertSee('Status Pendaftaran')
+        ->assertSee(route('applicant.form.edit', $c['period']))
+        ->assertSee(route('applicant.application.status', $c['period']));
 });
 
 it('automatically uploads files immediately upon selection or drop into uploaded documents list', function () {

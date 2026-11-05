@@ -37,6 +37,9 @@ class ApplicationReviewController extends Controller
         $options = ReferenceOption::query()->where('dataset_id', $datasetId)->get();
         $regions = ReferenceRegion::query()->where('dataset_id', $datasetId)->whereIn('code', [$values['province_code'] ?? '', $values['city_code'] ?? '', $values['district_code'] ?? ''])->pluck('name', 'code');
         foreach (ApplicantFields::definitions() as $key => $field) {
+            if ($field['type'] === 'choice') {
+                $display[$key] = ($field['options'] ?? [])[$values[$key] ?? ''] ?? ($values[$key] ?? 'Belum diisi');
+            }
             if ($field['type'] === 'select') {
                 $display[$key] = $options->where('group', $field['reference'] ?? '')->firstWhere('code', $values[$key] ?? null)->label ?? '—';
             }
@@ -58,6 +61,9 @@ class ApplicationReviewController extends Controller
         $options = ReferenceOption::query()->where('dataset_id', $datasetId)->get();
         $regions = ReferenceRegion::query()->where('dataset_id', $datasetId)->whereIn('code', [$values['province_code'] ?? '', $values['city_code'] ?? '', $values['district_code'] ?? ''])->pluck('name', 'code');
         foreach (ApplicantFields::definitions() as $key => $field) {
+            if ($field['type'] === 'choice') {
+                $display[$key] = ($field['options'] ?? [])[$values[$key] ?? ''] ?? ($values[$key] ?? 'Belum diisi');
+            }
             if ($field['type'] === 'select') {
                 $display[$key] = $options->where('group', $field['reference'] ?? '')->firstWhere('code', $values[$key] ?? null)->label ?? '—';
             }

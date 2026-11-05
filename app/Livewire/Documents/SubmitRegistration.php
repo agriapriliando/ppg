@@ -167,6 +167,7 @@ class SubmitRegistration extends Component
         foreach (ApplicantFields::definitions() as $key => $field) {
             $value = $data[$key] ?? null;
             $display[$key] = match ($field['type']) {
+                'choice' => ($field['options'] ?? [])[$value ?? ''] ?? ($value ?: 'Belum diisi'),
                 'select' => $options->get($field['reference'] ?? '')?->firstWhere('code', $value)->label ?? ($value ?: 'Belum diisi'),
                 'region' => $regions->get($value) ?? ($value ?: 'Belum diisi'),
                 'boolean' => $value === null || $value === '' ? 'Belum diisi' : ((bool) $value ? 'Ya' : 'Tidak'),

@@ -220,6 +220,8 @@ class ParticipantsController extends Controller
             'Tanggal Lahir',
             'NIK',
             'NISN',
+            'Nomor Peg ID (Biodata)',
+            'NUPTK',
             'Agama',
             'Kewarganegaraan',
             'Nama Ibu Kandung',
@@ -235,6 +237,7 @@ class ParticipantsController extends Controller
             'Kota / Kabupaten',
             'Provinsi',
             'Kode Pos',
+            'Kategori Wilayah Tempat Tinggal',
             'Jenis Tinggal',
             'Alat Transportasi',
             'Penerima KPS',
@@ -322,6 +325,8 @@ class ParticipantsController extends Controller
                 $birthDate,
                 (string) ($effectiveData['nik'] ?? ''),
                 (string) ($effectiveData['nisn'] ?? ''),
+                (string) ($effectiveData['peg_id'] ?? ''),
+                (string) ($effectiveData['nuptk'] ?? ''),
                 $resolveOption('religion', $effectiveData['religion_code'] ?? null),
                 $resolveOption('nationality', $effectiveData['nationality_code'] ?? null),
                 (string) ($effectiveData['mother_name'] ?? ''),
@@ -337,6 +342,7 @@ class ParticipantsController extends Controller
                 $city,
                 $province,
                 (string) ($effectiveData['postal_code'] ?? ''),
+                (ApplicantFields::definitions()['residence_region']['options'] ?? [])[$effectiveData['residence_region'] ?? ''] ?? '',
                 $resolveOption('residence', $effectiveData['residence_type_code'] ?? null),
                 $resolveOption('transport', $effectiveData['transport_type_code'] ?? null),
                 isset($effectiveData['is_kps_recipient']) ? ($effectiveData['is_kps_recipient'] ? 'Ya' : 'Tidak') : '',
@@ -430,6 +436,7 @@ class ParticipantsController extends Controller
         foreach (ApplicantFields::definitions() as $key => $field) {
             $value = $data[$key] ?? null;
             $display[$key] = match ($field['type']) {
+                'choice' => ($field['options'] ?? [])[$value ?? ''] ?? ($value ?: 'Belum diisi'),
                 'select' => $options->get($field['reference'] ?? '')?->firstWhere('code', $value)->label ?? ($value ?: 'Belum diisi'),
                 'region' => $regions->get($value) ?? ($value ?: 'Belum diisi'),
                 'boolean' => $value === null || $value === '' ? 'Belum diisi' : ((bool) $value ? 'Ya' : 'Tidak'),

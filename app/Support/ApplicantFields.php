@@ -59,11 +59,13 @@ class ApplicantFields
         return $data;
     }
 
-    /** @return array<string, array{label: string, step: int, type: string, required: bool, column: string, reference?: string}> */
+    /** @return array<string, array{label: string, step: int, type: string, required: bool, column: string, reference?: string, options?: array<string, string>}> */
     public static function definitions(): array
     {
         return [
             'full_name' => ['label' => 'Nama lengkap biodata', 'step' => 1, 'type' => 'text', 'required' => true, 'column' => 'full_name'],
+            'peg_id' => ['label' => 'Nomor Peg ID', 'step' => 1, 'type' => 'text', 'required' => true, 'column' => 'peg_id'],
+            'nuptk' => ['label' => 'NUPTK', 'step' => 1, 'type' => 'text', 'required' => false, 'column' => 'nuptk_encrypted'],
             'gender_code' => ['label' => 'Jenis kelamin', 'step' => 1, 'type' => 'select', 'required' => true, 'column' => 'gender_code', 'reference' => 'gender'],
             'birth_place' => ['label' => 'Tempat lahir', 'step' => 1, 'type' => 'text', 'required' => true, 'column' => 'birth_place'],
             'birth_date' => ['label' => 'Tanggal lahir', 'step' => 1, 'type' => 'date', 'required' => true, 'column' => 'birth_date'],
@@ -84,6 +86,11 @@ class ApplicantFields
             'city_code' => ['label' => 'Kota / kabupaten', 'step' => 2, 'type' => 'region', 'required' => true, 'column' => 'city_code', 'reference' => 'city'],
             'province_code' => ['label' => 'Provinsi', 'step' => 2, 'type' => 'region', 'required' => true, 'column' => 'province_code', 'reference' => 'province'],
             'postal_code' => ['label' => 'Kode pos', 'step' => 2, 'type' => 'text', 'required' => false, 'column' => 'postal_code'],
+            'residence_region' => ['label' => 'Kategori Wilayah Tempat Tinggal', 'step' => 2, 'type' => 'choice', 'required' => false, 'column' => 'residence_region', 'options' => [
+                'WIB' => 'Wilayah Indonesia Bagian Barat (WIB)',
+                'WITA' => 'Wilayah Indonesia Bagian Tengah (WITA)',
+                'WIT' => 'Wilayah Indonesia Bagian Timur (WIT)',
+            ]],
             'residence_type_code' => ['label' => 'Jenis tinggal', 'step' => 2, 'type' => 'select', 'required' => true, 'column' => 'residence_type_code', 'reference' => 'residence'],
             'transport_type_code' => ['label' => 'Alat transportasi', 'step' => 2, 'type' => 'select', 'required' => true, 'column' => 'transport_type_code', 'reference' => 'transport'],
             'is_kps_recipient' => ['label' => 'Penerima KPS', 'step' => 3, 'type' => 'boolean', 'required' => true, 'column' => 'is_kps_recipient'],
@@ -119,9 +126,14 @@ class ApplicantFields
                 $reference = $field['reference'] ?? throw new \LogicException('Tingkat wilayah tidak didefinisikan.');
                 $rules[$key][] = Rule::exists('reference_regions', 'code')->where('dataset_id', $datasetId)->where('level', $reference);
             }
+            if ($field['type'] === 'choice') {
+                $rules[$key][] = Rule::in(array_keys($field['options'] ?? []));
+            }
         }
         $rules['nik'][] = 'digits:16';
         $rules['nisn'][] = 'digits:10';
+        $rules['nuptk'][] = 'regex:/^[0-9]{16}$/';
+        $rules['peg_id'][] = 'max:100';
         $rules['contact_email'][] = 'email';
         $rules['rt'][] = 'regex:/^[0-9]{1,5}$/';
         $rules['rw'][] = 'regex:/^[0-9]{1,5}$/';
@@ -175,7 +187,7 @@ class ApplicantFields
         $labels['prodi_name'] = 'Program studi asal';
         $labels['pt_external_id'] = 'Perguruan tinggi asal';
         $labels['prodi_external_id'] = 'Program studi asal';
-        $data = Validator::make($input, $rules, ['integer' => ':attribute harus berupa bilangan bulat.', 'between.numeric' => ':attribute harus antara :min dan :max.', 'max.string' => ':attribute maksimal :max karakter.', 'in' => ':attribute tidak sesuai pilihan yang tersedia.', 'date_format' => ':attribute harus memakai format :format.', 'required' => ':attribute wajib diisi.', 'exists' => ':attribute tidak tersedia pada referensi aktif.', 'digits' => ':attribute harus terdiri dari :digits digit.', 'birth_date.before' => 'Tanggal lahir harus sebelum hari ini.'], $labels)->validate();
+        $data = Validator::make($input, $rules, ['nuptk.regex' => 'NUPTK harus terdiri dari 16 angka.', 'integer' => ':attribute harus berupa bilangan bulat.', 'between.numeric' => ':attribute harus antara :min dan :max.', 'max.string' => ':attribute maksimal :max karakter.', 'in' => ':attribute tidak sesuai pilihan yang tersedia.', 'date_format' => ':attribute harus memakai format :format.', 'required' => ':attribute wajib diisi.', 'exists' => ':attribute tidak tersedia pada referensi aktif.', 'digits' => ':attribute harus terdiri dari :digits digit.', 'birth_date.before' => 'Tanggal lahir harus sebelum hari ini.'], $labels)->validate();
         $history = $data['education_history'] ?? [];
         $previousYear = null;
         foreach ($levels as $level) {

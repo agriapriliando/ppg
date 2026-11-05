@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
+ * @property string|null $peg_id
+ * @property string|null $nuptk_encrypted
+ * @property string|null $residence_region
  * @property int $workspace_id
  * @property string|null $full_name
  * @property string|null $birth_place
@@ -38,14 +41,14 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonImmutable|null $birth_date
  * @property bool|null $is_kps_recipient
  */
-#[Hidden(['nik_encrypted', 'nisn_encrypted', 'mother_name_encrypted', 'kps_number_encrypted', 'npwp_encrypted'])]
-#[Fillable(['workspace_id', 'full_name', 'birth_place', 'gender_code', 'religion_code', 'nationality_code', 'whatsapp_number', 'contact_email', 'other_phone', 'street_address', 'hamlet', 'rt', 'rw', 'village_name', 'province_code', 'city_code', 'district_code', 'postal_code', 'residence_type_code', 'transport_type_code', 'special_need_code', 'nik_encrypted', 'nisn_encrypted', 'mother_name_encrypted', 'kps_number_encrypted', 'npwp_encrypted', 'birth_date', 'is_kps_recipient'])]
+#[Hidden(['nuptk_encrypted', 'nik_encrypted', 'nisn_encrypted', 'mother_name_encrypted', 'kps_number_encrypted', 'npwp_encrypted'])]
+#[Fillable(['peg_id', 'nuptk_encrypted', 'residence_region', 'workspace_id', 'full_name', 'birth_place', 'gender_code', 'religion_code', 'nationality_code', 'whatsapp_number', 'contact_email', 'other_phone', 'street_address', 'hamlet', 'rt', 'rw', 'village_name', 'province_code', 'city_code', 'district_code', 'postal_code', 'residence_type_code', 'transport_type_code', 'special_need_code', 'nik_encrypted', 'nisn_encrypted', 'mother_name_encrypted', 'kps_number_encrypted', 'npwp_encrypted', 'birth_date', 'is_kps_recipient'])]
 class ApplicantBiodata extends Model
 {
     protected $table = 'applicant_biodata';
 
     protected function casts(): array
     {
-        return ['nik_encrypted' => 'encrypted', 'nisn_encrypted' => 'encrypted', 'mother_name_encrypted' => 'encrypted', 'kps_number_encrypted' => 'encrypted', 'npwp_encrypted' => 'encrypted', 'birth_date' => 'immutable_date', 'is_kps_recipient' => 'boolean'];
+        return ['nuptk_encrypted' => 'encrypted', 'nik_encrypted' => 'encrypted', 'nisn_encrypted' => 'encrypted', 'mother_name_encrypted' => 'encrypted', 'kps_number_encrypted' => 'encrypted', 'npwp_encrypted' => 'encrypted', 'birth_date' => 'immutable_date', 'is_kps_recipient' => 'boolean'];
     }
 }

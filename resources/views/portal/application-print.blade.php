@@ -384,6 +384,8 @@
                 <td class="colon-col">:</td>
                 <td class="val-col">{{ $values['nisn'] ?? '—' }}</td>
             </tr>
+            <tr><td class="label-col">Nomor Peg ID (Biodata)</td><td class="colon-col">:</td><td class="val-col">{{ $values['peg_id'] ?? 'Belum diisi' }}</td></tr>
+            <tr><td class="label-col">NUPTK</td><td class="colon-col">:</td><td class="val-col">{{ $values['nuptk'] ?? 'Belum diisi' }}</td></tr>
             <tr>
                 <td class="label-col">Tempat, Tanggal Lahir</td>
                 <td class="colon-col">:</td>
@@ -467,6 +469,7 @@
                 <td class="colon-col">:</td>
                 <td class="val-col">{{ $display['province_code'] ?? ($values['province_code'] ?? '—') }} · {{ $values['postal_code'] ?? '—' }}</td>
             </tr>
+            <tr><td class="label-col">Kategori Wilayah Tempat Tinggal</td><td class="colon-col">:</td><td class="val-col">{{ $display['residence_region'] ?? 'Belum diisi' }}</td></tr>
             <tr>
                 <td class="label-col">Jenis Tinggal & Transportasi</td>
                 <td class="colon-col">:</td>

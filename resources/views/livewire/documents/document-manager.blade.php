@@ -1,4 +1,4 @@
-<div>
+<div x-data="{ fileInfo: null }">
     @if ($successMessage)
         <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
             <i class="bi bi-check-circle-fill me-2" aria-hidden="true"></i>{{ $successMessage }}
@@ -195,9 +195,23 @@
                                     <td class="ps-4">
                                         <div class="d-flex align-items-center gap-2">
                                             <i class="bi {{ $doc->iconClass() }} fs-5 flex-shrink-0"></i>
-                                            <div>
+                                            <div class="d-flex align-items-center gap-1">
+                                                <div>
                                                 <span class="fw-semibold text-dark">{{ $doc->display_name }}</span><span class="text-muted">.{{ $doc->extension }}</span>
-                                                <small class="text-muted d-block" style="font-size: 0.72rem;">Asli: {{ $doc->original_name }}</small>
+                                                </div>
+                                                <button type="button" class="btn btn-link text-purple p-2 flex-shrink-0"
+                                                    style="min-width:44px;min-height:44px"
+                                                    aria-label="Informasi berkas {{ $doc->file_name }}" title="Informasi berkas"
+                                                    @click="fileInfo = @js([
+                                                        'name' => $doc->file_name,
+                                                        'originalName' => $doc->original_name,
+                                                        'size' => $doc->formattedSize(),
+                                                        'format' => strtoupper($doc->extension),
+                                                        'uploadedAt' => $doc->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i').' WIB',
+                                                        'uploader' => $doc->uploader?->name ?? 'Pengguna',
+                                                    ])">
+                                                    <i class="bi bi-info-circle fs-5" aria-hidden="true"></i>
+                                                </button>
                                             </div>
                                         </div>
                                     </td>
@@ -249,6 +263,30 @@
             @endif
         </div>
     </section>
+
+    <div x-cloak x-show="fileInfo !== null" x-trap.inert.noscroll="fileInfo !== null"
+         class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="document-info-title-{{ $workspaceId }}"
+         @keydown.escape.window="fileInfo = null" @click.self="fileInfo = null">
+        <div class="ui-modal">
+            <div class="ui-modal-header">
+                <h2 id="document-info-title-{{ $workspaceId }}"><i class="bi bi-info-circle text-purple me-2" aria-hidden="true"></i>Informasi Berkas</h2>
+                <button type="button" class="btn-close" @click="fileInfo = null" aria-label="Tutup informasi berkas"></button>
+            </div>
+            <div class="ui-modal-body">
+                <dl class="mb-0" style="overflow-wrap:anywhere">
+                    <dt>Nama berkas</dt><dd class="mb-3" x-text="fileInfo?.name"></dd>
+                    <dt>Nama asli file</dt><dd class="mb-3" x-text="fileInfo?.originalName"></dd>
+                    <dt>Ukuran</dt><dd class="mb-3" x-text="fileInfo?.size"></dd>
+                    <dt>Format</dt><dd class="mb-3" x-text="fileInfo?.format"></dd>
+                    <dt>Waktu unggah</dt><dd class="mb-3" x-text="fileInfo?.uploadedAt"></dd>
+                    <dt>Pengunggah</dt><dd class="mb-0" x-text="fileInfo?.uploader"></dd>
+                </dl>
+            </div>
+            <div class="d-flex justify-content-end border-top p-3">
+                <button type="button" class="btn btn-purple" @click="fileInfo = null">Tutup</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Dialog: Ubah Nama -->
     @if ($renamingDocumentId !== null)
