@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\ApplicantDocument;
+use App\Actions\Documents\ProcessDocumentDeletion;
 use App\Models\DocumentDeletionTask;
 use App\Models\ExportRun;
 use Illuminate\Foundation\Inspiring;
@@ -25,31 +25,15 @@ Artisan::command('pmb:expire-exports', function (): void {
     $this->info($count.' berkas ekspor kedaluwarsa telah dibersihkan.');
 })->purpose('Membersihkan ekspor privat yang melewati masa berlaku');
 
-Artisan::command('pmb:process-document-deletions', function (): void {
+Artisan::command('pmb:process-document-deletions', function (ProcessDocumentDeletion $processor): void {
     $count = 0;
     $tasks = DocumentDeletionTask::query()
         ->where(fn ($q) => $q->where('status', 'pending')->orWhere(fn ($sub) => $sub->where('status', 'failed')->where('next_attempt_at', '<=', now())))
         ->lazyById(100);
 
     foreach ($tasks as $task) {
-        $deleted = false;
-        try {
-            $deleted = Storage::disk($task->disk)->delete($task->object_key);
-            if (! $deleted && ! Storage::disk($task->disk)->exists($task->object_key)) {
-                $deleted = true;
-            }
-        } catch (Throwable $e) {
-            $task->markFailed($e->getMessage());
-
-            continue;
-        }
-
-        if ($deleted) {
-            ApplicantDocument::query()->where('id', $task->document_id)->delete();
-            $task->delete();
+        if ($processor->handle($task)) {
             $count++;
-        } else {
-            $task->markFailed('Gagal menghapus file objek fisik.');
         }
     }
 

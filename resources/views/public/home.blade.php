@@ -114,9 +114,12 @@
                         </p>@else<p class="text-muted mb-3">Periode penerimaan belum diumumkan. Pantau halaman ini
                                 untuk informasi resmi dari pengelola.</p>
                         @endif
-                        <div class="mt-3">
+                        <div class="mt-3 d-flex flex-wrap gap-2">
                             <a href="{{ route('public.claim') }}" class="btn btn-purple"><i
                                     class="bi bi-pencil-square me-2" aria-hidden="true"></i>Pendaftaran</a>
+                            @if($period)
+                                <a href="{{ route('public.period-documents.index', $period) }}" class="btn btn-outline-purple"><i class="bi bi-folder2-open me-2" aria-hidden="true"></i>Lihat Berkas Periode <span class="badge text-bg-light border ms-1">{{ $period->public_documents_count }}</span></a>
+                            @endif
                         </div>
                     </div>
                     <div class="col-lg-4 text-lg-end"><span

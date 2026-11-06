@@ -52,6 +52,7 @@
             @if (auth()->user()->role === App\Enums\UserRole::Applicant)
                 @if ($activePeriod)
                     <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <a class="btn btn-banner-glass" href="{{ route('applicant.sk-information') }}"><i class="bi bi-person-vcard me-1" aria-hidden="true"></i>Informasi SK</a>
                         <a class="btn btn-gold fw-bold" href="{{ route('applicant.form.edit', $activePeriod) }}">
                             <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>
                             {{ $activeApplication && ! $activeApplication->status->editable() ? 'Lihat Formulir' : 'Lengkapi Formulir' }}

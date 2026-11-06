@@ -25,6 +25,9 @@
         <div class="sidebar-label">RUANG {{ mb_strtoupper(auth()->user()->role->label()) }}</div>
         <nav class="sidebar-nav">
             <a href="{{ route('dashboard') }}" @class(['active' => request()->routeIs('dashboard')])><i class="bi bi-grid-1x2" aria-hidden="true"></i>Beranda</a>
+            @if(auth()->user()->role === App\Enums\UserRole::Applicant)
+                <a href="{{ route('applicant.sk-information') }}" @class(['active' => request()->routeIs('applicant.sk-information')])><i class="bi bi-person-vcard" aria-hidden="true"></i>Informasi SK</a>
+            @endif
             @if(in_array(auth()->user()->role, [App\Enums\UserRole::Operator, App\Enums\UserRole::Administrator], true))
                 <a href="{{ route('participants.index') }}" @class(['active'=>request()->routeIs('participants.*')])><i class="bi bi-people" aria-hidden="true"></i>Peserta SK</a>
                 <a href="{{ route('claims.index') }}" @class(['active'=>request()->routeIs('claims.*')])><i class="bi bi-whatsapp" aria-hidden="true"></i>Klaim & WhatsApp</a>

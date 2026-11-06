@@ -12,6 +12,8 @@ use App\Models\ApplicationReview;
 use App\Models\AuditEvent;
 use App\Models\ConsentText;
 use App\Models\CredentialIssuance;
+use App\Models\DocumentDeletionTask;
+use App\Models\PeriodDocument;
 use App\Models\PeriodOperator;
 use App\Models\ReferenceDataset;
 use App\Models\SkClaim;
@@ -224,7 +226,9 @@ class StaffController extends Controller
                 || Application::query()->where('accepted_by', $target->id)->exists()
                 || WhatsappVerification::query()->where('verified_by', $target->id)->exists()
                 || CredentialIssuance::query()->where('issued_by', $target->id)->orWhere('delivered_by', $target->id)->exists()
-                || ApplicantDocument::query()->where('uploaded_by', $target->id)->exists();
+                || ApplicantDocument::query()->where('uploaded_by', $target->id)->exists()
+                || PeriodDocument::query()->where('uploaded_by', $target->id)->exists()
+                || DocumentDeletionTask::query()->where('requested_by', $target->id)->exists();
 
             if ($hasRestrictedData) {
                 throw ValidationException::withMessages([

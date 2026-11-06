@@ -7,6 +7,7 @@ use App\Models\AdmissionPeriod;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -17,6 +18,7 @@ new #[Title('Periode & Gelombang')] class extends Component
 
     #[Locked] public ?int $editingId = null;
     #[Locked] public int $version = 0;
+    #[Locked] public ?int $documentPeriodId = null;
     public array $form = ['code'=>'', 'name'=>'', 'academic_year'=>'', 'state'=>'draft', 'opens_at'=>'', 'closes_at'=>'', 'allow_correction_after_close'=>false, 'correction_closes_at'=>'', 'is_public'=>false];
     public string $message = '';
 
@@ -51,8 +53,9 @@ new #[Title('Periode & Gelombang')] class extends Component
 
     public function save(SaveAdmissionPeriod $save): void
     {
-        $save->handle(auth()->user(), $this->editingId, $this->version, $this->form);
+        $period = $save->handle(auth()->user(), $this->editingId, $this->version, $this->form);
         $this->cancel();
+        $this->documentPeriodId = $period->id;
         $this->message = 'Periode berhasil disimpan.';
         $this->resetPage();
     }
@@ -78,7 +81,24 @@ new #[Title('Periode & Gelombang')] class extends Component
     public function with(): array
     {
         Gate::authorize('viewAny', AdmissionPeriod::class);
-        return ['periods'=>AdmissionPeriod::query()->orderByDesc('id')->paginate(10)];
+        return ['periods'=>AdmissionPeriod::query()->withCount(['periodDocuments' => fn ($query) => $query->where('status', 'available')])->orderByDesc('id')->paginate(10)];
+    }
+
+    public function manageDocuments(int $id): void
+    {
+        Gate::authorize('update', AdmissionPeriod::findOrFail($id));
+        $this->documentPeriodId = $id;
+    }
+
+    public function closeDocuments(): void
+    {
+        $this->documentPeriodId = null;
+    }
+
+    #[On('period-documents-updated')]
+    public function refreshDocumentCounts(): void
+    {
+        Gate::authorize('viewAny', AdmissionPeriod::class);
     }
 };
 ?>
@@ -102,7 +122,7 @@ new #[Title('Periode & Gelombang')] class extends Component
                             <i class="bi {{ $editingId ? 'bi-pencil-square' : 'bi-plus-circle' }}"></i>
                             <span>{{ $editingId ? 'Ubah Periode' : 'Buat Periode Penerimaan' }}</span>
                         </h2>
-                        <p class="text-muted small mb-0">Isi identitas gelombang dan jadwal operasional PMB (Waktu Indonesia Barat / UTC+7).</p>
+                        <p class="text-muted small mb-0">Isi identitas dan jadwal operasional PMB (WIB / UTC+7). Setelah disimpan, tambahkan dokumen melalui tombol Berkas pada periode.</p>
                     </div>
                     @if($editingId)
                         <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
@@ -340,7 +360,8 @@ new #[Title('Periode & Gelombang')] class extends Component
                                 </div>
 
                                 <!-- Baris Aksi -->
-                                <div class="d-flex align-items-center justify-content-end gap-2 pt-2 border-top">
+                                <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 pt-2 border-top">
+                                    <button type="button" class="btn btn-sm btn-outline-purple" wire:click="manageDocuments({{ $period->id }})"><i class="bi bi-folder2-open me-1" aria-hidden="true"></i>Berkas ({{ $period->period_documents_count }})</button>
                                     @if($period->state !== \App\Enums\PeriodState::Archived)
                                         <button type="button" class="btn btn-sm btn-outline-purple d-inline-flex align-items-center gap-1 px-3" wire:click="edit({{ $period->id }})" title="Ubah konfigurasi periode">
                                             <i class="bi bi-pencil-square"></i>
@@ -388,4 +409,8 @@ new #[Title('Periode & Gelombang')] class extends Component
             </section>
         </div>
     </div>
+    @if($documentPeriodId !== null)
+        <div class="mt-4 d-flex justify-content-end"><button type="button" class="btn btn-light border" wire:click="closeDocuments">Tutup Panel Berkas Periode</button></div>
+        <livewire:documents.period-document-manager :periodId="$documentPeriodId" :key="'period-documents-'.$documentPeriodId" />
+    @endif
 </div>

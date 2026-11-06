@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property int $id
  * @property string $document_id
+ * @property string $document_type
  * @property string $disk
  * @property string $object_key
  * @property string $status
@@ -20,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 #[Fillable([
     'document_id',
+    'document_type',
     'disk',
     'object_key',
     'status',

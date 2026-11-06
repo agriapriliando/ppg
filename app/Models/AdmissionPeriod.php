@@ -80,4 +80,10 @@ class AdmissionPeriod extends Model
     {
         return $this->hasMany(ApplicantDocument::class, 'admission_period_id');
     }
+
+    /** @return HasMany<PeriodDocument, $this> */
+    public function periodDocuments(): HasMany
+    {
+        return $this->hasMany(PeriodDocument::class, 'admission_period_id');
+    }
 }
