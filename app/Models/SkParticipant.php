@@ -13,9 +13,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /** @property CarbonImmutable $sk_date */
-#[Fillable(['admission_period_id', 'sk_number', 'sk_date', 'sk_order', 'official_participant_id', 'name_on_sk', 'normalized_name', 'assigned_operator_id', 'last_import_id', 'internal_note'])]
+#[Fillable(['admission_period_id', 'sk_number', 'sk_date', 'sk_order', 'official_participant_id', 'name_on_sk', 'normalized_name', 'assigned_operator_id', 'last_import_id', 'internal_note', 'origin_reference_dataset_id', 'origin_city_code', 'origin_city_name', 'origin_province_code', 'origin_province_name'])]
 class SkParticipant extends Model
 {
+    /** @param Builder<SkParticipant> $query */
+    #[Scope]
+    protected function originCity(Builder $query, string $code): void
+    {
+        if ($code === 'unfilled') {
+            $query->where(fn ($query) => $query->whereNull('origin_city_code')->orWhere('origin_city_code', ''));
+        } elseif ($code !== '') {
+            $query->where('origin_city_code', $code);
+        }
+    }
+
     /** @return HasOne<Application,$this> */
     public function application(): HasOne
     {

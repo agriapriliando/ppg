@@ -13,11 +13,25 @@ class ReferenceLookupController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $data = $request->validate(['type' => ['required', 'in:province,city,district,pt,prodi'], 'parent' => ['nullable', 'string', 'max:64'], 'q' => ['nullable', 'string', 'max:100'], 'page' => ['nullable', 'integer', 'min:1']]);
+        $data = $request->validate(['type' => ['required', 'in:province,city,city_search,district,pt,prodi'], 'parent' => ['nullable', 'string', 'max:64'], 'q' => ['nullable', 'string', 'max:100'], 'page' => ['nullable', 'integer', 'min:1']]);
         $dataset = ReferenceDataset::query()->where('state', 'active')->value('id');
         $type = $data['type'];
         if (in_array($type, ['city', 'prodi'], true) && empty($data['parent'])) {
             return response()->json(['data' => [], 'has_more' => false]);
+        }
+        if ($type === 'city_search') {
+            $query = ReferenceRegion::from('reference_regions as c')
+                ->join('reference_regions as p', function ($join) use ($dataset): void {
+                    $join->on('p.code', '=', 'c.parent_code')->where('p.dataset_id', $dataset)->where('p.level', 'province');
+                })->where('c.dataset_id', $dataset)->where('c.level', 'city')
+                ->select(['c.code', 'c.name', 'p.code as province_code', 'p.name as province_name']);
+            if (! empty($data['q'])) {
+                $term = '%'.$data['q'].'%';
+                $query->where(fn ($query) => $query->where('c.name', 'like', $term)->orWhere('p.name', 'like', $term)->orWhere('c.code', 'like', $term));
+            }
+            $results = $query->orderBy('c.name')->orderBy('c.id')->simplePaginate(20);
+
+            return response()->json(['data' => $results->items(), 'has_more' => $results->hasMorePages()]);
         }
         if ($type === 'district') {
             $query = ReferenceRegion::from('reference_regions as d')

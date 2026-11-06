@@ -360,6 +360,16 @@
                 <td class="val-col">{{ $application->participant->official_participant_id ?? '—' }}</td>
             </tr>
             <tr>
+                <td class="label-col">Kota/Kabupaten Asal (SK)</td>
+                <td class="colon-col">:</td>
+                <td class="val-col">{{ $application->participant->origin_city_name ?? 'Belum diisi' }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">Provinsi Asal (SK)</td>
+                <td class="colon-col">:</td>
+                <td class="val-col">{{ $application->participant->origin_province_name ?? 'Belum diisi' }}</td>
+            </tr>
+            <tr>
                 <td class="label-col">Operator Pendamping</td>
                 <td class="colon-col">:</td>
                 <td class="val-col">{{ $application->participant->assignedOperator?->name ?? 'Belum Ditugaskan' }}</td>

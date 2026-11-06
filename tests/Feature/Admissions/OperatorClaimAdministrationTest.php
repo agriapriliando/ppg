@@ -103,7 +103,7 @@ it('allows operators to delete pending claims from the claims list', function ()
     app(ApproveClaim::class)->handle($c['operator'], $approvedClaim, 0);
 
     $this->delete(route('claims.destroy', $approvedClaim))
-        ->assertStatus(422);
+        ->assertForbidden();
 });
 
 it('allows operators to access and perform whatsapp recovery when old number is lost', function () {

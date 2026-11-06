@@ -32,7 +32,7 @@ it('downloads an actual Excel error report with source row numbers and literal i
             ->and($sheet->getCell('B2')->getValue())->toBe('=1+1')
             ->and($sheet->getCell('B2')->getDataType())->toBe(DataType::TYPE_STRING)
             ->and($sheet->getCell('E2')->getValue())->toBe('000001')
-            ->and($sheet->getCell('G2')->getValue())->toBe('Nama wajib diisi.');
+            ->and($sheet->getCell('I2')->getValue())->toBe('Nama wajib diisi.');
         $book->disconnectWorksheets();
     } finally {
         unlink($path);

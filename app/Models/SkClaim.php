@@ -6,10 +6,13 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['admission_period_id', 'candidate_sk_participant_id', 'requester_user_id', 'review_owner_id', 'submitted_name', 'submitted_identifier', 'whatsapp_number', 'access_path', 'status', 'public_reference', 'request_key', 'public_note', 'internal_note', 'reviewed_by', 'reviewed_at'])]
 class SkClaim extends Model
 {
+    use SoftDeletes;
+
     /** @return HasMany<ClaimResponse, $this> */
     public function responses(): HasMany
     {

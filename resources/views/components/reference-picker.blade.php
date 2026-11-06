@@ -1,4 +1,4 @@
-@props(['name','type','parent'=>'null','value'=>null,'label'=>'','selectedLabel'=>'','locked'=>false])
+@props(['name','type','parent'=>'null','value'=>null,'label'=>'','selectedLabel'=>'','locked'=>false,'required'=>true])
 <div class="position-relative" x-data="{
     value: @js((string) $value), search: @js($selectedLabel), items: [], open: false, loading: false, error: '', page: 1, more: false, parentReady: false, previousParent: null, requestNumber: 0,
     get parentValue() { return {{ $parent }}; },
@@ -16,11 +16,11 @@
         } catch(error) { if(request===this.requestNumber) this.error='Referensi belum dapat dimuat. Coba kembali.'; }
         finally { if(request===this.requestNumber) this.loading=false; }
     },
-    choose(option) { this.value=option.code; this.search=option.name; this.open=false; this.$dispatch('reference-selected',{field:@js($name),value:option.code,option:option}); this.$refs.search.focus(); }
+    choose(option) { this.$refs.search.setCustomValidity(''); this.value=option.code; this.search=option.name; this.open=false; this.$dispatch('reference-selected',{field:@js($name),value:option.code,option:option}); this.$refs.search.focus(); }
 }" x-effect="if(!parentReady){previousParent=parentValue;parentReady=true;}else if(parentValue!==previousParent){previousParent=parentValue;value='';search='';items=[];open=false;requestNumber++;$dispatch('reference-selected',{field:@js($name),value:'',option:null});}" @click.outside="open=false" @keydown.escape.prevent.stop="open=false">
-    <label for="picker-{{ $name }}" class="form-label">{{ $label }} *</label>
+    <label for="picker-{{ $name }}" class="form-label">{{ $label }} @if($required)*@endif</label>
     <input data-review-label="{{ $label }}" type="hidden" name="{{ $name }}" :value="value">
-    <input id="picker-{{ $name }}" x-ref="search" type="search" class="form-control" x-model="search" :disabled="disabled" autocomplete="off" placeholder="{{ $type === 'district' ? 'Ketik nama kecamatan atau kota/kabupaten…' : 'Cari '.mb_strtolower($label).'…' }}" @focus="page=1;load()" @input.debounce.250ms="value='';$dispatch('reference-selected',{field:@js($name),value:'',option:null});page=1;load()" @keydown.arrow-down.prevent="$refs.results.querySelector('button')?.focus()" :aria-expanded="open" aria-controls="results-{{ $name }}" role="combobox">
+    <input id="picker-{{ $name }}" x-ref="search" type="search" class="form-control" x-model="search" :disabled="disabled" autocomplete="off" placeholder="{{ $type === 'district' ? 'Ketik nama kecamatan atau kota/kabupaten…' : 'Cari '.mb_strtolower($label).'…' }}" @focus="page=1;load()" @input="$el.setCustomValidity(@js($type === 'city_search') && $el.value.trim() ? 'Pilih kota/kabupaten dari hasil pencarian terlebih dahulu.' : '');value='';requestNumber++;items=[];more=false;$dispatch('reference-selected',{field:@js($name),value:'',option:null})" @input.debounce.250ms="page=1;load()" @keydown.arrow-down.prevent="$refs.results.querySelector('button')?.focus()" :aria-expanded="open" aria-controls="results-{{ $name }}" role="combobox">
     <div id="results-{{ $name }}" x-ref="results" class="position-absolute bg-white border rounded shadow-sm w-100 p-2" style="z-index:30;max-height:280px;overflow:auto" x-cloak x-show="open">
         <div class="small text-muted p-2" x-show="loading" role="status">Memuat referensi…</div><div class="small text-danger p-2" x-text="error" role="alert"></div>
         <template x-for="option in items" :key="option.code">

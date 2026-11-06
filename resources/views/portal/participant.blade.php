@@ -44,6 +44,8 @@
 
                 <dt>Peg ID</dt>
                 <dd>{{ $participant->official_participant_id ?? 'Tidak tersedia' }}</dd>
+                <dt>Kota/Kabupaten Asal</dt><dd>{{ $participant->origin_city_name ?? 'Belum diisi' }}</dd>
+                <dt>Provinsi Asal</dt><dd>{{ $participant->origin_province_name ?? 'Belum diisi' }}</dd>
 
                 <dt>Periode Penerimaan</dt>
                 <dd>{{ $participant->period->name }}</dd>
@@ -372,6 +374,16 @@
                         </div>
                     </div>
 
+                    <div class="row g-3 mb-3" x-data="{ provinceName: @js($participant->origin_province_name ?? '') }" @reference-selected="if($event.detail.field === 'origin_city_code') provinceName = $event.detail.option?.province_name || '';">
+                        <div class="col-12">
+                            <x-reference-picker name="origin_city_code" type="city_search" label="Kota/Kabupaten Asal" :value="$participant->origin_city_code" :selected-label="$participant->origin_city_name ?? ''" :required="false" />
+                            <div class="form-text">Ketik nama kota/kabupaten atau provinsi, lalu pilih hasil yang sesuai.</div>
+                        </div>
+                        <div class="col-12">
+                            <label for="edit-origin-province" class="form-label">Provinsi Asal (otomatis)</label>
+                            <input id="edit-origin-province" class="form-control bg-light" :value="provinceName" placeholder="Terisi setelah memilih kota/kabupaten" readonly>
+                        </div>
+                    </div>
                     <div class="mb-3">
                         <label for="edit-operator-id" class="form-label fw-bold">Operator Penanggung Jawab</label>
                         <select id="edit-operator-id" name="assigned_operator_id" class="form-select">

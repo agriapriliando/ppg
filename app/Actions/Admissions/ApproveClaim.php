@@ -43,7 +43,20 @@ class ApproveClaim
             $locked->candidate_sk_participant_id = $participant->id;
             $verification = WhatsappVerification::query()->where('claim_id', $locked->id)->where('number', $locked->whatsapp_number)->whereNull('invalidated_at')->latest('id')->first();
             $user = $locked->requester;
-            if ($user === null) {
+            $retained = Application::query()->where('sk_participant_id', $participant->id)->lockForUpdate()->first();
+            $restoring = $retained !== null && $retained->claim_account_reset_at !== null;
+            if ($restoring) {
+                if ($locked->access_path !== 'whatsapp' || ($user !== null && $user->id !== $retained->user_id)) {
+                    throw ValidationException::withMessages(['claim' => 'Pendaftaran lama memiliki pemilik berbeda. Gunakan pemeriksaan koreksi kepemilikan untuk melindungi data peserta.']);
+                }
+                $user = User::query()->lockForUpdate()->findOrFail($retained->user_id);
+                if ($user->role !== UserRole::Applicant || $user->account_state !== AccountState::Disabled) {
+                    throw ValidationException::withMessages(['claim' => 'Akun lama telah berubah. Muat ulang dan periksa sebelum memulihkan akses.']);
+                }
+                $user->forceFill(['account_state' => AccountState::PendingActivation, 'password' => null, 'must_change_password' => false]);
+                $this->assignUsername->handle($user);
+                $locked->requester()->associate($user);
+            } elseif ($user === null) {
                 $user = new User;
                 $user->name = $locked->submitted_name;
                 $user->role = UserRole::Applicant;
@@ -53,15 +66,27 @@ class ApproveClaim
                 $locked->requester()->associate($user);
             }
             User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-            if (Application::query()->where('user_id', $user->id)->where('admission_period_id', $period->id)->exists()) {
+            if (Application::query()->where('user_id', $user->id)->where('admission_period_id', $period->id)
+                ->when($restoring, fn ($query) => $query->where('id', '!=', $retained->id))->exists()) {
                 throw ValidationException::withMessages(['claim' => 'Akun ini sudah mempunyai pendaftaran pada periode yang sama.']);
             }
             $workspace = ApplicantWorkspace::query()->firstOrCreate(['user_id' => $user->id, 'admission_period_id' => $period->id]);
             ApplicantBiodata::query()->firstOrCreate(['workspace_id' => $workspace->id], ['full_name' => $locked->submitted_name, 'whatsapp_number' => $locked->whatsapp_number]);
-            DB::table('admission_sequences')->insertOrIgnore(['admission_period_id' => $period->id, 'last_number' => 0]);
-            DB::table('admission_sequences')->where('admission_period_id', $period->id)->increment('last_number');
-            $number = (int) DB::table('admission_sequences')->where('admission_period_id', $period->id)->value('last_number');
-            $application = Application::create(['user_id' => $user->id, 'admission_period_id' => $period->id, 'sk_participant_id' => $participant->id, 'workspace_id' => $workspace->id, 'application_number' => 'PMB-'.$period->code.'-'.str_pad((string) $number, 4, '0', STR_PAD_LEFT)]);
+            if ($restoring) {
+                $application = $retained;
+                ApplicantBiodata::query()->where('workspace_id', $workspace->id)->update(['whatsapp_number' => $locked->whatsapp_number]);
+                if (array_key_exists('whatsapp_number', $workspace->draft_payload ?? [])) {
+                    $workspace->draft_payload = [...$workspace->draft_payload, 'whatsapp_number' => $locked->whatsapp_number];
+                }
+                $workspace->lock_version++;
+                $workspace->save();
+                $application->forceFill(['claim_account_reset_at' => null, 'lock_version' => $application->lock_version + 1])->save();
+            } else {
+                DB::table('admission_sequences')->insertOrIgnore(['admission_period_id' => $period->id, 'last_number' => 0]);
+                DB::table('admission_sequences')->where('admission_period_id', $period->id)->increment('last_number');
+                $number = (int) DB::table('admission_sequences')->where('admission_period_id', $period->id)->value('last_number');
+                $application = Application::create(['user_id' => $user->id, 'admission_period_id' => $period->id, 'sk_participant_id' => $participant->id, 'workspace_id' => $workspace->id, 'application_number' => 'PMB-'.$period->code.'-'.str_pad((string) $number, 4, '0', STR_PAD_LEFT)]);
+            }
             $participant->forceFill(['claimed_user_id' => $user->id, 'lock_version' => $participant->lock_version + 1])->save();
             $locked->status = 'approved';
             $locked->forceFill(['reviewed_by' => $actor->id, 'reviewed_at' => now(), 'lock_version' => $locked->lock_version + 1])->save();

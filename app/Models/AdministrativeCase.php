@@ -12,7 +12,7 @@ class AdministrativeCase extends Model
     /** @return BelongsTo<SkClaim,$this> */
     public function claim(): BelongsTo
     {
-        return $this->belongsTo(SkClaim::class);
+        return $this->belongsTo(SkClaim::class)->withTrashed();
     }
 
     /** @return BelongsTo<Application,$this> */

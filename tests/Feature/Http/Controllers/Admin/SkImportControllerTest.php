@@ -4,12 +4,16 @@ use App\Actions\Imports\ValidateSkImport;
 use App\Models\AdmissionPeriod;
 use App\Models\PeriodOperator;
 use App\Models\SkImport;
+use App\Models\SkParticipant;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+
+require_once __DIR__.'/../../../../Fixtures/registration.php';
 
 function skWorkbook(array $rows, ?array $headers = null): UploadedFile
 {
@@ -24,6 +28,68 @@ function skWorkbook(array $rows, ?array $headers = null): UploadedFile
 
     return UploadedFile::fake()->createWithContent('peserta-sk.xlsx', $content);
 }
+
+it('includes origin lookup in the latest template and imports it without clearing it on legacy reimport', function () {
+    Storage::fake('local');
+    $c = registrationContext();
+    $template = $this->actingAs($c['admin'])->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v2.xlsx');
+    Storage::disk('local')->put('origin-template.xlsx', $template->streamedContent());
+    $book = IOFactory::load(Storage::disk('local')->path('origin-template.xlsx'));
+    expect($book->getSheetByName('Peserta_SK')->getCell('I1')->getValue())->toBe('kode_kota_kabupaten_asal')
+        ->and($book->getSheetByName('Referensi_Wilayah')->getCell('A2')->getValue())->toBe('0101')
+        ->and($book->getSheetByName('Referensi_Wilayah')->getCell('C2')->getValue())->toBe('Provinsi Uji');
+    $book->disconnectWorksheets();
+    $row = ['SK-ASAL', '2026-11-06', $c['period']->code, 1, 'Peserta Asal Impor', '000002', '', '', '0101'];
+    $this->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([$row])])->assertRedirect();
+    $import = SkImport::query()->latest('id')->first();
+    expect($import->state)->toBe('ready');
+    $this->get(route('admin.imports.show', $import))->assertOk()->assertSee('Kota Uji')->assertSee('Provinsi Uji');
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    $participant = SkParticipant::query()->where('sk_number', 'SK-ASAL')->sole();
+    expect($participant->origin_city_code)->toBe('0101')->and($participant->origin_province_name)->toBe('Provinsi Uji');
+
+    $this->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([array_slice($row, 0, 8)], array_slice(ValidateSkImport::HEADERS, 0, 8))])->assertRedirect();
+    $legacy = SkImport::query()->latest('id')->first();
+    expect($legacy->counts['identical'])->toBe(1);
+    $this->post(route('admin.imports.commit', $legacy), ['preview_hash' => $legacy->preview_hash])->assertSessionHasNoErrors();
+    expect($participant->fresh()->origin_city_code)->toBe('0101')->and($participant->fresh()->origin_province_name)->toBe('Provinsi Uji');
+});
+
+it('reports invalid origin codes without committing participants', function () {
+    Storage::fake('local');
+    $c = registrationContext();
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([
+        ['SK-ASAL', '2026-11-06', $c['period']->code, 1, 'Peserta Asal', '000002', '', '', '010101'],
+    ])])->assertRedirect();
+    $import = SkImport::query()->sole();
+    expect($import->state)->toBe('invalid')->and($import->rows()->sole()->errors)->toContain('Kode kota/kabupaten asal tidak valid. Gunakan kode pada sheet Referensi_Wilayah dari template terbaru.');
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasErrors('import');
+    $response = $this->get(route('admin.imports.errors', $import))->assertOk();
+    Storage::disk('local')->put('origin-errors.xlsx', $response->streamedContent());
+    $book = IOFactory::load(Storage::disk('local')->path('origin-errors.xlsx'));
+    expect($book->getActiveSheet()->getCell('F2')->getValue())->toBe('010101');
+    $book->disconnectWorksheets();
+    $this->assertDatabaseCount('sk_participants', 1);
+});
+
+it('prevents a stale import from overwriting a manual origin edit', function () {
+    Storage::fake('local');
+    $c = registrationContext();
+    $participant = $c['participant'];
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([
+        [$participant->sk_number, $participant->sk_date->format('Y-m-d'), $c['period']->code, $participant->sk_order, $participant->name_on_sk, $participant->official_participant_id, '', '', '0101'],
+    ])])->assertRedirect();
+    $import = SkImport::query()->sole();
+    expect($import->state)->toBe('ready');
+    $this->put(route('participants.update-sk', $participant), [
+        'version' => $participant->lock_version, 'name_on_sk' => $participant->name_on_sk, 'sk_number' => $participant->sk_number,
+        'sk_date' => $participant->sk_date->format('Y-m-d'), 'sk_order' => $participant->sk_order,
+        'official_participant_id' => $participant->official_participant_id, 'assigned_operator_id' => $c['operator']->id,
+        'origin_city_code' => '0101',
+    ])->assertSessionHasNoErrors();
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasErrors('import');
+    expect($participant->fresh()->origin_city_code)->toBe('0101');
+});
 
 it('reads actual Excel contents and commits participants once while preserving leading zeros', function () {
     Storage::fake('local');
@@ -85,7 +151,7 @@ it('provides a real downloadable Excel template and a usable import preview page
     Storage::fake('local');
     $admin = User::factory()->administrator()->create();
     $period = AdmissionPeriod::factory()->create();
-    $this->actingAs($admin)->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v1.xlsx');
+    $this->actingAs($admin)->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v2.xlsx');
     $this->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Uji']])])->assertRedirect();
     $this->get(route('admin.imports.show', SkImport::query()->sole()))->assertOk()->assertSee('Peserta Uji')->assertSee('Pratinjau siap dikonfirmasi');
 });

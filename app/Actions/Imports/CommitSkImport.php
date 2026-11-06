@@ -11,6 +11,7 @@ use App\Models\PeriodOperator;
 use App\Models\SkImport;
 use App\Models\SkParticipant;
 use App\Models\User;
+use App\Support\ParticipantOrigin;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -33,11 +34,24 @@ class CommitSkImport
             if ($period->state === PeriodState::Archived) {
                 throw ValidationException::withMessages(['import' => 'Periode yang diarsipkan tidak dapat menerima impor.']);
             }
+            $origins = [];
             foreach ($locked->rows()->orderBy('row_number')->get() as $row) {
                 if ($row->result === 'identical') {
                     continue;
                 }
                 $data = $row->normalized_payload;
+                if (! empty($data['origin_city_code'])) {
+                    if (! is_string($data['origin_city_code']) || ! isset($data['origin_reference_dataset_id']) || ! is_int($data['origin_reference_dataset_id'])) {
+                        throw ValidationException::withMessages(['import' => 'Data asal pada pratinjau tidak lengkap. Unggah ulang untuk validasi terbaru.']);
+                    }
+                    $key = $data['origin_reference_dataset_id'].':'.$data['origin_city_code'];
+                    $origins[$key] ??= ParticipantOrigin::resolve($data['origin_city_code'], 'import', $data['origin_reference_dataset_id']);
+                    foreach (ParticipantOrigin::FIELDS as $field) {
+                        if (($data[$field] ?? null) !== $origins[$key][$field]) {
+                            throw ValidationException::withMessages(['import' => 'Referensi asal peserta berubah sejak pratinjau. Unggah ulang untuk validasi terbaru.']);
+                        }
+                    }
+                }
                 $participant = SkParticipant::query()->firstOrNew(['admission_period_id' => $period->id, 'sk_number' => $data['sk_number'], 'sk_order' => $data['sk_order']]);
                 if ($participant->exists && $participant->claimed_user_id !== null) {
                     throw ValidationException::withMessages(['import' => 'Peserta sudah terikat klaim. Perubahan harus diperiksa secara administratif.']);

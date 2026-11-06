@@ -45,6 +45,11 @@
                             <i class="bi bi-shield-check" aria-hidden="true"></i>
                             <p class="mb-0">Satu kesalahan atau konflik membatalkan konfirmasi seluruh berkas. Unggah ulang identik mempertahankan data dan penugasan yang sudah ada.</p>
                         </div>
+                        <div class="alert alert-light border mt-3 mb-0">
+                            <strong class="d-block mb-2">Kota/Kabupaten Asal dan Provinsi</strong>
+                            <p class="mb-1">Gunakan template terbaru. Isi kolom <code>kode_kota_kabupaten_asal</code> dengan kode teks dari sheet <strong>Referensi_Wilayah</strong>. Provinsi ditentukan otomatis, tanpa isian kecamatan.</p>
+                            <small>Kolom asal opsional. Jika belum tersedia, kosongkan; informasi asal yang sudah tersimpan tidak akan dihapus saat impor ulang.</small>
+                        </div>
                     @endif
                 </div>
             </section>

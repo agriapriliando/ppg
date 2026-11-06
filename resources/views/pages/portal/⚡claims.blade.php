@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\RecordAudit;
 use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
 use App\Models\SkClaim;
@@ -56,20 +55,6 @@ new #[Title('Klaim & WhatsApp')] class extends Component
         abort_unless($user !== null && in_array($user->role, [UserRole::Operator, UserRole::Administrator], true), 403);
     }
 
-    public function deleteClaim(int $id, RecordAudit $audit): void
-    {
-        $actor = auth()->user();
-        abort_unless($actor !== null && in_array($actor->role, [UserRole::Operator, UserRole::Administrator], true), 403);
-
-        $claim = SkClaim::findOrFail($id);
-        abort_unless($claim->status === 'pending', 403);
-
-        $claimName = $claim->submitted_name;
-        $claim->delete();
-        $audit->handle($actor, 'Menghapus permohonan klaim pending', $claim, ['submitted_name' => $claimName]);
-        session()->flash('status', "Permohonan klaim oleh {$claimName} berhasil dihapus.");
-    }
-
     /** @return LengthAwarePaginator<SkClaim> */
     public function getClaimsProperty(): LengthAwarePaginator
     {
@@ -114,7 +99,7 @@ new #[Title('Klaim & WhatsApp')] class extends Component
 };
 ?>
 
-<div x-data="{ showGuide: false }">
+<div x-data="{ showGuide: false, deletingClaim: null, deleteConfirmed: false, deleting: false }">
     <div class="notice-box info">
         <i class="bi bi-whatsapp" aria-hidden="true"></i>
         <p class="mb-0">Periksa identitas dan kepesertaan sebelum menyetujui klaim. Bukti balasan WhatsApp dan penyerahan akses dicatat secara terpisah.</p>
@@ -247,14 +232,11 @@ new #[Title('Klaim & WhatsApp')] class extends Component
                             <td>
                                 <div class="d-inline-flex align-items-center gap-1">
                                     <a class="btn btn-sm btn-outline-purple" href="{{ route('claims.show', $claim) }}">Periksa</a>
-                                    @if($claim->status === 'pending')
-                                        <form method="post" action="{{ route('claims.destroy', $claim) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus permohonan klaim oleh {{ $claim->submitted_name }} ini?')">
-                                            @csrf
-                                            @method('delete')
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus Permohonan Klaim">
+                                    @if($claim->status !== 'approved' || ($claim->access_path === 'whatsapp' && auth()->user()->isAdministrator()))
+                                            <button type="button" class="btn btn-sm btn-outline-danger" title="Hapus Permohonan Klaim"
+                                                @click="deleteConfirmed = false; deletingClaim = @js(['url' => route('claims.destroy', $claim), 'name' => $claim->submitted_name, 'number' => $claim->whatsapp_number, 'period' => $claim->period->name, 'version' => $claim->lock_version, 'approved' => $claim->status === 'approved']);">
                                                 <i class="bi bi-trash" aria-hidden="true"></i> Hapus
                                             </button>
-                                        </form>
                                     @endif
                                 </div>
                             </td>
@@ -274,6 +256,38 @@ new #[Title('Klaim & WhatsApp')] class extends Component
             </div>
         </div>
     </section>
+
+    <div x-cloak x-show="deletingClaim !== null" x-trap.inert.noscroll="deletingClaim !== null"
+        class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="delete-claim-title"
+        @keydown.escape.window="if (!deleting) deletingClaim = null" @click.self="if (!deleting) deletingClaim = null">
+        <div class="ui-modal">
+            <div class="ui-modal-header">
+                <h2 id="delete-claim-title" class="text-danger">Hapus Permohonan Klaim?</h2>
+                <button type="button" class="btn-close" @click="deletingClaim = null" :disabled="deleting" aria-label="Tutup"></button>
+            </div>
+            <form method="post" :action="deletingClaim?.url" @submit="deleting = true">
+                @csrf
+                @method('delete')
+                <input type="hidden" name="version" :value="deletingClaim?.version">
+                <div class="ui-modal-body">
+                    <dl class="p-3 border rounded bg-light" style="overflow-wrap:anywhere">
+                        <dt>Nama pemohon</dt><dd x-text="deletingClaim?.name"></dd>
+                        <dt>Nomor WhatsApp</dt><dd x-text="deletingClaim?.number"></dd>
+                        <dt>Periode</dt><dd class="mb-0" x-text="deletingClaim?.period"></dd>
+                    </dl>
+                    <div class="alert alert-danger" x-show="!deletingClaim?.approved">Permohonan klaim beserta tanggapan dan catatan terkait akan dihapus permanen. Tindakan ini tidak dapat dibatalkan melalui aplikasi.</div>
+                    <div class="alert alert-danger" x-show="deletingClaim?.approved">Klaim WhatsApp dan akses akun lama akan dihapus. ID login, kata sandi, dan sesi lama tidak dapat digunakan lagi. Peserta perlu mengajukan klaim ulang untuk mendapatkan akses baru.</div>
+                    <p x-show="deletingClaim?.approved">Data peserta SK, biodata, pendaftaran, riwayat, dan seluruh berkas tetap tersimpan. Klaim ulang yang disetujui akan terhubung ke pendaftaran yang sama.</p>
+                    <p x-show="!deletingClaim?.approved">Data peserta SK, akun login, biodata, pendaftaran, dan berkas peserta tetap tersimpan.</p>
+                    <label class="d-flex align-items-start gap-2"><input type="checkbox" class="form-check-input flex-shrink-0" x-model="deleteConfirmed" required><span>Saya memahami dan menyetujui penghapusan permohonan klaim ini.</span></label>
+                </div>
+                <div class="d-flex flex-column flex-sm-row justify-content-end gap-2 border-top p-3">
+                    <button type="button" class="btn btn-light border" @click="deletingClaim = null" :disabled="deleting">Batal</button>
+                    <button type="submit" class="btn btn-danger" :disabled="!deleteConfirmed || deleting" x-text="deleting ? 'Menghapus...' : (deletingClaim?.approved ? 'Hapus Akun & Klaim WhatsApp' : 'Hapus Klaim')"></button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Pop-up Modal Petunjuk Klaim & WhatsApp (Alpine.js Mobile Responsive) -->
     <div 

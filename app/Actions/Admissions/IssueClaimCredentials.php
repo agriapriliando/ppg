@@ -62,6 +62,10 @@ class IssueClaimCredentials
                 DB::table('sessions')->where('user_id', $user->id)->delete();
             }
             $secret = ApplicantPassword::generate($existing?->encrypted_secret);
+            $previousHash = CredentialIssuance::query()->where('user_id', $user->id)->whereNotNull('revoked_at')->latest('id')->value('secret_hash');
+            if (is_string($previousHash) && Hash::check($secret, $previousHash)) {
+                $secret = ApplicantPassword::generate($secret);
+            }
             $issuance = CredentialIssuance::create(['user_id' => $user->id, 'claim_id' => $lockedClaim->id, 'secret_hash' => Hash::make($secret), 'encrypted_secret' => $secret, 'target_number' => $number, 'issued_by' => $actor->id, 'expires_at' => now()->addMinutes((int) config('pmb.temporary_password_minutes'))]);
             $this->audit->handle($actor, $regenerate ? 'Generate ulang password akun' : 'Menerbitkan akses sementara', $user, ['issuance_id' => $issuance->id]);
 

@@ -16,6 +16,7 @@ use App\Models\ReferenceRegion;
 use App\Models\SkParticipant;
 use App\Models\User;
 use App\Support\ApplicantFields;
+use App\Support\ParticipantOrigin;
 use App\Support\SubmittedRegistrationData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -66,6 +67,7 @@ class ParticipantsController extends Controller
             'sk_date' => ['required', 'date'],
             'sk_order' => ['required', 'integer', 'min:1', 'max:999999'],
             'official_participant_id' => ['nullable', 'string', 'max:100'],
+            'origin_city_code' => ['nullable', 'string', 'max:64'],
             'assigned_operator_id' => ['nullable', 'integer', 'exists:users,id'],
             'reason' => ['nullable', 'string', 'max:1000'],
             'version' => ['required', 'integer', 'min:0'],
@@ -101,8 +103,16 @@ class ParticipantsController extends Controller
                 'official_participant_id' => ! empty($data['official_participant_id']) ? trim($data['official_participant_id']) : null,
                 'assigned_operator_id' => $operatorId,
             ];
+            $origin = [];
+            if (array_key_exists('origin_city_code', $data)) {
+                $origin = $data['origin_city_code'] === $locked->origin_city_code
+                    ? $locked->only(ParticipantOrigin::FIELDS)
+                    : ParticipantOrigin::resolve($data['origin_city_code']);
+            }
+            $changes = array_merge($changes, $origin);
 
             $locked->forceFill([
+                ...$origin,
                 'name_on_sk' => $cleanName,
                 'normalized_name' => mb_strtolower(Str::squish($cleanName)),
                 'sk_number' => $changes['sk_number'],
@@ -115,6 +125,7 @@ class ParticipantsController extends Controller
 
             $auditReason = ! empty($data['reason']) ? $data['reason'] : 'Pembaruan data resmi SK peserta';
             $audit->handle($actor, 'Memperbarui data resmi SK peserta', $locked, $changes, $auditReason);
+            $period->increment('lock_version');
         });
 
         return back()->with('status', 'Data resmi kepesertaan bersumber dari SK berhasil diperbarui.');
@@ -154,6 +165,7 @@ class ParticipantsController extends Controller
         abort_unless($actor !== null, 403);
 
         $data = $request->validate([
+            'origin_city' => ['nullable', 'string', 'max:64'],
             'period_id' => ['nullable', 'integer', 'exists:admission_periods,id'],
             'operator_id' => ['nullable', 'string'],
             'search' => ['nullable', 'string', 'max:100'],
@@ -163,6 +175,7 @@ class ParticipantsController extends Controller
         $operatorId = $data['operator_id'] ?? '';
 
         $participants = SkParticipant::query()
+            ->originCity($data['origin_city'] ?? '')
             ->when(! empty($data['period_id']), fn ($q) => $q->where('admission_period_id', $data['period_id']))
             ->when($operatorId === 'unassigned', fn ($q) => $q->whereNull('assigned_operator_id'))
             ->when(! empty($operatorId) && $operatorId !== 'unassigned', fn ($q) => $q->where('assigned_operator_id', (int) $operatorId))
@@ -203,6 +216,8 @@ class ParticipantsController extends Controller
             'Tanggal SK',
             'Urut SK',
             'Peg ID',
+            'Kota/Kabupaten Asal (SK)',
+            'Provinsi Asal (SK)',
             'Nama Sesuai SK',
             'Kondisi Roster SK',
             'Status Penahanan SK',
@@ -308,6 +323,8 @@ class ParticipantsController extends Controller
                 $participant->sk_date->format('d/m/Y'),
                 (string) $participant->sk_order,
                 (string) ($participant->official_participant_id ?? ''),
+                (string) ($participant->origin_city_name ?? ''),
+                (string) ($participant->origin_province_name ?? ''),
                 $participant->name_on_sk,
                 $participant->roster_state === 'active' ? 'Aktif' : 'Mundur',
                 $participant->admin_hold ? 'Ditahan' : 'Normal',

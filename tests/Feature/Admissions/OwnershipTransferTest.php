@@ -1,8 +1,10 @@
 <?php
 
 use App\Actions\Admissions\ApproveClaim;
+use App\Actions\Admissions\DeleteSkParticipant;
 use App\Actions\Admissions\SaveApplicantForm;
 use App\Actions\Admissions\SubmitSkClaim;
+use App\Actions\Documents\UploadApplicantDocument;
 use App\Enums\AccountState;
 use App\Enums\ApplicationStatus;
 use App\Enums\PeriodState;
@@ -15,8 +17,10 @@ use App\Models\CredentialIssuance;
 use App\Models\SkParticipant;
 use App\Models\User;
 use App\Models\WhatsappVerification;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 require_once __DIR__.'/../../Fixtures/registration.php';
 
@@ -216,3 +220,32 @@ it('blocks schema rollback after a transfer so historical privacy boundaries can
     $this->assertDatabaseCount('application_ownership_transfers', 1);
     expect($c['application']->fresh()->ownership_epoch)->toBe(1);
 });
+
+it('deletes transferred participant files while protecting a former workspace reused by another participant', function (bool $reused) {
+    Storage::fake('local');
+    $c = ownershipContext(true);
+    $oldWorkspace = $c['application']->workspace;
+    $oldFile = app(UploadApplicantDocument::class)->handle($c['admin'], $oldWorkspace, UploadedFile::fake()->create('sebelum-koreksi.pdf', 10, 'application/pdf'), 'old-owner');
+    $this->actingAs($c['admin'])->post(route('admin.ownership.update', $c['application']), ownershipInput($c))->assertSessionHasNoErrors();
+    $application = $c['application']->fresh();
+    $newFile = app(UploadApplicantDocument::class)->handle($c['admin'], $application->workspace, UploadedFile::fake()->create('sesudah-koreksi.pdf', 10, 'application/pdf'), 'new-owner');
+    if ($reused) {
+        $otherParticipant = $c['participant']->replicate();
+        $otherParticipant->forceFill(['sk_order' => 2, 'official_participant_id' => '000002', 'claimed_user_id' => $c['applicant']->id])->save();
+        $otherApplication = $application->replicate();
+        $otherApplication->forceFill(['sk_participant_id' => $otherParticipant->id, 'user_id' => $c['applicant']->id, 'workspace_id' => $oldWorkspace->id, 'application_number' => 'OTHER-APPLICATION'])->save();
+    }
+
+    expect(app(DeleteSkParticipant::class)->handle($c['admin'], $c['participant']->fresh(), $c['participant']->fresh()->lock_version))->toBe(0);
+    $this->assertDatabaseCount('application_ownership_transfers', 0);
+    $this->assertDatabaseMissing('sk_participants', ['id' => $c['participant']->id]);
+    Storage::disk('local')->assertMissing($newFile->object_key);
+    if ($reused) {
+        $this->assertDatabaseHas('applications', ['id' => $otherApplication->id]);
+        $this->assertDatabaseHas('applicant_workspaces', ['id' => $oldWorkspace->id]);
+        Storage::disk('local')->assertExists($oldFile->object_key);
+    } else {
+        $this->assertDatabaseMissing('applicant_workspaces', ['id' => $oldWorkspace->id]);
+        Storage::disk('local')->assertMissing($oldFile->object_key);
+    }
+})->with([false, true]);

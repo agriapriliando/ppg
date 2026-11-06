@@ -4,15 +4,18 @@ use App\Enums\AccountState;
 use App\Enums\UserRole;
 use App\Enums\PeriodState;
 use App\Actions\RecordAudit;
+use App\Actions\Admissions\DeleteSkParticipant;
 use App\Models\AdmissionPeriod;
 use App\Models\SkParticipant;
 use App\Models\User;
+use App\Support\ParticipantOrigin;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -30,19 +33,59 @@ new #[Title('Daftar Peserta SK')] class extends Component
     #[Url(as: 'period_id', except: '')]
     public string $periodId = '';
 
+    #[Url(as: 'origin_city', except: '')]
+    public string $originCityCode = '';
+
     #[Url(as: 'per_page', except: 25)]
     public int $perPage = 25;
 
     public bool $showCreate = false;
+    public int $createFormKey = 0;
+    public bool $showDelete = false;
+    public bool $deleteConfirmed = false;
+    #[Locked]
+    public ?int $deletingId = null;
+    #[Locked]
+    public int $deletingVersion = 0;
+    public string $deletingName = '';
+    public string $deletingPeriod = '';
+    public string $deletingPegId = '';
     public string $message = '';
-    public array $form = ['admission_period_id' => '', 'name_on_sk' => '', 'sk_number' => '', 'sk_date' => '', 'sk_order' => '', 'official_participant_id' => '', 'internal_note' => ''];
+    public array $form = ['admission_period_id' => '', 'name_on_sk' => '', 'sk_number' => '', 'sk_date' => '', 'sk_order' => '', 'official_participant_id' => '', 'internal_note' => '', 'origin_city_code' => ''];
 
+    public function openDelete(int $participantId): void
+    {
+        $this->mount();
+        abort_unless(auth()->user()->isAdministrator(), 403);
+        $participant = SkParticipant::query()->with('period')->findOrFail($participantId);
+        $this->resetValidation();
+        $this->deleteConfirmed = false;
+        $this->deletingId = $participant->id;
+        $this->deletingVersion = $participant->lock_version;
+        $this->deletingName = $participant->name_on_sk;
+        $this->deletingPeriod = $participant->period->name;
+        $this->deletingPegId = $participant->official_participant_id ?? '-';
+        $this->showDelete = true;
+    }
+
+    public function deleteParticipant(DeleteSkParticipant $deleter): void
+    {
+        $this->mount();
+        abort_unless(auth()->user()->isAdministrator(), 403);
+        $this->validate(['deleteConfirmed' => ['accepted']], ['deleteConfirmed.accepted' => 'Centang konfirmasi penghapusan terlebih dahulu.']);
+        abort_unless($this->showDelete && $this->deletingId !== null, 422);
+        $pending = $deleter->handle(auth()->user(), SkParticipant::findOrFail($this->deletingId), $this->deletingVersion);
+        $this->reset('showDelete', 'deleteConfirmed', 'deletingId', 'deletingVersion', 'deletingName', 'deletingPeriod', 'deletingPegId');
+        $this->resetPage();
+        $this->message = $pending === 0 ? 'Peserta SK, data pendaftaran, dan berkas terkait berhasil dihapus.' : "Peserta SK dan data pendaftaran telah dihapus. {$pending} berkas masih menunggu penghapusan fisik dan akan dicoba ulang otomatis.";
+    }
     public function openCreate(): void
     {
         $this->mount();
         $this->reset('form');
         $this->resetValidation();
         $this->form['admission_period_id'] = $this->periodId;
+        $this->createFormKey++;
         $this->showCreate = true;
     }
 
@@ -62,6 +105,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
             'form.sk_order' => ['required', 'integer', 'min:1', 'max:999999'],
             'form.official_participant_id' => ['nullable', 'string', 'max:100'],
             'form.internal_note' => ['nullable', 'string', 'max:1000'],
+            'form.origin_city_code' => ['nullable', 'string', 'max:64'],
         ], ['required' => ':attribute wajib diisi.'], [
             'form.admission_period_id' => 'Periode', 'form.name_on_sk' => 'Nama sesuai SK',
             'form.sk_number' => 'Nomor SK', 'form.sk_date' => 'Tanggal SK', 'form.sk_order' => 'Nomor urut SK',
@@ -77,11 +121,12 @@ new #[Title('Daftar Peserta SK')] class extends Component
             if ((clone $participants)->where('sk_number', $data['sk_number'])->where('sk_order', $data['sk_order'])->exists()) {
                 throw ValidationException::withMessages(['form.sk_order' => 'Nomor urut pada SK ini sudah digunakan dalam periode tersebut.']);
             }
-            $data['official_participant_id'] = $data['official_participant_id'] ?: null;
+            $data['official_participant_id'] = ($data['official_participant_id'] ?? '') ?: null;
             if ($data['official_participant_id'] !== null && (clone $participants)->where('official_participant_id', $data['official_participant_id'])->exists()) {
                 throw ValidationException::withMessages(['form.official_participant_id' => 'Peg ID sudah digunakan dalam periode tersebut.']);
             }
             $data['normalized_name'] = mb_strtolower(Str::squish($data['name_on_sk']));
+            $data = array_merge($data, ParticipantOrigin::resolve($data['origin_city_code'] ?? null, 'form.origin_city_code'));
             $participant = SkParticipant::query()->create($data);
             $period->lock_version++;
             $period->save();
@@ -109,6 +154,19 @@ new #[Title('Daftar Peserta SK')] class extends Component
         $this->resetPage();
     }
 
+    public function updatedOriginCityCode(): void
+    {
+        $this->resetPage();
+    }
+
+    /** @return Collection<int, SkParticipant> */
+    public function getOriginCitiesProperty(): Collection
+    {
+        return SkParticipant::query()->whereNotNull('origin_city_code')->where('origin_city_code', '!=', '')
+            ->select(['origin_city_code', 'origin_city_name', 'origin_province_name'])
+            ->distinct()->orderBy('origin_city_name')->orderBy('origin_city_code')->get()->unique('origin_city_code')->values();
+    }
+
     public function setPerPage(int $perPage): void
     {
         if (in_array($perPage, [10, 25, 50, 100], true)) {
@@ -131,6 +189,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
         $periodId = $this->periodId;
 
         return SkParticipant::query()
+            ->originCity($this->originCityCode)
             ->when(! empty($periodId), fn ($q) => $q->where('admission_period_id', (int) $periodId))
             ->when($operatorId === 'unassigned', fn ($q) => $q->whereNull('assigned_operator_id'))
             ->when(! empty($operatorId) && $operatorId !== 'unassigned', fn ($q) => $q->where('assigned_operator_id', (int) $operatorId))
@@ -171,7 +230,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
                     <i class="bi bi-person-plus" aria-hidden="true"></i>
                     <span>Tambah Peserta SK</span>
                 </button>
-                <a href="{{ route('participants.export', array_filter(['search' => $search, 'operator_id' => $operatorId, 'period_id' => $periodId])) }}" class="btn btn-outline-success d-inline-flex align-items-center gap-2" title="Ekspor seluruh data peserta & biodata ke Excel">
+                <a href="{{ route('participants.export', array_filter(['search' => $search, 'operator_id' => $operatorId, 'period_id' => $periodId, 'origin_city' => $originCityCode])) }}" class="btn btn-outline-success d-inline-flex align-items-center gap-2" title="Ekspor peserta sesuai filter ke Excel">
                     <i class="bi bi-file-earmark-excel" aria-hidden="true"></i>
                     <span>Ekspor Excel</span>
                 </a>
@@ -196,15 +255,15 @@ new #[Title('Daftar Peserta SK')] class extends Component
             @endif
 
             <div class="row g-3">
-                <div class="col-lg-5">
-                    <label for="participant-search" class="visually-hidden">Nama atau Peg ID</label>
+                <div class="col-sm-6 col-lg-3">
+                    <label for="participant-search" class="form-label">Nama atau Peg ID</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
                         <input class="form-control" id="participant-search" wire:model.live.debounce.300ms="search" placeholder="Cari nama atau Peg ID…" maxlength="100">
                     </div>
                 </div>
-                <div class="col-lg-4">
-                    <label for="participant-operator" class="visually-hidden">Filter Operator</label>
+                <div class="col-sm-6 col-lg-3">
+                    <label for="participant-operator" class="form-label">Operator</label>
                     <select class="form-select" id="participant-operator" wire:model.live="operatorId">
                         <option value="">Semua operator</option>
                         <option value="unassigned">Belum ditugaskan</option>
@@ -213,12 +272,22 @@ new #[Title('Daftar Peserta SK')] class extends Component
                         @endforeach
                     </select>
                 </div>
-                <div class="col-lg-3">
-                    <label for="participant-period" class="visually-hidden">Periode</label>
+                <div class="col-sm-6 col-lg-3">
+                    <label for="participant-period" class="form-label">Periode</label>
                     <select class="form-select" id="participant-period" wire:model.live="periodId">
                         <option value="">Semua periode</option>
                         @foreach($this->periods as $period)
                             <option value="{{ $period->id }}">{{ $period->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <label for="participant-origin" class="form-label">Asal Wilayah</label>
+                    <select id="participant-origin" class="form-select" wire:model.live="originCityCode">
+                        <option value="">Semua kota/kabupaten</option>
+                        <option value="unfilled">Asal wilayah belum diisi</option>
+                        @foreach($this->originCities as $city)
+                            <option value="{{ $city->origin_city_code }}">{{ $city->origin_city_name ?: $city->origin_city_code }}{{ $city->origin_province_name ? ' - '.$city->origin_province_name : '' }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -262,6 +331,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
                             <td>
                                 <strong>{{ $participant->name_on_sk }}</strong>
                                 <small class="d-block text-muted">{{ $participant->official_participant_id ?? 'Tanpa pengenal tambahan' }}</small>
+                                @if($participant->origin_city_name)<small class="d-block text-muted">{{ $participant->origin_city_name }}{{ $participant->origin_province_name ? ', '.$participant->origin_province_name : '' }}</small>@endif
                             </td>
                             <td>
                                 {{ $participant->sk_number }}
@@ -295,6 +365,9 @@ new #[Title('Daftar Peserta SK')] class extends Component
                             <td>{{ $participant->assignedOperator?->name ?? 'Belum ditugaskan' }}</td>
                             <td>
                                 <a href="{{ route('participants.show', $participant) }}" class="btn btn-sm btn-outline-purple">Lihat Detail</a>
+                                @if(auth()->user()->isAdministrator())
+                                    <button type="button" class="btn btn-sm btn-outline-danger ms-1" wire:click="openDelete({{ $participant->id }})" wire:loading.attr="disabled"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Hapus</button>
+                                @endif
                             </td>
                         </tr>
                     @empty
@@ -313,7 +386,41 @@ new #[Title('Daftar Peserta SK')] class extends Component
         </div>
     </section>
 
-    <div x-cloak x-show="$wire.showCreate" x-trap.inert.noscroll="$wire.showCreate"
+    @if(auth()->user()->isAdministrator())
+    <div x-cloak x-show="$wire.showDelete" x-trap.inert.noscroll="$wire.showDelete"
+        @keydown.escape.window="$wire.showDelete = false"
+        class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="delete-participant-title">
+        <div class="ui-modal">
+            <div class="ui-modal-header">
+                <h2 id="delete-participant-title" class="text-danger">Hapus Peserta SK?</h2>
+                <button type="button" class="btn-close" @click="$wire.showDelete = false" wire:loading.attr="disabled" wire:target="deleteParticipant" aria-label="Tutup"></button>
+            </div>
+            <form wire:submit="deleteParticipant">
+                <div class="ui-modal-body">
+                    <dl class="p-3 border rounded bg-light" style="overflow-wrap:anywhere">
+                        <dt>Nama peserta</dt><dd>{{ $deletingName }}</dd>
+                        <dt>Peg ID</dt><dd>{{ $deletingPegId }}</dd>
+                        <dt>Periode</dt><dd class="mb-0">{{ $deletingPeriod }}</dd>
+                    </dl>
+                    <div class="alert alert-danger">Penghapusan permanen akan menghapus peserta SK, klaim terkait, biodata, pendaftaran beserta riwayatnya, dan berkas terkait termasuk file yang telah dikirim. Data tidak dapat dipulihkan melalui aplikasi.</div>
+                    <p>Akun login tetap tersedia karena dapat digunakan pada periode lain. Data peserta lain tetap tersimpan.</p>
+                    <label class="d-flex gap-2 align-items-start"><input type="checkbox" class="form-check-input flex-shrink-0" wire:model="deleteConfirmed"><span>Saya memahami dan menyetujui penghapusan peserta beserta data dan berkas terkait.</span></label>
+                    @error('deleteConfirmed')<div class="text-danger mt-2" role="alert">{{ $message }}</div>@enderror
+                    @error('deletion')<div class="text-danger mt-2" role="alert">{{ $message }}</div>@enderror
+                </div>
+                <div class="d-flex flex-column flex-sm-row justify-content-end gap-2 border-top p-3">
+                    <button type="button" class="btn btn-light border" @click="$wire.showDelete = false" wire:loading.attr="disabled" wire:target="deleteParticipant">Batal</button>
+                    <button type="submit" class="btn btn-danger" wire:loading.attr="disabled" wire:target="deleteParticipant"><span wire:loading.remove wire:target="deleteParticipant">Hapus Permanen</span><span wire:loading wire:target="deleteParticipant">Menghapus...</span></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @endif
+
+    <div wire:key="create-participant-{{ $createFormKey }}" x-data="{ provinceName: '' }"
+        @reference-selected="if ($event.detail.field === 'form.origin_city_code') { $wire.set('form.origin_city_code', $event.detail.value, false); provinceName = $event.detail.option?.province_name || ''; }"
+        x-cloak x-show="$wire.showCreate" x-trap.inert.noscroll="$wire.showCreate"
         @keydown.escape.window="$wire.showCreate = false" @click.self="$wire.showCreate = false"
         class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="create-participant-title">
         <div class="ui-modal">
@@ -339,6 +446,14 @@ new #[Title('Daftar Peserta SK')] class extends Component
                             <label for="create-participant-name" class="form-label">Nama sesuai SK *</label>
                             <input id="create-participant-name" class="form-control" wire:model="form.name_on_sk" required minlength="3" maxlength="255" autocomplete="off">
                             <x-field-error name="form.name_on_sk" />
+                        </div>
+                        <div class="col-12">
+                            <x-reference-picker name="form.origin_city_code" type="city_search" label="Kota/Kabupaten Asal" :required="false" />
+                            <div class="form-text">Ketik nama kota/kabupaten atau provinsi, lalu pilih hasil yang sesuai. Isi jika tersedia.</div>
+                        </div>
+                        <div class="col-12">
+                            <label for="create-origin-province" class="form-label">Provinsi Asal <span class="badge text-bg-light border">Otomatis</span></label>
+                            <input id="create-origin-province" class="form-control bg-light" :value="provinceName" placeholder="Terisi setelah memilih kota/kabupaten" readonly>
                         </div>
                         <div class="col-sm-6">
                             <label for="create-participant-sk" class="form-label">Nomor SK *</label>

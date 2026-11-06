@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $accepted_at
  * @property CarbonImmutable|null $current_owner_submitted_at
  * @property int $ownership_epoch
+ * @property CarbonImmutable|null $claim_account_reset_at
  * @property array<string, mixed>|null $config_snapshot
  */
 #[Fillable(['sk_participant_id', 'user_id', 'admission_period_id', 'workspace_id', 'application_number', 'status', 'submitted_at', 'tanggal_daftar', 'last_resubmitted_at', 'accepted_at', 'accepted_by', 'config_snapshot'])]
@@ -49,7 +50,7 @@ class Application extends Model
 
     protected function casts(): array
     {
-        return ['status' => ApplicationStatus::class, 'ownership_epoch' => 'integer', 'current_owner_submitted_at' => 'immutable_datetime', 'submitted_at' => 'immutable_datetime', 'tanggal_daftar' => 'immutable_date', 'last_resubmitted_at' => 'immutable_datetime', 'accepted_at' => 'immutable_datetime', 'config_snapshot' => 'array'];
+        return ['claim_account_reset_at' => 'immutable_datetime', 'status' => ApplicationStatus::class, 'ownership_epoch' => 'integer', 'current_owner_submitted_at' => 'immutable_datetime', 'submitted_at' => 'immutable_datetime', 'tanggal_daftar' => 'immutable_date', 'last_resubmitted_at' => 'immutable_datetime', 'accepted_at' => 'immutable_datetime', 'config_snapshot' => 'array'];
     }
 
     /** @return BelongsTo<SkParticipant, $this> */

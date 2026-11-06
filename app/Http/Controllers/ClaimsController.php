@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\Admissions\ApproveClaim;
 use App\Actions\Admissions\CancelClaimApproval;
+use App\Actions\Admissions\DeleteWhatsappClaimAccount;
 use App\Actions\Admissions\IssueClaimCredentials;
 use App\Actions\Admissions\SubmitSkClaim;
 use App\Actions\Admissions\UpdateClaimWhatsapp;
@@ -15,6 +16,7 @@ use App\Models\AdmissionPeriod;
 use App\Models\Application;
 use App\Models\ConsentRecord;
 use App\Models\ConsentText;
+use App\Models\CredentialIssuance;
 use App\Models\SkClaim;
 use App\Models\SkParticipant;
 use App\Models\User;
@@ -205,25 +207,43 @@ class ClaimsController extends Controller
         return back()->with('status', 'Bukti balasan nomor aktif telah dicatat.');
     }
 
-    public function destroy(Request $request, SkClaim $claim, RecordAudit $audit): RedirectResponse
+    public function destroy(Request $request, SkClaim $claim, RecordAudit $audit, DeleteWhatsappClaimAccount $deleter): RedirectResponse
     {
         $actor = $request->user();
         abort_unless($actor !== null, 403);
         abort_unless($actor->isAdministrator() || $actor->role === UserRole::Operator, 403);
-        abort_unless($claim->status === 'pending', 422, 'Hanya permohonan klaim yang menunggu pemeriksaan yang dapat dihapus.');
+        abort_unless(Gate::allows('review', $claim), 403);
+        $data = $request->validate(['version' => ['nullable', 'integer', 'min:0']]);
+        if (isset($data['version']) && $claim->lock_version !== (int) $data['version']) {
+            throw ValidationException::withMessages(['claim' => 'Klaim telah diproses atau berubah status. Muat ulang sebelum menghapus.']);
+        }
+        if ($claim->status === 'approved') {
+            abort_unless($actor->isAdministrator(), 403, 'Penghapusan akun dan klaim WhatsApp yang disetujui hanya dapat dilakukan administrator.');
+            $deleter->handle($actor, $claim, (int) ($data['version'] ?? $claim->lock_version));
 
-        DB::transaction(function () use ($actor, $claim, $audit): void {
+            return redirect()->route('claims.index')->with('status', 'Akses akun dan klaim WhatsApp telah dihapus. Peserta dapat mengajukan ulang; data SK, pendaftaran, biodata, dan berkas tetap tersimpan.');
+        }
+        abort_unless(in_array($claim->status, ['pending', 'needs_information', 'declined', 'cancelled'], true), 422, 'Status klaim tidak dapat dihapus.');
+
+        DB::transaction(function () use ($actor, $claim, $audit, $data): void {
+            AdmissionPeriod::query()->lockForUpdate()->findOrFail($claim->admission_period_id);
             $locked = SkClaim::query()->lockForUpdate()->findOrFail($claim->id);
-            if ($locked->status !== 'pending') {
+            abort_unless(Gate::allows('review', $locked), 403);
+            if (! in_array($locked->status, ['pending', 'needs_information', 'declined', 'cancelled'], true) || (isset($data['version']) && $locked->lock_version !== (int) $data['version'])) {
                 throw ValidationException::withMessages(['claim' => 'Klaim telah diproses atau berubah status.']);
+            }
+            if (DB::table('application_ownership_transfers')->where('target_claim_id', $locked->id)
+                ->orWhereIn('administrative_case_id', AdministrativeCase::query()->where('claim_id', $locked->id)->select('id'))->exists()) {
+                throw ValidationException::withMessages(['claim' => 'Klaim terhubung dengan riwayat koreksi kepemilikan dan tidak dapat dihapus melalui daftar klaim.']);
             }
 
             $locked->responses()->delete();
+            CredentialIssuance::query()->where('claim_id', $locked->id)->delete();
             ConsentRecord::query()->where('claim_id', $locked->id)->delete();
             WhatsappVerification::query()->where('claim_id', $locked->id)->delete();
             AdministrativeCase::query()->where('claim_id', $locked->id)->delete();
 
-            $audit->handle($actor, 'Menghapus permohonan klaim menunggu pemeriksaan', $locked, [
+            $audit->handle($actor, 'Menghapus permohonan klaim', $locked, [
                 'submitted_name' => $locked->submitted_name,
                 'whatsapp_number' => $locked->whatsapp_number,
                 'period_id' => $locked->admission_period_id,

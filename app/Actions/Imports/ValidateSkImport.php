@@ -8,10 +8,12 @@ use App\Models\PeriodOperator;
 use App\Models\SkImport;
 use App\Models\SkParticipant;
 use App\Models\User;
+use App\Support\ParticipantOrigin;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
@@ -20,7 +22,7 @@ use ZipArchive;
 
 class ValidateSkImport
 {
-    public const HEADERS = ['nomor_sk', 'tanggal_sk', 'periode', 'nomor_urut_sk', 'nama_sesuai_sk', 'id_peserta_sk', 'operator_email', 'catatan_internal'];
+    public const HEADERS = ['nomor_sk', 'tanggal_sk', 'periode', 'nomor_urut_sk', 'nama_sesuai_sk', 'id_peserta_sk', 'operator_email', 'catatan_internal', 'kode_kota_kabupaten_asal'];
 
     public function handle(SkImport $import): void
     {
@@ -40,8 +42,8 @@ class ValidateSkImport
         try {
             $sheet = $book->getSheetByName('Peserta_SK');
             $lastRow = $sheet?->getHighestDataRow() ?? 0;
-            if ($sheet === null || $lastRow < 2 || $lastRow > (int) config('pmb.import_max_rows') + 1 || Coordinate::columnIndexFromString($sheet->getHighestDataColumn()) > 8) {
-                throw new RuntimeException('Sheet Peserta_SK harus berisi 1–5.000 baris data dan maksimal delapan kolom template.');
+            if ($sheet === null || $lastRow < 2 || $lastRow > (int) config('pmb.import_max_rows') + 1 || Coordinate::columnIndexFromString($sheet->getHighestDataColumn()) > count(self::HEADERS)) {
+                throw new RuntimeException('Sheet Peserta_SK harus berisi 1–5.000 baris data dan maksimal sembilan kolom template.');
             }
             foreach (self::HEADERS as $index => $header) {
                 $value = trim((string) $sheet->getCell([$index + 1, 1])->getValue());
@@ -58,6 +60,7 @@ class ValidateSkImport
             // Request-local memoization; commit still rechecks current eligibility.
             $operators = [];
             $operatorEligibility = [];
+            $origins = [];
             for ($row = 2; $row <= $lastRow; $row++) {
                 $values = [];
                 $errors = [];
@@ -73,6 +76,9 @@ class ValidateSkImport
                     if ($header === 'id_peserta_sk' && $value !== null && ! is_string($value)) {
                         $errors[] = 'Peg ID harus disimpan sebagai teks agar nol awal tetap utuh.';
                     }
+                    if ($header === 'kode_kota_kabupaten_asal' && $value !== null && ! is_string($value)) {
+                        $errors[] = 'Kode kota/kabupaten asal harus disimpan sebagai teks. Salin kode dari sheet Referensi_Wilayah.';
+                    }
                     $values[$header] = trim((string) $value);
                 }
                 if (implode('', $values) === '') {
@@ -87,6 +93,7 @@ class ValidateSkImport
                     'id_peserta_sk' => ['nullable', 'string', 'max:100'],
                     'operator_email' => ['nullable', 'email', 'max:255'],
                     'catatan_internal' => ['nullable', 'string', 'max:1000'],
+                    'kode_kota_kabupaten_asal' => ['nullable', 'string', 'max:64'],
                 ], ['required' => ':attribute wajib diisi.', 'periode.in' => 'Kode periode tidak sesuai periode tujuan.']);
                 $errors = array_merge($errors, $validator->errors()->all());
                 $operator = null;
@@ -101,7 +108,21 @@ class ValidateSkImport
                         $errors[] = 'Operator harus aktif dan terdaftar pada periode tujuan.';
                     }
                 }
+                $originCode = $values['kode_kota_kabupaten_asal'];
+                $origin = ParticipantOrigin::resolve(null);
+                if ($originCode !== '') {
+                    if (! array_key_exists($originCode, $origins)) {
+                        try {
+                            $origins[$originCode] = ['data' => ParticipantOrigin::resolve($originCode), 'errors' => []];
+                        } catch (ValidationException $exception) {
+                            $origins[$originCode] = ['data' => [...$origin, 'origin_city_code' => $originCode], 'errors' => ['Kode kota/kabupaten asal tidak valid. Gunakan kode pada sheet Referensi_Wilayah dari template terbaru.']];
+                        }
+                    }
+                    $origin = $origins[$originCode]['data'];
+                    $errors = array_merge($errors, $origins[$originCode]['errors']);
+                }
                 $payload = [
+                    ...$origin,
                     'admission_period_id' => $period->id,
                     'sk_number' => mb_strtoupper($values['nomor_sk']),
                     'sk_date' => $values['tanggal_sk'],
@@ -133,10 +154,16 @@ class ValidateSkImport
                     $errors[] = 'Peg ID sudah digunakan pada baris SK lain.';
                 }
                 if ($existing !== null) {
+                    // Older templates and empty origin cells preserve stored origin details.
+                    if ($originCode === '') {
+                        foreach (ParticipantOrigin::FIELDS as $field) {
+                            $payload[$field] = $existing->getAttribute($field);
+                        }
+                    }
                     // An omitted operator preserves the current assignment on reimport.
                     $payload['assigned_operator_id'] ??= $existing->assigned_operator_id;
                     $changed = $existing->sk_date->format('Y-m-d') !== $payload['sk_date'];
-                    foreach (['name_on_sk', 'official_participant_id', 'internal_note', 'assigned_operator_id'] as $field) {
+                    foreach (['name_on_sk', 'official_participant_id', 'internal_note', 'assigned_operator_id', ...ParticipantOrigin::FIELDS] as $field) {
                         $changed = $changed || $existing->getAttribute($field) !== $payload[$field];
                     }
                     $result = $changed ? 'change' : 'identical';

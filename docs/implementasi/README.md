@@ -6,6 +6,10 @@ Tanggal pembaruan: **18 Oktober 2026**. Status: **alur inti MVP dibangun dan lul
 
 Pembaruan formulir dan berkas: [autosave, pengiriman bersama, dan riwayat revisi](formulir-berkas-autosave.md). Catatan ini menggantikan keterangan lama tentang simpan manual dan lokasi pengiriman formulir di bawah.
 
+Pembaruan peserta SK: [kota/kabupaten asal, provinsi otomatis, dan template impor versi 2](asal-peserta-sk.md).
+
+Pengajuan ulang WhatsApp: [hapus akses akun dan klaim dengan tetap mempertahankan pendaftaran serta berkas](hapus-akun-klaim-whatsapp.md).
+
 | Modul | Perilaku yang tersedia |
 | --- | --- |
 | Portal publik | Beranda bertema ungu/emas, informasi periode dari database, alur/FAQ/panduan, kontak resmi dan pengumuman yang dapat diperbarui admin |
