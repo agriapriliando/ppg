@@ -49,7 +49,7 @@ class ClaimsController extends Controller
         }
         $claim = $submit->handle($requester, $request->only(['period_id', 'name', 'identifier', 'whatsapp_number', 'request_key', 'consent_id', 'consent']));
 
-        return redirect()->route('public.claim')->with('status', 'Permohonan diterima untuk pemeriksaan. Referensi: '.$claim->public_reference.'. Operator akan menindaklanjuti melalui kanal resmi. Permohonan belum memberikan akses dashboard.');
+        return redirect()->route('public.claim')->with('status', 'Pendaftaran akun diterima untuk pemeriksaan. Referensi: '.$claim->public_reference.'. Pengelola akan menindaklanjuti melalui WhatsApp setelah memeriksa data pendaftaran Anda.');
     }
 
     public function own(Request $request): View

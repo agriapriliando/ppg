@@ -1,6 +1,6 @@
 <x-layouts::public
     title="Penerimaan Mahasiswa Baru PPG IAKN Palangka Raya · Portal Resmi"
-    description="Portal resmi Penerimaan Mahasiswa Baru (PMB) Pendidikan Profesi Guru (PPG) Dalam Jabatan Bimas Kristen Institut Agama Kristen Negeri (IAKN) Palangka Raya. Pencocokan SK, pendaftaran, dan verifikasi berkas."
+    description="Portal resmi Penerimaan Mahasiswa Baru (PMB) Pendidikan Profesi Guru (PPG) Dalam Jabatan Bimas Kristen Institut Agama Kristen Negeri (IAKN) Palangka Raya. Pendaftaran akun, pengisian biodata, dan unggah berkas."
 >
     @if (!empty($settings['notice']))
         <aside class="top-announcement-wrapper bg-white border-bottom py-2" role="region" aria-label="Pengumuman Resmi PMB (Atas)">
@@ -35,13 +35,13 @@
                         KRISTEN</span>
                     <h1 class="hero-title">Penerimaan Mahasiswa Baru<br><span class="text-warning">PPG IAKN Palangka
                             Raya</span></h1>
-                    <p class="text-white-50 my-4 fs-5">Satu portal untuk mencocokkan kepesertaan SK, melengkapi biodata,
+                    <p class="text-white-50 my-4 fs-5">Satu portal untuk mendaftar akun, melengkapi biodata,
                         dan memantau pemeriksaan administrasi PPG.</p>
                     <div class="d-flex flex-wrap gap-3"><a href="{{ route('login') }}" class="btn btn-gold btn-lg"><i
                                 class="bi bi-person-check me-2" aria-hidden="true"></i>Masuk Akun</a><a
                             href="{{ route('guide') }}" class="btn btn-outline-light btn-lg">Panduan Pendaftaran</a><a
                             href="{{ route('public.claim') }}" class="btn btn-outline-light btn-lg"><i
-                                class="bi bi-pencil-square me-2" aria-hidden="true"></i>Pendaftaran</a></div>
+                                class="bi bi-pencil-square me-2" aria-hidden="true"></i>Daftar Akun</a></div>
                 </div>
                 <div class="col-lg-4 text-center"><img src="{{ asset('favicon_io_new/android-chrome-512x512.png') }}"
                         alt="Logo PMB PPG IAKN" class="img-fluid hero-emblem-img mb-3"
@@ -116,7 +116,7 @@
                         @endif
                         <div class="mt-3 d-flex flex-wrap gap-2">
                             <a href="{{ route('public.claim') }}" class="btn btn-purple"><i
-                                    class="bi bi-pencil-square me-2" aria-hidden="true"></i>Pendaftaran</a>
+                                    class="bi bi-pencil-square me-2" aria-hidden="true"></i>Daftar Akun</a>
                             @if($period)
                                 <a href="{{ route('public.period-documents.index', $period) }}" class="btn btn-outline-purple"><i class="bi bi-folder2-open me-2" aria-hidden="true"></i>Lihat Berkas Periode <span class="badge text-bg-light border ms-1">{{ $period->public_documents_count }}</span></a>
                             @endif

@@ -1,19 +1,19 @@
-<x-layouts::public title="Klaim Kepesertaan SK">
+<x-layouts::public title="Pendaftaran Akun">
     <section class="auth-section">
         <div class="container">
             <div class="row g-4 justify-content-center">
                 <div class="col-lg-5">
                     <section class="auth-intro">
-                        <span class="eyebrow">KEPESERTAAN BERDASARKAN SK</span>
+                        <span class="eyebrow">AKUN PORTAL PMB PPG</span>
                         <i class="bi bi-whatsapp" aria-hidden="true"></i>
-                        <h1>Awali pendaftaran dengan pencocokan identitas.</h1>
-                        <p class="mt-3">Operator memeriksa kepesertaan resmi dan memastikan nomor aktif sebelum menyerahkan akses secara manual.</p>
+                        <h1>Daftar akun Portal PMB PPG.</h1>
+                        <p class="mt-3">Isi data sesuai SK dan nomor WhatsApp aktif. Setelah data diperiksa dan disetujui, pengelola akan mengirimkan ID login dan kata sandi melalui WhatsApp.</p>
                     </section>
                 </div>
                 <div class="col-lg-6">
                     <section class="auth-card">
-                        <h2 class="h3">Ajukan pencocokan SK</h2>
-                        <p class="text-muted">Permohonan belum memberikan akses atau mengunci kepesertaan SK.</p>
+                        <h2 class="h3">Pendaftaran Akun</h2>
+                        <p class="text-muted">Lengkapi data berikut untuk mengajukan akun. Pendaftaran akan diperiksa oleh pengelola sebelum akun dapat digunakan.</p>
                         <x-notice />
 
                         @if($periods->isEmpty())
@@ -64,17 +64,17 @@
                                         @endif
                                     </div>
                                 @endforeach
-                                <button class="btn btn-gold w-100">Ajukan Permohonan</button>
+                                <button class="btn btn-gold w-100">Daftar Akun</button>
                                 <div x-cloak x-show="showConfirmation" x-trap.inert.noscroll="showConfirmation"
                                     @keydown.escape.window="closeConfirmation()" @click.self="closeConfirmation()"
                                     class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="claim-confirmation-title" aria-describedby="claim-consent-text">
                                     <div class="ui-modal">
                                         <div class="ui-modal-header">
-                                            <h2 id="claim-confirmation-title" class="h6 fw-bold text-purple">Konfirmasi Permohonan</h2>
+                                            <h2 id="claim-confirmation-title" class="h6 fw-bold text-purple">Konfirmasi Pendaftaran Akun</h2>
                                             <button type="button" class="btn-close" @click="closeConfirmation()" :disabled="submitting" aria-label="Tutup"></button>
                                         </div>
                                         <div class="ui-modal-body">
-                                            <p>Centang persetujuan berikut sebelum mengirim permohonan.</p>
+                                            <p>Baca dan centang persetujuan berikut sebelum mengirim pendaftaran akun.</p>
                                             <label class="consent-box mb-0" for="claim-consent">
                                                 <input id="claim-consent" type="checkbox" class="form-check-input" name="consent" value="1" x-model="agreed" :required="showConfirmation" :disabled="submitting && !agreed">
                                                 <span id="claim-consent-text">{{ $consent->body }}<small class="d-block text-muted mt-2">Versi {{ $consent->version }}</small></span>
@@ -83,7 +83,7 @@
                                         <div class="d-flex flex-column flex-sm-row justify-content-end gap-2 border-top p-3 bg-light">
                                             <button type="button" class="btn btn-outline-purple" @click="closeConfirmation()" :disabled="submitting">Batal</button>
                                             <button type="submit" class="btn btn-gold" :disabled="!agreed || submitting">
-                                                <span x-show="!submitting">Setujui dan Kirim Permohonan</span>
+                                                <span x-show="!submitting">Setujui dan Daftar Akun</span>
                                                 <span x-show="submitting" role="status">Mengirim…</span>
                                             </button>
                                         </div>
@@ -93,7 +93,7 @@
                         @else
                             <div class="notice-box info">
                                 <i class="bi bi-info-circle" aria-hidden="true"></i>
-                                <p class="mb-0">Pengajuan kepesertaan belum tersedia. Pantau informasi resmi penerimaan atau hubungi pengelola.</p>
+                                <p class="mb-0">Pendaftaran akun belum tersedia. Pantau informasi resmi penerimaan atau hubungi pengelola.</p>
                             </div>
                         @endif
                     </section>

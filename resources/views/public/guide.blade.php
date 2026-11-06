@@ -84,7 +84,7 @@
                         <li>Isi nomor WhatsApp aktif yang akan digunakan untuk menerima akun.</li>
                     </ul>
                     <a href="{{ route('public.claim') }}" class="btn btn-purple btn-sm w-100 mt-auto fw-semibold">
-                        <i class="bi bi-pencil-square me-1"></i> Form Pendaftaran
+                        <i class="bi bi-pencil-square me-1"></i> Form Pendaftaran Akun
                     </a>
                 </article>
             </div>

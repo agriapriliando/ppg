@@ -1,5 +1,5 @@
 <x-layouts::app title="Kepesertaan SK">
-    <div class="d-flex justify-content-end mb-4"><a href="{{ route('public.claim') }}" class="btn btn-purple">Ajukan Pencocokan SK</a></div>
+    <div class="d-flex justify-content-end mb-4"><a href="{{ route('public.claim') }}" class="btn btn-purple">Daftar Akun</a></div>
     @forelse($claims as $claim)
         <section class="workspace-card mb-3"><div class="panel-body">
             <h2 class="h5">{{ $claim->submitted_name }}</h2>

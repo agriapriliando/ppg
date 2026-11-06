@@ -76,7 +76,7 @@
                     </div>
                 @else
                     <a href="{{ route('public.claim') }}" class="btn btn-gold">
-                        <i class="bi bi-patch-check me-1" aria-hidden="true"></i>Ajukan Pencocokan SK
+                        <i class="bi bi-patch-check me-1" aria-hidden="true"></i>Daftar Akun
                     </a>
                 @endif
             @elseif (auth()->user()->isAdministrator())
@@ -337,7 +337,7 @@
                         <p class="text-muted small mb-0">Status pencocokan identitas dengan SK peserta resmi PMB PPG.</p>
                     </div>
                     <a href="{{ route('public.claim') }}" class="btn btn-purple btn-sm">
-                        <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Ajukan Pencocokan SK
+                        <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Daftar Akun
                     </a>
                 </div>
 
@@ -397,7 +397,7 @@
                         <h2>Belum ada permohonan klaim</h2>
                         <p>Gunakan nama dan pengenal yang tercantum pada SK resmi untuk mencocokkan kepesertaan.</p>
                         <a href="{{ route('public.claim') }}" class="btn btn-purple btn-sm mt-2">
-                            <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Ajukan Pencocokan SK
+                            <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Daftar Akun
                         </a>
                     </div>
                 @endforelse
