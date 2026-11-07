@@ -288,12 +288,12 @@
                         <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="create-password" class="form-label fw-semibold">Kata Sandi Awal *</label>
-                                <input id="create-password" name="password" type="password" class="form-control" required minlength="12" autocomplete="new-password">
+                                <x-password-input id="create-password" name="password" required minlength="12" autocomplete="new-password" />
                                 <div class="form-text small">Minimal 12 karakter.</div>
                             </div>
                             <div class="col-md-6">
                                 <label for="create-confirm" class="form-label fw-semibold">Ulangi Sandi *</label>
-                                <input id="create-confirm" name="password_confirmation" type="password" class="form-control" required autocomplete="new-password">
+                                <x-password-input id="create-confirm" name="password_confirmation" required autocomplete="new-password" />
                             </div>
                         </div>
                     </div>
@@ -388,10 +388,10 @@
                             <p class="text-muted small mb-2">Kosongkan kolom berikut jika tidak ingin mengubah kata sandi pengguna ini.</p>
                             <div class="row g-2">
                                 <div class="col-md-6">
-                                    <input id="edit-password" name="password" type="password" class="form-control form-control-sm" placeholder="Kata sandi baru (min 12)" minlength="12" autocomplete="new-password">
+                                    <x-password-input id="edit-password" name="password" small placeholder="Kata sandi baru (min 12)" minlength="12" autocomplete="new-password" />
                                 </div>
                                 <div class="col-md-6">
-                                    <input id="edit-confirm" name="password_confirmation" type="password" class="form-control form-control-sm" placeholder="Ulangi kata sandi baru" autocomplete="new-password">
+                                    <x-password-input id="edit-confirm" name="password_confirmation" small placeholder="Ulangi kata sandi baru" autocomplete="new-password" />
                                 </div>
                             </div>
                         </div>
