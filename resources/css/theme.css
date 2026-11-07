@@ -223,6 +223,21 @@ h1, h2, h3, h4, h5, h6 {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.btn-important-announcement {
+  font-weight: 800;
+  border: 2px solid #b45309;
+  animation: announcement-button-pulse 3.6s ease-in-out infinite;
+}
+
+@keyframes announcement-button-pulse {
+  0%, 70%, 100% { transform: translateY(0); box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+  35% { transform: translateY(-2px); box-shadow: 0 0 0 6px rgba(217, 119, 6, 0.16); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-important-announcement { animation: none; }
+}
+
 .btn-gold:hover {
   background: linear-gradient(135deg, #FFD54F 0%, #FFC107 100%);
   color: #1A0526;

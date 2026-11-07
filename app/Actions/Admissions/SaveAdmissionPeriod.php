@@ -50,10 +50,10 @@ class SaveAdmissionPeriod
             if ($id !== null && $period->lock_version !== $version) {
                 throw ValidationException::withMessages(['conflict' => 'Periode telah diubah pengguna lain. Muat ulang sebelum menyimpan.']);
             }
-            if ($id !== null && $period->state === PeriodState::Archived) {
-                throw ValidationException::withMessages(['conflict' => 'Periode yang diarsipkan tidak dapat diubah.']);
-            }
             $values = $data;
+            if ($period->state === PeriodState::Archived && $data['state'] === PeriodState::Published->value) {
+                $values['manual_closed_at'] = null;
+            }
             $values['wave'] = $data['wave'] ?? $period->wave ?? '1';
             if ($id !== null && $data['state'] === PeriodState::Archived->value && (
                 Application::query()->where('admission_period_id', $id)->where('status', '!=', 'diterima_lengkap')->whereHas('participant', fn ($query) => $query->where('roster_state', 'active'))->exists()

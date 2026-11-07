@@ -9,6 +9,7 @@ use App\Models\PortalQuickLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -29,6 +30,7 @@ class SettingsController extends Controller
             'helpdesk_whatsapp' => ['nullable', 'regex:/^\+?[0-9]{8,15}$/'],
             'service_hours' => ['nullable', 'string', 'max:100'],
             'notice' => ['nullable', 'string', 'max:2000'],
+            'notice_placement' => ['sometimes', 'required', Rule::in(['both', 'homepage', 'dashboard'])],
             'version' => ['required', 'integer', 'min:0'],
         ], ['helpdesk_whatsapp.regex' => 'Gunakan nomor internasional, misalnya +62812…, tanpa spasi.', 'helpdesk_name.required' => 'Nama helpdesk wajib diisi.']);
         DB::transaction(function () use ($request, $data, $audit): void {
@@ -38,6 +40,7 @@ class SettingsController extends Controller
                 throw ValidationException::withMessages(['version' => 'Pengaturan telah berubah. Muat ulang halaman sebelum menyimpan.']);
             }
             unset($data['version']);
+            $data['notice_placement'] ??= $setting->value['notice_placement'] ?? 'both';
             $setting->value = $data;
             $setting->version++;
             $setting->updatedBy()->associate($request->user());

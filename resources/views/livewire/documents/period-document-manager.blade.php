@@ -7,8 +7,6 @@
             </div>
         </div>
         <div class="panel-body">
-            <div class="alert alert-light border small">Atur visibilitas setiap berkas: <strong>Internal pengelola</strong>, <strong>Peserta periode ini</strong>, atau <strong>Publik &amp; Peserta</strong>. Berkas publik tampil di homepage ketika periode dipublikasikan dan ditampilkan ke publik.</div>
-            <x-field-error name="visibility" />
             @if($message)<div class="alert alert-info" role="status">{{ $message }}</div>@endif
             @if($uploadErrors)<div class="alert alert-danger" role="alert"><strong>File berikut belum tersimpan. Pilih ulang hanya file yang gagal:</strong>@foreach($uploadErrors as $error)<div class="mt-1" style="overflow-wrap:anywhere">{{ $error }}</div>@endforeach</div>@endif
             @if(!$canModify)
@@ -64,13 +62,6 @@
                                 <button type="button" class="btn btn-link text-purple p-2" style="min-width:44px;min-height:44px" aria-label="Informasi berkas {{ $doc->file_name }}"
                                     @click="info=@js(['name'=>$doc->file_name,'original'=>$doc->original_name,'size'=>$doc->formattedSize(),'format'=>strtoupper($doc->extension),'uploadedAt'=>$doc->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i').' WIB','uploader'=>$doc->uploader?->name ?? 'Pengelola'])"><i class="bi bi-info-circle" aria-hidden="true"></i></button>
                                 <small class="d-block text-muted">{{ $doc->formattedSize() }} · {{ strtoupper($doc->extension) }} · {{ $doc->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</small>
-                                <span class="badge text-bg-light border mt-2">{{ \App\Models\PeriodDocument::VISIBILITIES[$doc->visibility] ?? 'Internal pengelola' }}</span>
-                                @if($canModify && $doc->isAvailable())
-                                    <label for="file-visibility-{{ $doc->id }}" class="form-label d-block mt-2 mb-1 small">Visibilitas berkas</label>
-                                    <select id="file-visibility-{{ $doc->id }}" class="form-select form-select-sm" wire:key="visibility-{{ $doc->id }}-{{ $doc->lock_version }}" wire:change="setVisibility('{{ $doc->id }}', $event.target.value, {{ $doc->lock_version }})" wire:loading.attr="disabled">
-                                        @foreach(\App\Models\PeriodDocument::VISIBILITIES as $value => $label)<option value="{{ $value }}" @selected($doc->visibility === $value)>{{ $label }}</option>@endforeach
-                                    </select>
-                                @endif
                                 @if($doc->isDeleting())<span class="badge text-bg-warning mt-2">Menunggu penghapusan fisik</span>@endif
                             </div>
                         </div>

@@ -41,7 +41,18 @@
                             <div class="mb-4">
                                 <label for="setting-notice" class="form-label fw-bold">Pengumuman untuk pendaftar</label>
                                 <textarea id="setting-notice" name="notice" class="form-control" rows="4" maxlength="2000">{{ \App\Support\FormInput::old('notice', $setting?->value['notice'] ?? '') }}</textarea>
-                                <div class="form-text">Ditampilkan sebagai teks aman pada beranda publik.</div>
+                                <div class="form-text">Tempel tautan lengkap, misalnya https://kampus.ac.id/pengumuman. Tautan otomatis bisa diklik. Gunakan baris baru agar informasi mudah dibaca. Kosongkan untuk menyembunyikan pengumuman.</div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="setting-notice-placement" class="form-label fw-bold">Tampilkan pengumuman di</label>
+                                <select id="setting-notice-placement" name="notice_placement" class="form-select">
+                                    @foreach(['both' => 'Homepage dan Dashboard', 'homepage' => 'Homepage saja', 'dashboard' => 'Dashboard saja'] as $value => $label)
+                                        <option value="{{ $value }}" @selected(\App\Support\FormInput::old('notice_placement', $setting?->value['notice_placement'] ?? 'both') === $value)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="form-text">Rekomendasi: Homepage dan Dashboard untuk informasi umum. Pilih Dashboard saja untuk informasi khusus Peserta dan Pengelola setelah login.</div>
+                                <x-field-error name="notice_placement" />
                             </div>
 
                             <button class="btn btn-purple">Simpan Pengaturan</button>

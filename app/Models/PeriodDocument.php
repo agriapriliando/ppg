@@ -24,22 +24,20 @@ class PeriodDocument extends Model
 
     public const STATUS_DELETING = 'deleting';
 
-    public const VISIBILITIES = ['internal' => 'Internal pengelola', 'participants' => 'Peserta periode ini', 'public' => 'Publik & Peserta'];
-
-    protected $attributes = ['visibility' => 'internal'];
+    protected $attributes = ['visibility' => 'public'];
 
     /** @param Builder<PeriodDocument> $query */
     #[Scope]
     protected function sharedWithParticipants(Builder $query): void
     {
-        $query->where('status', self::STATUS_AVAILABLE)->whereIn('visibility', ['participants', 'public']);
+        $query->where('status', self::STATUS_AVAILABLE);
     }
 
     /** @param Builder<PeriodDocument> $query */
     #[Scope]
     protected function publicFiles(Builder $query): void
     {
-        $query->where('status', self::STATUS_AVAILABLE)->where('visibility', 'public');
+        $query->where('status', self::STATUS_AVAILABLE);
     }
 
     protected function casts(): array

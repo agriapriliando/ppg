@@ -209,7 +209,11 @@ it('shows public claim confirmation without disclosing roster matches or operato
     $c = registrationContext();
     $this->get(route('public.claim'))->assertOk()->assertDontSee($c['participant']->name_on_sk)->assertDontSee($c['operator']->name);
     $input = claimInput($c);
-    $this->post(route('public.claim.store'), $input)->assertRedirect(route('public.claim'))->assertSessionHas('status');
+    $this->post(route('public.claim.store'), $input)->assertRedirect(route('public.claim'))->assertSessionHas('status')->assertSessionHas('claim_submitted', true);
+    $this->get(route('public.claim'))->assertOk()
+        ->assertSee('Tunggu ID login dan kata sandi melalui WhatsApp')
+        ->assertSee('operator akan mengirimkan ID login dan kata sandi ke nomor WhatsApp yang Anda daftarkan.')
+        ->assertDontSee($c['operator']->name);
     $this->assertDatabaseCount('sk_claims', 1);
     $input['request_key'] = (string) Str::uuid();
     $this->post(route('public.claim.store'), $input)->assertRedirect();

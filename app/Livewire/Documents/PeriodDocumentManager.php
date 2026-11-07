@@ -4,7 +4,6 @@ namespace App\Livewire\Documents;
 
 use App\Actions\Documents\DeletePeriodDocument;
 use App\Actions\Documents\RenamePeriodDocument;
-use App\Actions\Documents\SetPeriodDocumentVisibility;
 use App\Actions\Documents\UploadPeriodDocument;
 use App\Enums\PeriodState;
 use App\Models\AdmissionPeriod;
@@ -164,14 +163,6 @@ class PeriodDocumentManager extends Component
         $rename->handle($this->actor(), $this->document($this->selectedId), $this->name, $this->version);
         $this->dialog = '';
         $this->message = 'Nama berkas periode berhasil diperbarui.';
-    }
-
-    public function setVisibility(string $id, string $visibility, int $version, SetPeriodDocumentVisibility $set): void
-    {
-        $this->resetValidation('visibility');
-        $set->handle($this->actor(), $this->document($id), $visibility, $version);
-        $this->message = 'Visibilitas berkas berhasil diperbarui.';
-        $this->dispatch('period-documents-updated');
     }
 
     public function executeDelete(DeletePeriodDocument $delete): void

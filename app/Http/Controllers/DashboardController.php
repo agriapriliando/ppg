@@ -7,6 +7,7 @@ use App\Models\AdmissionPeriod;
 use App\Models\ApplicantDocument;
 use App\Models\ApplicantWorkspace;
 use App\Models\Application;
+use App\Models\ApplicationSetting;
 use App\Models\AuditEvent;
 use App\Models\PortalQuickLink;
 use App\Models\SkClaim;
@@ -53,6 +54,7 @@ class DashboardController extends Controller
         }
 
         return view('portal.dashboard', [
+            'settings' => ApplicationSetting::query()->where('key', 'public')->first()->value ?? [],
             'periods' => $periods,
             'staffCount' => $user->isAdministrator() ? User::query()->whereIn('role', ['administrator', 'operator'])->where('account_state', 'active')->count() : null,
             'events' => AuditEvent::query()->with('actor')->when(! $user->isAdministrator(), fn ($query) => $query->where('actor_id', $user->id))->orderByDesc('id')->limit(5)->get(),

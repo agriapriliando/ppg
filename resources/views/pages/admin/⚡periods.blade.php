@@ -45,6 +45,20 @@ new #[Title('Periode & Gelombang')] class extends Component
         $this->message = '';
     }
 
+    public function updatedFormState(): void
+    {
+        if ($this->form['state'] !== PeriodState::Published->value) {
+            $this->form['is_public'] = false;
+            $this->resetValidation('is_public');
+        }
+    }
+
+    public function reopen(int $id): void
+    {
+        $this->edit($id);
+        $this->form['state'] = PeriodState::Published->value;
+    }
+
     public function cancel(): void
     {
         $this->reset('editingId', 'version', 'form');
@@ -172,12 +186,13 @@ new #[Title('Periode & Gelombang')] class extends Component
 
                             <div class="col-12">
                                 <label for="period-state" class="form-label small fw-semibold">Status Siklus Periode *</label>
-                                <select id="period-state" class="form-select" wire:model="form.state">
+                                <select id="period-state" class="form-select" wire:model.live="form.state">
                                     @foreach(PeriodState::cases() as $state)
                                         <option value="{{ $state->value }}">{{ $state->label() }}</option>
                                     @endforeach
                                 </select>
-                                <div class="form-text" style="font-size: 0.72rem;">Hanya periode "Dipublikasikan" yang dapat menerima pendaftaran dan dipilih pada modul administrasi.</div>
+                                <div class="form-text" style="font-size: 0.72rem;">Untuk membuka kembali periode arsip, pilih "Dipublikasikan", sesuaikan jadwal, lalu simpan perubahan. Penerimaan pendaftaran mengikuti waktu buka dan tutup.</div>
+                                <x-field-error name="state" />
                             </div>
 
                             <div class="col-12">
@@ -205,7 +220,7 @@ new #[Title('Periode & Gelombang')] class extends Component
                             <div class="col-12">
                                 <div class="p-3 rounded-3 border bg-light">
                                     <div class="form-check mb-0">
-                                        <input id="public-period" class="form-check-input" type="checkbox" wire:model="form.is_public">
+                                        <input id="public-period" class="form-check-input" type="checkbox" wire:model="form.is_public" @disabled($form['state'] !== PeriodState::Published->value)>
                                         <label class="form-check-label small fw-semibold" for="public-period">
                                             Tampilkan sebagai periode utama di beranda publik portal
                                         </label>
@@ -362,10 +377,14 @@ new #[Title('Periode & Gelombang')] class extends Component
                                 <!-- Baris Aksi -->
                                 <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 pt-2 border-top">
                                     <button type="button" class="btn btn-sm btn-outline-purple" wire:click="manageDocuments({{ $period->id }})"><i class="bi bi-folder2-open me-1" aria-hidden="true"></i>Berkas ({{ $period->period_documents_count }})</button>
-                                    @if($period->state !== \App\Enums\PeriodState::Archived)
                                         <button type="button" class="btn btn-sm btn-outline-purple d-inline-flex align-items-center gap-1 px-3" wire:click="edit({{ $period->id }})" title="Ubah konfigurasi periode">
                                             <i class="bi bi-pencil-square"></i>
                                             <span>Ubah</span>
+                                        </button>
+                                    @if($period->state === \App\Enums\PeriodState::Archived)
+                                        <button type="button" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1 px-3" wire:click="reopen({{ $period->id }})" wire:loading.attr="disabled" title="Siapkan periode arsip untuk dibuka kembali">
+                                            <i class="bi bi-unlock-fill"></i>
+                                            <span>Buka kembali</span>
                                         </button>
                                     @endif
 

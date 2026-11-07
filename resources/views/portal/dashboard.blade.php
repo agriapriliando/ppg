@@ -1,4 +1,5 @@
 <x-layouts::app title="Beranda {{ auth()->user()->role->label() }}">
+    <x-dashboard-announcement :settings="$settings" />
     @php
         $activeApplication = $ownApplications->first();
         $activePeriod = $activeApplication?->period ?? $periods->first();

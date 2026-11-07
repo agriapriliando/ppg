@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Actions\RecordAudit;
-use App\Enums\PeriodState;
 use App\Models\AdmissionPeriod;
 use App\Models\PeriodDocument;
 use Illuminate\Support\Facades\Gate;
@@ -17,8 +16,6 @@ class PeriodDocumentController extends Controller
 
     public function index(AdmissionPeriod $period): View
     {
-        abort_unless($period->state === PeriodState::Published && $period->is_public, 404);
-
         return view('public.period-documents', ['period' => $period, 'documents' => $period->periodDocuments()->publicFiles()->orderBy('display_name')->orderBy('id')->get()]);
     }
 

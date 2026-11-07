@@ -36,7 +36,7 @@
                     <p class="small text-danger" x-show="successMessage" x-text="successMessage" role="alert" x-cloak></p>
                     <form @submit.prevent="submitClaim">
                         <div class="mb-3">
-                            <label class="form-label fw-semibold small text-secondary">NAMA PERSIS SESUAI SK *</label>
+                            <label class="form-label fw-semibold small text-secondary">NAMA PERSIS SESUAI SK ATAU SURAT *</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white border-end-0"><i class="bi bi-person text-purple"></i></span>
                                 <input type="text" x-model="namaLengkap" required class="form-control border-start-0 ps-0" placeholder="Contoh: Yohanes Kristian, S.Pd.K">

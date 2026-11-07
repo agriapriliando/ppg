@@ -3,6 +3,7 @@
 use App\Enums\PeriodState;
 use App\Models\AdmissionPeriod;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Livewire\Livewire;
 
 function validPeriodForm(): array
@@ -46,6 +47,59 @@ it('requires a correction deadline when revisions after closing are allowed', fu
     $data['allow_correction_after_close'] = true;
     Livewire::actingAs($user)->test('pages::admin.periods')->set('form', $data)->call('save')->assertHasErrors('correction_closes_at');
     $this->assertDatabaseCount('admission_periods', 0);
+});
+
+it('allows editing an archived period while keeping it archived', function () {
+    $user = User::factory()->administrator()->create();
+    $period = AdmissionPeriod::factory()->create(['state' => PeriodState::Archived]);
+
+    Livewire::actingAs($user)->test('pages::admin.periods')
+        ->assertSeeHtml('wire:click="edit('.$period->id.')"')
+        ->call('edit', $period->id)
+        ->set('form.name', 'Periode Arsip Dikoreksi')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('admission_periods', ['id' => $period->id, 'name' => 'Periode Arsip Dikoreksi', 'state' => 'archived', 'lock_version' => 1]);
+    $this->assertDatabaseHas('audit_events', ['actor_id' => $user->id, 'action' => 'Memperbarui periode']);
+});
+
+it('reopens an archived period only after saving and follows its schedule', function (bool $expired) {
+    $this->travelTo(CarbonImmutable::parse('2026-11-07 10:00', 'Asia/Jakarta'));
+    $user = User::factory()->operator()->create();
+    $period = AdmissionPeriod::factory()->create([
+        'state' => PeriodState::Archived,
+        'opens_at' => now()->subDays(2),
+        'closes_at' => $expired ? now()->subDay() : now()->addDay(),
+        'manual_closed_at' => now()->subDay(),
+    ]);
+
+    $editor = Livewire::actingAs($user)->test('pages::admin.periods')
+        ->assertSeeHtml('wire:click="reopen('.$period->id.')"')
+        ->call('reopen', $period->id)
+        ->assertSet('form.state', 'published');
+    expect($period->fresh()->state)->toBe(PeriodState::Archived);
+
+    $editor->call('save')->assertHasNoErrors();
+
+    expect($period->fresh())
+        ->state->toBe(PeriodState::Published)
+        ->manual_closed_at->toBeNull()
+        ->is_public->toBeFalse()
+        ->acceptsApplications()->toBe(! $expired);
+    $this->assertDatabaseHas('audit_events', ['actor_id' => $user->id, 'action' => 'Memperbarui periode']);
+})->with(['within schedule' => false, 'expired schedule' => true]);
+
+it('rejects reopening an archived period changed by another editor', function () {
+    $user = User::factory()->administrator()->create();
+    $period = AdmissionPeriod::factory()->create(['state' => PeriodState::Archived]);
+    $editor = Livewire::actingAs($user)->test('pages::admin.periods')->call('reopen', $period->id);
+    $period->update(['lock_version' => 1]);
+
+    $editor->call('save')->assertHasErrors('conflict');
+
+    $this->assertDatabaseHas('admission_periods', ['id' => $period->id, 'state' => 'archived', 'lock_version' => 1]);
+    $this->assertDatabaseCount('audit_events', 0);
 });
 
 it('rejects a closing time before the opening time', function () {

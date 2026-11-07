@@ -2,7 +2,7 @@
     title="Penerimaan Mahasiswa Baru PPG IAKN Palangka Raya · Portal Resmi"
     description="Portal resmi Penerimaan Mahasiswa Baru (PMB) Pendidikan Profesi Guru (PPG) Dalam Jabatan Bimas Kristen Institut Agama Kristen Negeri (IAKN) Palangka Raya. Pendaftaran akun, pengisian biodata, dan unggah berkas."
 >
-    @if (!empty($settings['notice']))
+    @if (!empty($settings['notice']) && in_array($settings['notice_placement'] ?? 'both', ['both', 'homepage'], true))
         <aside class="top-announcement-wrapper bg-white border-bottom py-2" role="region" aria-label="Pengumuman Resmi PMB (Atas)">
             <div class="container">
                 <div class="public-announcement-card my-1">
@@ -18,9 +18,7 @@
                                 </span>
                                 <small class="text-muted fw-semibold">Pengelola PMB PPG IAKN Palangka Raya</small>
                             </div>
-                            <div class="announcement-text text-break">
-                                {{ $settings['notice'] }}
-                            </div>
+                            <x-notice-text :text="$settings['notice']" />
                         </div>
                     </div>
                 </div>
@@ -37,11 +35,10 @@
                             Raya</span></h1>
                     <p class="text-white-50 my-4 fs-5">Satu portal untuk mendaftar akun, melengkapi biodata,
                         dan memantau pemeriksaan administrasi PPG.</p>
-                    <div class="d-flex flex-wrap gap-3"><a href="{{ route('login') }}" class="btn btn-gold btn-lg"><i
-                                class="bi bi-person-check me-2" aria-hidden="true"></i>Masuk Akun</a><a
-                            href="{{ route('guide') }}" class="btn btn-outline-light btn-lg">Panduan Pendaftaran</a><a
-                            href="{{ route('public.claim') }}" class="btn btn-outline-light btn-lg"><i
-                                class="bi bi-pencil-square me-2" aria-hidden="true"></i>Daftar Akun</a></div>
+                    <div class="d-flex flex-wrap gap-3"><a href="{{ route('public.claim') }}" class="btn btn-gold btn-lg"><i
+                                class="bi bi-pencil-square me-2" aria-hidden="true"></i>Pendaftaran Akun</a><a
+                            href="{{ route('login') }}" class="btn btn-outline-light btn-lg"><i
+                                class="bi bi-person-check me-2" aria-hidden="true"></i>Login</a></div>
                 </div>
                 <div class="col-lg-4 text-center"><img src="{{ asset('favicon_io_new/android-chrome-512x512.png') }}"
                         alt="Logo PMB PPG IAKN" class="img-fluid hero-emblem-img mb-3"
@@ -115,10 +112,10 @@
                                 untuk informasi resmi dari pengelola.</p>
                         @endif
                         <div class="mt-3 d-flex flex-wrap gap-2">
-                            <a href="{{ route('public.claim') }}" class="btn btn-purple"><i
-                                    class="bi bi-pencil-square me-2" aria-hidden="true"></i>Daftar Akun</a>
+                            <a href="{{ route('login') }}" class="btn btn-purple"><i
+                                    class="bi bi-person-check me-2" aria-hidden="true"></i>Login</a>
                             @if($period)
-                                <a href="{{ route('public.period-documents.index', $period) }}" class="btn btn-outline-purple"><i class="bi bi-folder2-open me-2" aria-hidden="true"></i>Lihat Berkas Periode <span class="badge text-bg-light border ms-1">{{ $period->public_documents_count }}</span></a>
+                                <a href="{{ route('public.period-documents.index', $period) }}" class="btn btn-gold btn-important-announcement d-inline-flex align-items-center gap-2"><i class="bi bi-megaphone-fill" aria-hidden="true"></i>Pengumuman Penting <span class="badge text-bg-dark">{{ $period->public_documents_count }}</span><i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                             @endif
                         </div>
                     </div>
@@ -126,27 +123,6 @@
                             class="badge rounded-pill text-bg-{{ $period?->acceptsApplications() ? 'success' : 'secondary' }} p-3">{{ $period?->availabilityLabel() ?? 'Menunggu pengumuman' }}</span>
                     </div>
                 </div>
-                @if (!empty($settings['notice']))
-                    <div class="public-announcement-card mt-4" role="region" aria-label="Pengumuman Resmi PMB">
-                        <div class="d-flex align-items-start gap-3">
-                            <div class="announcement-icon-badge flex-shrink-0" aria-hidden="true">
-                                <i class="bi bi-megaphone-fill"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                                    <span class="announcement-tag">
-                                        <span class="announcement-live-dot" aria-hidden="true"></span>
-                                        <span>PENGUMUMAN PENTING</span>
-                                    </span>
-                                    <small class="text-muted fw-semibold">Pengelola PMB PPG IAKN Palangka Raya</small>
-                                </div>
-                                <div class="announcement-text text-break">
-                                    {{ $settings['notice'] }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                @endif
             </div>
         </div>
     </section>
