@@ -229,13 +229,53 @@ h1, h2, h3, h4, h5, h6 {
   animation: announcement-button-pulse 3.6s ease-in-out infinite;
 }
 
+.btn-registration-cta {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition: color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.btn-gold.btn-registration-cta:hover {
+  transform: none;
+}
+
+.btn-registration-cta .registration-pencil {
+  display: inline-block;
+  transform-origin: 25% 80%;
+  animation: registration-pencil-write 3s ease-in-out infinite;
+}
+
+.btn-registration-cta::after {
+  content: '';
+  position: absolute;
+  inset: -50% auto -50% -70%;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  transform: translateX(0) skewX(-20deg);
+  pointer-events: none;
+  animation: registration-button-shine 3s ease-in-out infinite;
+}
+
+@keyframes registration-pencil-write {
+  0%, 33.333333%, 100% { transform: rotate(0deg); }
+  6.666667%, 20% { transform: rotate(-10deg); }
+  13.333333%, 26.666667% { transform: rotate(10deg); }
+}
+
+@keyframes registration-button-shine {
+  0%, 12% { transform: translateX(0) skewX(-20deg); }
+  42%, 100% { transform: translateX(470%) skewX(-20deg); }
+}
+
 @keyframes announcement-button-pulse {
   0%, 70%, 100% { transform: translateY(0); box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
   35% { transform: translateY(-2px); box-shadow: 0 0 0 6px rgba(217, 119, 6, 0.16); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .btn-important-announcement { animation: none; }
+  .btn-important-announcement, .btn-registration-cta .registration-pencil { animation: none; }
+  .btn-registration-cta::after { display: none; }
 }
 
 .btn-gold:hover {

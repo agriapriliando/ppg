@@ -29,21 +29,16 @@
     <section class="hero-section position-relative py-5">
         <div class="container py-4">
             <div class="row align-items-center g-4">
-                <div class="col-lg-8"><span class="badge bg-warning text-dark mb-4">PPG DALAM JABATAN · BIMAS
+                <div class="col-12"><span class="badge bg-warning text-dark mb-4">PPG DALAM JABATAN · BIMAS
                         KRISTEN</span>
                     <h1 class="hero-title">Penerimaan Mahasiswa Baru<br><span class="text-warning">PPG IAKN Palangka
                             Raya</span></h1>
                     <p class="text-white-50 my-4 fs-5">Satu portal untuk mendaftar akun, melengkapi biodata,
                         dan memantau pemeriksaan administrasi PPG.</p>
-                    <div class="d-flex flex-wrap gap-3"><a href="{{ route('public.claim') }}" class="btn btn-gold btn-lg"><i
-                                class="bi bi-pencil-square me-2" aria-hidden="true"></i>Pendaftaran Akun</a><a
+                    <div class="d-flex flex-wrap gap-3"><a href="{{ route('public.claim') }}" class="btn btn-gold btn-lg btn-registration-cta"><i
+                                class="bi bi-pencil-square registration-pencil me-2" aria-hidden="true"></i>Pendaftaran Akun</a><a
                             href="{{ route('login') }}" class="btn btn-outline-light btn-lg"><i
                                 class="bi bi-person-check me-2" aria-hidden="true"></i>Login</a></div>
-                </div>
-                <div class="col-lg-4 text-center"><img src="{{ asset('favicon_io_new/android-chrome-512x512.png') }}"
-                        alt="Logo PMB PPG IAKN" class="img-fluid hero-emblem-img mb-3"
-                        style="max-width: 175px; height: auto; filter: drop-shadow(0 12px 24px rgba(0,0,0,0.3));">
-                    <div class="text-white mt-1 fw-semibold">Terarah · Terverifikasi · Terlayani</div>
                 </div>
             </div>
         </div>
@@ -112,8 +107,6 @@
                                 untuk informasi resmi dari pengelola.</p>
                         @endif
                         <div class="mt-3 d-flex flex-wrap gap-2">
-                            <a href="{{ route('login') }}" class="btn btn-purple"><i
-                                    class="bi bi-person-check me-2" aria-hidden="true"></i>Login</a>
                             @if($period)
                                 <a href="{{ route('public.period-documents.index', $period) }}" class="btn btn-gold btn-important-announcement d-inline-flex align-items-center gap-2"><i class="bi bi-megaphone-fill" aria-hidden="true"></i>Pengumuman Penting <span class="badge text-bg-dark">{{ $period->public_documents_count }}</span><i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                             @endif
