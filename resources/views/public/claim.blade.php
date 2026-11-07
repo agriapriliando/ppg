@@ -83,7 +83,7 @@
                                     <div class="form-text">Hanya periode dengan pendaftaran dibuka yang dapat dipilih.
                                     </div>
                                 </div>
-                                @foreach (['name' => 'Nama persis sesuai SK atau Surat', 'whatsapp_number' => 'Nomor WhatsApp aktif', 'identifier' => 'Nomor Peg ID (sesuai surat)'] as $key => $label)
+                                @foreach (['name' => 'Nama persis sesuai SK atau Surat', 'whatsapp_number' => 'Nomor WhatsApp aktif', 'identifier' => 'Nomor Peg ID (sesuai surat, kosongkan jika belum menerima surat)'] as $key => $label)
                                     <div class="mb-3">
                                         <label for="claim-{{ $key }}"
                                             class="form-label">{{ $label }}</label>
