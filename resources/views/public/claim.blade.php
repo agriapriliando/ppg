@@ -101,6 +101,7 @@
                                         @endif
                                     </div>
                                 @endforeach
+                                <p class="small text-muted">Kombinasi nama dan nomor WhatsApp yang sama hanya dapat didaftarkan satu kali pada periode yang sama.</p>
                                 <button class="btn btn-gold w-100">Daftar Akun</button>
                                 <div x-cloak x-show="showConfirmation" x-trap.inert.noscroll="showConfirmation"
                                     @keydown.escape.window="closeConfirmation()" @click.self="closeConfirmation()"

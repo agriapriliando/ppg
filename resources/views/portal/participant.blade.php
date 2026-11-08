@@ -1,5 +1,5 @@
 <x-layouts::app title="Detail Peserta SK">
-    <div x-data="{ editSkModal: false }">
+    <div x-data="{ editSkModal: false, infoSkModal: false }">
         <div class="participant-heading mb-4">
             <div>
                 <h2>{{ $participant->name_on_sk }}</h2>
@@ -19,84 +19,26 @@
 
         <!-- Informasi Resmi SK -->
         <section class="workspace-card mb-4">
-            <div class="panel-heading d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="panel-heading d-flex flex-wrap align-items-center justify-content-between gap-3 pb-4">
                 <div>
                     <h2 class="h5 mb-1"><i class="bi bi-award text-purple me-2"></i>Informasi Resmi SK</h2>
                     <p class="text-muted small mb-0">Rincian data penetapan kepesertaan berdasarkan SK resmi.</p>
                 </div>
-                @if(auth()->user()->isAdministrator() || auth()->user()->role === \App\Enums\UserRole::Operator)
-                    <button type="button" @click="editSkModal = true" class="btn btn-sm btn-purple d-inline-flex align-items-center gap-1">
-                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
-                        <span>Edit Data SK</span>
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                    <button type="button" @click="infoSkModal = true" class="btn btn-sm btn-outline-purple d-inline-flex align-items-center gap-2 px-3 py-2"
+                        aria-haspopup="dialog" aria-controls="participant-sk-info-modal" :aria-expanded="infoSkModal">
+                        <i class="bi bi-info-circle" aria-hidden="true"></i>
+                        <span>Lihat Informasi SK</span>
                     </button>
-                @endif
+                    @if(auth()->user()->isAdministrator() || auth()->user()->role === \App\Enums\UserRole::Operator)
+                        <button type="button" @click="editSkModal = true" class="btn btn-sm btn-purple d-inline-flex align-items-center gap-2 px-3 py-2">
+                            <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                            <span>Edit Data SK</span>
+                        </button>
+                    @endif
+                </div>
             </div>
-        <div class="panel-body">
-            <dl class="detail-list">
-                <dt>Nama Sesuai SK</dt>
-                <dd class="fw-bold text-dark fs-6">{{ $participant->name_on_sk }}</dd>
 
-                <dt>Nomor SK & Tanggal</dt>
-                <dd>{{ $participant->sk_number }} · {{ $participant->sk_date->format('d/m/Y') }}</dd>
-
-                <dt>Nomor Urut SK</dt>
-                <dd>{{ $participant->sk_order }}</dd>
-
-                <dt>Peg ID</dt>
-                <dd>{{ $participant->official_participant_id ?? 'Tidak tersedia' }}</dd>
-                <dt>Kota/Kabupaten Asal</dt><dd>{{ $participant->origin_city_name ?? 'Belum diisi' }}</dd>
-                <dt>Provinsi Asal</dt><dd>{{ $participant->origin_province_name ?? 'Belum diisi' }}</dd>
-
-                <dt>Periode Penerimaan</dt>
-                <dd>{{ $participant->period->name }}</dd>
-
-                <dt>Operator Penanggung Jawab</dt>
-                <dd>
-                    @if($participant->assignedOperator)
-                        <span class="badge text-bg-light border text-purple fs-6">{{ $participant->assignedOperator->name }}</span>
-                    @else
-                        <span class="text-muted">Belum ditugaskan</span>
-                    @endif
-                </dd>
-
-                <dt>Status Daftar Resmi</dt>
-                <dd>
-                    @if($participant->roster_state === 'active')
-                        <span class="status-pill diterima_lengkap">Aktif</span>
-                    @else
-                        <span class="status-pill declined">Ditarik dari Kepesertaan</span>
-                    @endif
-                </dd>
-
-                <dt>Status Akun Portal</dt>
-                <dd>
-                    @if($participant->claimedUser)
-                        @if($participant->claimedUser->account_state === App\Enums\AccountState::Disabled)
-                            <span class="status-pill declined">Akun Dinonaktifkan</span>
-                        @elseif($participant->claimedUser->account_state === App\Enums\AccountState::PendingActivation)
-                            <span class="status-pill perbaikan">Menunggu Aktivasi</span>
-                        @else
-                            <span class="status-pill diterima_lengkap">Akun Terhubung</span>
-                        @endif
-                        <span class="text-muted ms-2">({{ $participant->claimedUser->name }} · {{ $participant->claimedUser->login_id }})</span>
-                    @else
-                        <span class="status-pill draf">Belum Mengklaim Akun</span>
-                    @endif
-                </dd>
-
-                <dt>Status Antrean Pendaftaran</dt>
-                <dd>
-                    @if($participant->application)
-                        <span class="status-pill {{ $participant->application->status->value }}">
-                            {{ $participant->application->status->label() }}
-                        </span>
-                        <span class="text-muted ms-2">({{ $participant->application->application_number }})</span>
-                    @else
-                        <span class="status-pill draf">Belum Masuk Antrean Pendaftaran</span>
-                    @endif
-                </dd>
-            </dl>
-        </div>
     </section>
 
     <!-- Biodata Calon Mahasiswa -->
@@ -298,6 +240,24 @@
             </div>
         </section>
     @endif
+
+    <!-- Modal Informasi Resmi SK -->
+    <div id="participant-sk-info-modal" class="ui-modal-backdrop" x-show="infoSkModal" x-cloak style="display: none;"
+        x-trap.inert.noscroll="infoSkModal" @keydown.escape.window="infoSkModal = false" @click.self="infoSkModal = false"
+        x-transition.opacity.duration.200ms role="dialog" aria-modal="true" aria-labelledby="modal-info-sk-title">
+        <div class="ui-modal" style="max-width: 650px;">
+            <div class="ui-modal-header d-flex align-items-center justify-content-between gap-3">
+                <h2 id="modal-info-sk-title" class="h6 mb-0 fw-bold text-purple"><i class="bi bi-award me-2" aria-hidden="true"></i>Informasi Resmi SK</h2>
+                <button type="button" class="btn-close flex-shrink-0" @click="infoSkModal = false" aria-label="Tutup Informasi Resmi SK"></button>
+            </div>
+            <div class="ui-modal-body">
+                @include('portal.partials.participant-sk-information', ['participant' => $participant])
+            </div>
+            <div class="modal-actions border-top p-3 bg-light d-flex justify-content-end">
+                <button type="button" class="btn btn-outline-purple" @click="infoSkModal = false">Tutup Informasi</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Edit Data Resmi SK -->
     <div 

@@ -1,9 +1,12 @@
 <?php
 
+use App\Enums\AccountState;
 use App\Enums\ApplicationStatus;
 use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
 use App\Models\Application;
+use App\Models\SkParticipant;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Title;
@@ -24,6 +27,12 @@ new #[Title('Antrean Verifikasi')] class extends Component
     #[Url(as: 'period_id', except: '')]
     public string $periodId = '';
 
+    #[Url(as: 'operator_id', except: '')]
+    public string $operatorId = '';
+
+    #[Url(as: 'origin_city', except: '')]
+    public string $originCityCode = '';
+
     #[Url(as: 'per_page', except: 25)]
     public int $perPage = 25;
 
@@ -38,6 +47,16 @@ new #[Title('Antrean Verifikasi')] class extends Component
     }
 
     public function updatedPeriodId(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedOperatorId(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedOriginCityCode(): void
     {
         $this->resetPage();
     }
@@ -67,11 +86,14 @@ new #[Title('Antrean Verifikasi')] class extends Component
         $periodId = $this->periodId;
 
         return Application::query()
-            ->whereHas('participant', fn ($participants) => $participants->visibleTo($actor))
+            ->whereHas('participant', fn ($participants) => $participants->visibleTo($actor)
+                ->originCity($this->originCityCode)
+                ->when($this->operatorId === 'unassigned', fn ($q) => $q->whereNull('assigned_operator_id'))
+                ->when($this->operatorId !== '' && $this->operatorId !== 'unassigned', fn ($q) => $q->where('assigned_operator_id', (int) $this->operatorId)))
             ->with(['participant.assignedOperator', 'period'])
             ->when(! empty($status), fn ($q) => $q->where('status', $status))
             ->when(! empty($periodId), fn ($q) => $q->where('admission_period_id', (int) $periodId))
-            ->when($search !== '', fn ($q) => $q->where(fn ($sub) => $sub->where('application_number', 'like', '%'.$search.'%')->orWhereHas('participant', fn ($participants) => $participants->where('name_on_sk', 'like', '%'.$search.'%'))))
+            ->when($search !== '', fn ($q) => $q->whereHas('participant', fn ($participants) => $participants->where('name_on_sk', 'like', '%'.$search.'%')->orWhere('official_participant_id', 'like', '%'.$search.'%')))
             ->orderBy('submitted_at')
             ->orderBy('id')
             ->paginate($this->perPage);
@@ -81,6 +103,24 @@ new #[Title('Antrean Verifikasi')] class extends Component
     public function getPeriodsProperty(): Collection
     {
         return AdmissionPeriod::query()->orderByDesc('id')->get();
+    }
+
+    /** @return Collection<int, User> */
+    public function getOperatorsProperty(): Collection
+    {
+        return User::query()->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->orderBy('name')->orderBy('id')->get();
+    }
+
+    /** @return Collection<int, SkParticipant> */
+    public function getOriginCitiesProperty(): Collection
+    {
+        $actor = auth()->user();
+        abort_unless($actor !== null, 403);
+
+        return SkParticipant::query()->visibleTo($actor)->whereHas('application')
+            ->whereNotNull('origin_city_code')->where('origin_city_code', '!=', '')
+            ->select(['origin_city_code', 'origin_city_name', 'origin_province_name'])
+            ->distinct()->orderBy('origin_city_name')->orderBy('origin_city_code')->get()->unique('origin_city_code')->values();
     }
 };
 ?>
@@ -114,28 +154,48 @@ new #[Title('Antrean Verifikasi')] class extends Component
             @endif
 
             <div class="row g-3">
-                <div class="col-lg-5">
-                    <label for="queue-search" class="visually-hidden">Cari nama atau nomor pendaftaran</label>
+                <div class="col-sm-6 col-xl">
+                    <label for="queue-search" class="form-label">Nama atau Peg ID</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
-                        <input id="queue-search" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Cari nama atau nomor PMB…" maxlength="100">
+                        <input id="queue-search" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Cari nama atau Peg ID…" maxlength="100">
                     </div>
                 </div>
-                <div class="col-lg-4">
-                    <label for="queue-status" class="visually-hidden">Status pendaftaran</label>
-                    <select id="queue-status" wire:model.live="status" class="form-select">
-                        <option value="">Semua status</option>
-                        @foreach(ApplicationStatus::cases() as $st)
-                            <option value="{{ $st->value }}">{{ $st->label() }}</option>
+                <div class="col-sm-6 col-xl">
+                    <label for="queue-operator" class="form-label">Operator</label>
+                    <select id="queue-operator" wire:model.live="operatorId" class="form-select">
+                        <option value="">Semua operator</option>
+                        <option value="unassigned">Belum ditugaskan</option>
+                        @foreach($this->operators as $operator)
+                            <option value="{{ $operator->id }}" wire:key="queue-operator-{{ $operator->id }}">{{ $operator->name }}</option>
                         @endforeach
                     </select>
                 </div>
-                <div class="col-lg-3">
-                    <label for="queue-period" class="visually-hidden">Periode</label>
+                <div class="col-sm-6 col-xl">
+                    <label for="queue-period" class="form-label">Periode</label>
                     <select id="queue-period" wire:model.live="periodId" class="form-select">
                         <option value="">Semua periode</option>
                         @foreach($this->periods as $period)
                             <option value="{{ $period->id }}">{{ $period->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-sm-6 col-xl">
+                    <label for="queue-origin" class="form-label">Asal Wilayah</label>
+                    <select id="queue-origin" wire:model.live="originCityCode" class="form-select">
+                        <option value="">Semua kota/kabupaten</option>
+                        <option value="unfilled">Asal wilayah belum diisi</option>
+                        @foreach($this->originCities as $city)
+                            <option value="{{ $city->origin_city_code }}" wire:key="queue-origin-{{ $city->origin_city_code }}">{{ $city->origin_city_name ?: $city->origin_city_code }}{{ $city->origin_province_name ? ' - '.$city->origin_province_name : '' }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-sm-6 col-xl">
+                    <label for="queue-status" class="form-label">Status pendaftaran</label>
+                    <select id="queue-status" wire:model.live="status" class="form-select">
+                        <option value="">Semua status</option>
+                        @foreach(ApplicationStatus::cases() as $st)
+                            <option value="{{ $st->value }}">{{ $st->label() }}</option>
                         @endforeach
                     </select>
                 </div>

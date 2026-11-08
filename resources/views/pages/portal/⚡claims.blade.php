@@ -1,8 +1,10 @@
 <?php
 
+use App\Enums\AccountState;
 use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
 use App\Models\SkClaim;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Title;
@@ -23,6 +25,9 @@ new #[Title('Klaim & WhatsApp')] class extends Component
     #[Url(as: 'period_id', except: '')]
     public string $periodId = '';
 
+    #[Url(as: 'operator_id', except: '')]
+    public string $operatorId = '';
+
     #[Url(as: 'per_page', except: 25)]
     public int $perPage = 25;
 
@@ -37,6 +42,11 @@ new #[Title('Klaim & WhatsApp')] class extends Component
     }
 
     public function updatedPeriodId(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedOperatorId(): void
     {
         $this->resetPage();
     }
@@ -88,6 +98,15 @@ new #[Title('Klaim & WhatsApp')] class extends Component
             $claims->where('admission_period_id', (int) $this->periodId);
         }
 
+        if ($this->operatorId === 'unassigned') {
+            $claims->where(fn ($query) => $query->whereHas('candidate', fn ($candidate) => $candidate->whereNull('assigned_operator_id'))
+                ->orWhere(fn ($unmatched) => $unmatched->whereNull('candidate_sk_participant_id')->whereNull('review_owner_id')));
+        } elseif ($this->operatorId !== '') {
+            $operatorId = (int) $this->operatorId;
+            $claims->where(fn ($query) => $query->whereHas('candidate', fn ($candidate) => $candidate->where('assigned_operator_id', $operatorId))
+                ->orWhere(fn ($unmatched) => $unmatched->whereNull('candidate_sk_participant_id')->where('review_owner_id', $operatorId)));
+        }
+
         return $claims->orderBy('status')->orderBy('created_at')->orderBy('id')->paginate($this->perPage);
     }
 
@@ -95,6 +114,12 @@ new #[Title('Klaim & WhatsApp')] class extends Component
     public function getPeriodsProperty(): Collection
     {
         return AdmissionPeriod::query()->orderByDesc('id')->get();
+    }
+
+    /** @return Collection<int, User> */
+    public function getOperatorsProperty(): Collection
+    {
+        return User::query()->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->orderBy('name')->orderBy('id')->get();
     }
 };
 ?>
@@ -141,15 +166,25 @@ new #[Title('Klaim & WhatsApp')] class extends Component
             @endif
 
             <div class="row g-3">
-                <div class="col-lg-5">
-                    <label for="claim-search" class="visually-hidden">Pencarian klaim</label>
+                <div class="col-sm-6 col-lg-3">
+                    <label for="claim-search" class="form-label">Pencarian klaim</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
                         <input id="claim-search" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Cari nama, nomor WA, atau referensi…" maxlength="100">
                     </div>
                 </div>
-                <div class="col-lg-4">
-                    <label for="claim-status" class="visually-hidden">Filter status</label>
+                <div class="col-sm-6 col-lg-3">
+                    <label for="claim-operator" class="form-label">Operator</label>
+                    <select id="claim-operator" wire:model.live="operatorId" class="form-select">
+                        <option value="">Semua operator</option>
+                        <option value="unassigned">Belum ada operator</option>
+                        @foreach($this->operators as $operator)
+                            <option value="{{ $operator->id }}" wire:key="claim-operator-{{ $operator->id }}">{{ $operator->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <label for="claim-status" class="form-label">Status</label>
                     <select id="claim-status" wire:model.live="status" class="form-select">
                         <option value="">Semua status</option>
                         <option value="pending">Menunggu pemeriksaan</option>
@@ -159,8 +194,8 @@ new #[Title('Klaim & WhatsApp')] class extends Component
                         <option value="cancelled">Dibatalkan</option>
                     </select>
                 </div>
-                <div class="col-lg-3">
-                    <label for="claim-period" class="visually-hidden">Periode</label>
+                <div class="col-sm-6 col-lg-3">
+                    <label for="claim-period" class="form-label">Periode</label>
                     <select id="claim-period" wire:model.live="periodId" class="form-select">
                         <option value="">Semua periode</option>
                         @foreach($this->periods as $period)

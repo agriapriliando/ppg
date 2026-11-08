@@ -34,8 +34,9 @@ class SubmitSkClaim
             'consent' => ['accepted'],
         ], ['consent.accepted' => 'Persetujuan pemeriksaan klaim wajib diberikan.', 'required' => ':attribute wajib diisi.'])->validate();
         $number = WhatsappNumber::normalize($data['whatsapp_number']);
+        $normalizedName = mb_strtolower(Str::squish($data['name']));
 
-        return DB::transaction(function () use ($requester, $data, $number): SkClaim {
+        return DB::transaction(function () use ($requester, $data, $number, $normalizedName): SkClaim {
             $period = AdmissionPeriod::query()->whereKey($data['period_id'])->lockForUpdate()->firstOrFail();
             $existing = SkClaim::query()->where('request_key', $data['request_key'])->first();
             if ($existing !== null) {
@@ -48,15 +49,16 @@ class SubmitSkClaim
             if (! $period->acceptsApplications()) {
                 throw ValidationException::withMessages(['period_id' => 'Periode belum dibuka atau sudah ditutup.']);
             }
-            $duplicate = SkClaim::query()->where('admission_period_id', $period->id)->where('requester_user_id', $requester?->id)->where('submitted_name', trim($data['name']))->where('submitted_identifier', $data['identifier'] ?? null)->where('whatsapp_number', $number)->whereIn('status', ['pending', 'needs_information'])->first();
-            if ($duplicate !== null) {
-                return $duplicate;
+            $duplicate = SkClaim::query()->where('admission_period_id', $period->id)->where('whatsapp_number', $number)
+                ->get(['id', 'submitted_name'])->contains(fn (SkClaim $claim) => mb_strtolower(Str::squish($claim->submitted_name)) === $normalizedName);
+            if ($duplicate) {
+                throw ValidationException::withMessages(['claim' => 'Kombinasi nama dan nomor WhatsApp ini sudah terdaftar pada periode yang dipilih. Tidak perlu mengirim pendaftaran akun kembali.']);
             }
             $consent = ConsentText::query()->where('purpose', 'claim')->orderByDesc('id')->first();
             if ($consent === null || $consent->id !== (int) $data['consent_id']) {
                 throw ValidationException::withMessages(['consent' => 'Pernyataan telah berubah atau belum tersedia. Muat ulang halaman.']);
             }
-            $candidates = SkParticipant::query()->where('admission_period_id', $period->id)->where('normalized_name', mb_strtolower(Str::squish($data['name'])))->when(! empty($data['identifier']), fn ($query) => $query->where('official_participant_id', $data['identifier']))->where('roster_state', 'active')->limit(2)->get();
+            $candidates = SkParticipant::query()->where('admission_period_id', $period->id)->where('normalized_name', $normalizedName)->when(! empty($data['identifier']), fn ($query) => $query->where('official_participant_id', $data['identifier']))->where('roster_state', 'active')->limit(2)->get();
             $candidate = $candidates->count() === 1 ? $candidates->first() : null;
             $claim = SkClaim::create([
                 'admission_period_id' => $period->id, 'requester_user_id' => $requester?->id,
