@@ -29,6 +29,7 @@
                                         <option value="{{ $period->id }}" @selected(\App\Support\FormInput::old('period_id')==$period->id)>{{ $period->name }} · {{ $period->code }}</option>
                                     @endforeach
                                 </select>
+                                <div class="form-text">Semua peserta dalam Excel akan masuk ke periode yang dipilih. Template terbaru tidak memerlukan kolom periode.</div>
                             </div>
                             <label class="upload-zone" for="sk-file">
                                 <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
@@ -46,6 +47,8 @@
                             <p class="mb-0">Satu kesalahan atau konflik membatalkan konfirmasi seluruh berkas. Unggah ulang identik mempertahankan data dan penugasan yang sudah ada.</p>
                         </div>
                         <div class="alert alert-light border mt-3 mb-0">
+                            <strong class="d-block mb-2">ID Operator</strong>
+                            <p class="mb-3">Isi kolom <code>id_operator</code> dengan <strong>ID login operator</strong>, misalnya <code>operator.satu</code>. Operator harus aktif dan terdaftar pada periode tujuan. Jika dikosongkan, peserta baru belum ditugaskan dan penugasan peserta lama tetap dipertahankan.</p>
                             <strong class="d-block mb-2">Kota/Kabupaten Asal dan Provinsi</strong>
                             <p class="mb-1">Gunakan template terbaru. Isi kolom <code>kode_kota_kabupaten_asal</code> dengan kode teks dari sheet <strong>Referensi_Wilayah</strong>. Provinsi ditentukan otomatis, tanpa isian kecamatan.</p>
                             <small>Kolom asal opsional. Jika belum tersedia, kosongkan; informasi asal yang sudah tersimpan tidak akan dihapus saat impor ulang.</small>
@@ -76,7 +79,24 @@
                                         <small class="d-block text-muted">{{ $import->period->name }} · {{ $import->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</small>
                                     </td>
                                     <td>{{ ['uploaded'=>'Antre validasi','validating'=>'Divalidasi','ready'=>'Siap ditinjau','invalid'=>'Perlu koreksi','failed'=>'Validasi gagal','committed'=>'Selesai','expired'=>'Kedaluwarsa'][$import->state] ?? $import->state }}</td>
-                                    <td><a class="btn btn-sm btn-outline-purple" href="{{ route('admin.imports.show', $import) }}">Lihat Hasil</a></td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <a class="btn btn-sm btn-outline-purple" href="{{ route('admin.imports.show', $import) }}">Lihat Hasil</a>
+                                            @can('delete', $import)
+                                                @if(in_array($import->state, ['uploaded', 'validating'], true))
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" disabled title="Tunggu validasi selesai"><i class="bi bi-trash me-1" aria-hidden="true"></i>Hapus</button>
+                                                @else
+                                                    <form method="post" action="{{ route('admin.imports.destroy', $import) }}" onsubmit="return confirm('Hapus riwayat impor ini beserta berkas sumber dan hasil validasinya? Data peserta yang sudah diimpor tetap tersimpan.');">
+                                                        @csrf
+                                                        @method('delete')
+                                                        <input type="hidden" name="confirmed" value="1">
+                                                        <input type="hidden" name="expected_state" value="{{ $import->state }}">
+                                                        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1" aria-hidden="true"></i>Hapus</button>
+                                                    </form>
+                                                @endif
+                                            @endcan
+                                        </div>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
@@ -90,4 +110,5 @@
             </section>
         </div>
     </div>
+    <livewire:city-code-search />
 </x-layouts::app>

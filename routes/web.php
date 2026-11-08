@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\ReferenceController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\SkImportController;
 use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\StaffImportController;
 use App\Http\Controllers\Admin\WhatsappRecoveryController;
 use App\Http\Controllers\ApplicantDocumentController;
 use App\Http\Controllers\ApplicantDraftController;
@@ -130,6 +131,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::post('/impor', [SkImportController::class, 'store'])->name('imports.store');
         Route::get('/template-sk', [SkImportController::class, 'template'])->name('imports.template');
         Route::get('/impor/{import}', [SkImportController::class, 'show'])->name('imports.show');
+        Route::delete('/impor/{import}', [SkImportController::class, 'destroy'])->name('imports.destroy');
         Route::get('/impor/{import}/kesalahan', [SkImportController::class, 'errors'])->name('imports.errors');
         Route::post('/impor/{import}/konfirmasi', [SkImportController::class, 'commit'])->name('imports.commit');
         Route::get('/penugasan', [AssignmentController::class, 'index'])->name('assignments');
@@ -147,6 +149,11 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::post('/pendaftaran/{application}/koreksi-pemilik', [OwnershipTransferController::class, 'update'])->middleware('throttle:5,1')->name('ownership.update');
         Route::get('/pengguna', [StaffController::class, 'index'])->name('users');
         Route::post('/pengguna', [StaffController::class, 'store'])->name('users.store');
+        Route::get('/pengguna/impor', [StaffImportController::class, 'index'])->name('users.import');
+        Route::get('/pengguna/impor/template', [StaffImportController::class, 'template'])->name('users.import.template');
+        Route::post('/pengguna/impor/pratinjau', [StaffImportController::class, 'preview'])->middleware('throttle:10,1')->name('users.import.preview');
+        Route::get('/pengguna/impor/{token}', [StaffImportController::class, 'show'])->whereUuid('token')->name('users.import.show');
+        Route::post('/pengguna/impor/{token}', [StaffImportController::class, 'commit'])->whereUuid('token')->middleware('throttle:10,1')->name('users.import.commit');
         Route::put('/pengguna/{user}', [StaffController::class, 'update'])->name('users.update');
         Route::patch('/pengguna/{user}/status', [StaffController::class, 'toggle'])->name('users.toggle');
         Route::delete('/pengguna/{user}', [StaffController::class, 'destroy'])->name('users.destroy');

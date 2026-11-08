@@ -31,13 +31,13 @@ class CreateAdministrator extends Command
         $name = $this->ask('Nama administrator');
         $email = $this->ask('Email (boleh kosong)');
         $email = is_string($email) && $email !== '' ? mb_strtolower(trim($email)) : null;
-        $password = $this->secret('Kata sandi (minimal 12 karakter)');
+        $password = $this->secret('Kata sandi');
         $confirmation = $this->secret('Ulangi kata sandi');
         $validator = Validator::make(compact('login', 'name', 'email', 'password', 'confirmation'), [
             'login' => ['required', 'regex:/^[a-z0-9._-]+$/', 'max:64', 'unique:users,login_id'],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:12'],
+            'password' => ['required', 'string', 'max:255'],
             'confirmation' => ['required', 'same:password'],
         ]);
         if ($validator->fails()) {

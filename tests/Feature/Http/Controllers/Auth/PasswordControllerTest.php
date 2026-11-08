@@ -23,11 +23,21 @@ it('keeps the password unchanged when the current password is incorrect', functi
     $this->assertDatabaseCount('audit_events', 0);
 });
 
-it('rejects a short replacement password', function () {
+it('accepts a single character replacement password', function (string $password) {
     $user = User::factory()->create();
-    $this->actingAs($user)->put(route('password.update'), ['current_password' => 'password', 'password' => 'pendek', 'password_confirmation' => 'pendek'])
-        ->assertSessionHasErrors(['password' => 'Kata sandi baru minimal 12 karakter.']);
-});
+    $this->actingAs($user)->put(route('password.update'), ['current_password' => 'password', 'password' => $password, 'password_confirmation' => $password])
+        ->assertRedirect(route('dashboard'))->assertSessionHasNoErrors();
+    expect(Hash::check($password, $user->fresh()->password))->toBeTrue();
+})->with(['a', '0']);
+
+it('still requires a nonempty confirmed replacement password', function (string $password, string $confirmation) {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->put(route('password.update'), ['current_password' => 'password', 'password' => $password, 'password_confirmation' => $confirmation])
+        ->assertSessionHasErrors('password');
+
+    expect(Hash::check('password', $user->fresh()->password))->toBeTrue();
+})->with(['empty' => ['', ''], 'mismatch' => ['a', 'b']]);
 
 it('allows saving the same password after verifying the current password', function () {
     $password = 'SandiYangSama2026!';

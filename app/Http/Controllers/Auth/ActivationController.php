@@ -29,7 +29,7 @@ class ActivationController extends Controller
         if (! $this->valid($request)) {
             return $this->expire($request);
         }
-        $data = $request->validate(['password' => ['required', 'string', 'min:12', 'max:255', 'confirmed']], ['password.min' => 'Kata sandi baru minimal 12 karakter.', 'password.confirmed' => 'Konfirmasi kata sandi belum cocok.']);
+        $data = $request->validate(['password' => ['required', 'string', 'max:255', 'confirmed']], ['password.confirmed' => 'Konfirmasi kata sandi belum cocok.']);
         $user = $request->user();
         abort_unless($user !== null, 403);
         DB::transaction(function () use ($request, $data, $user, $audit): void {

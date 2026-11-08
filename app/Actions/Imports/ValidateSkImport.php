@@ -4,6 +4,7 @@ namespace App\Actions\Imports;
 
 use App\Enums\AccountState;
 use App\Enums\UserRole;
+use App\Exceptions\InvalidSkImportWorkbook;
 use App\Models\PeriodOperator;
 use App\Models\SkImport;
 use App\Models\SkParticipant;
@@ -17,12 +18,15 @@ use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
-use RuntimeException;
 use ZipArchive;
 
 class ValidateSkImport
 {
-    public const HEADERS = ['nomor_sk', 'tanggal_sk', 'periode', 'nomor_urut_sk', 'nama_sesuai_sk', 'id_peserta_sk', 'operator_email', 'catatan_internal', 'kode_kota_kabupaten_asal'];
+    public const HEADERS = ['nomor_sk', 'tanggal_sk', 'nomor_urut_sk', 'nama_sesuai_sk', 'id_peserta_sk', 'id_operator', 'catatan_internal', 'kode_kota_kabupaten_asal'];
+
+    public const PREVIOUS_HEADERS = ['nomor_sk', 'tanggal_sk', 'nomor_urut_sk', 'nama_sesuai_sk', 'id_peserta_sk', 'operator_email', 'catatan_internal', 'kode_kota_kabupaten_asal'];
+
+    public const LEGACY_HEADERS = ['nomor_sk', 'tanggal_sk', 'periode', 'nomor_urut_sk', 'nama_sesuai_sk', 'id_peserta_sk', 'operator_email', 'catatan_internal', 'kode_kota_kabupaten_asal'];
 
     public function handle(SkImport $import): void
     {
@@ -31,7 +35,7 @@ class ValidateSkImport
         }
         $actor = User::findOrFail($import->uploaded_by);
         if (! in_array($actor->role, [UserRole::Administrator, UserRole::Operator], true)) {
-            throw new RuntimeException('Pengunggah tidak lagi memiliki hak impor.');
+            throw new InvalidSkImportWorkbook('Pengunggah tidak lagi memiliki hak impor.');
         }
         $path = Storage::disk('local')->path($import->private_path);
         $this->inspectArchive($path);
@@ -42,13 +46,21 @@ class ValidateSkImport
         try {
             $sheet = $book->getSheetByName('Peserta_SK');
             $lastRow = $sheet?->getHighestDataRow() ?? 0;
-            if ($sheet === null || $lastRow < 2 || $lastRow > (int) config('pmb.import_max_rows') + 1 || Coordinate::columnIndexFromString($sheet->getHighestDataColumn()) > count(self::HEADERS)) {
-                throw new RuntimeException('Sheet Peserta_SK harus berisi 1–5.000 baris data dan maksimal sembilan kolom template.');
+            if ($sheet === null || $lastRow < 2 || $lastRow > (int) config('pmb.import_max_rows') + 1) {
+                throw new InvalidSkImportWorkbook('Sheet Peserta_SK harus berisi 1–5.000 baris data sesuai template.');
             }
-            foreach (self::HEADERS as $index => $header) {
+            $legacy = trim((string) $sheet->getCell('C1')->getValue()) === 'periode';
+            $operatorIndex = $legacy ? 6 : 5;
+            $usesEmail = trim((string) $sheet->getCell([$operatorIndex + 1, 1])->getValue()) === 'operator_email';
+            $headers = $legacy ? self::LEGACY_HEADERS : self::HEADERS;
+            $headers[$operatorIndex] = $usesEmail ? 'operator_email' : 'id_operator';
+            if (Coordinate::columnIndexFromString($sheet->getHighestDataColumn()) > count($headers)) {
+                throw new InvalidSkImportWorkbook('Jumlah kolom tidak sesuai template. Unduh dan gunakan template terbaru.');
+            }
+            foreach ($headers as $index => $header) {
                 $value = trim((string) $sheet->getCell([$index + 1, 1])->getValue());
-                if (($index < 5 || $value !== '') && $value !== $header) {
-                    throw new RuntimeException('Header tidak sesuai template. Unduh dan gunakan template terbaru.');
+                if (($index < ($legacy ? 5 : 4) || $value !== '') && $value !== $header) {
+                    throw new InvalidSkImportWorkbook('Header kolom '.Coordinate::stringFromColumnIndex($index + 1).' harus '.$header.'. Unduh dan gunakan template terbaru.');
                 }
             }
             $period = $import->period;
@@ -62,9 +74,10 @@ class ValidateSkImport
             $operatorEligibility = [];
             $origins = [];
             for ($row = 2; $row <= $lastRow; $row++) {
-                $values = [];
+                $values = array_fill_keys(self::LEGACY_HEADERS, '');
+                $values['id_operator'] = '';
                 $errors = [];
-                foreach (self::HEADERS as $index => $header) {
+                foreach ($headers as $index => $header) {
                     $cell = $sheet->getCell([$index + 1, $row]);
                     if ($cell->isFormula()) {
                         $errors[] = 'Formula tidak diizinkan; gunakan nilai teks/tanggal biasa.';
@@ -76,6 +89,9 @@ class ValidateSkImport
                     if ($header === 'id_peserta_sk' && $value !== null && ! is_string($value)) {
                         $errors[] = 'Peg ID harus disimpan sebagai teks agar nol awal tetap utuh.';
                     }
+                    if ($header === 'id_operator' && $value !== null && ! is_string($value)) {
+                        $errors[] = 'ID operator harus disimpan sebagai teks agar nilainya tetap utuh.';
+                    }
                     if ($header === 'kode_kota_kabupaten_asal' && $value !== null && ! is_string($value)) {
                         $errors[] = 'Kode kota/kabupaten asal harus disimpan sebagai teks. Salin kode dari sheet Referensi_Wilayah.';
                     }
@@ -84,6 +100,10 @@ class ValidateSkImport
                 if (implode('', $values) === '') {
                     continue;
                 }
+                if (! $legacy) {
+                    $values['periode'] = $period->code;
+                }
+                $values['id_operator'] = mb_strtolower($values['id_operator']);
                 $validator = Validator::make($values, [
                     'nomor_sk' => ['required', 'string', 'max:150'],
                     'tanggal_sk' => ['required', 'date_format:Y-m-d'],
@@ -92,19 +112,20 @@ class ValidateSkImport
                     'nama_sesuai_sk' => ['required', 'string', 'max:255'],
                     'id_peserta_sk' => ['nullable', 'string', 'max:100'],
                     'operator_email' => ['nullable', 'email', 'max:255'],
+                    'id_operator' => ['nullable', 'regex:/^[a-z0-9._-]+$/', 'max:64'],
                     'catatan_internal' => ['nullable', 'string', 'max:1000'],
                     'kode_kota_kabupaten_asal' => ['nullable', 'string', 'max:64'],
-                ], ['required' => ':attribute wajib diisi.', 'periode.in' => 'Kode periode tidak sesuai periode tujuan.']);
+                ], ['required' => ':attribute wajib diisi.', 'periode.in' => 'Kode periode tidak sesuai periode tujuan.', 'id_operator.regex' => 'Isi ID login operator, bukan email atau nama operator.', 'id_operator.max' => 'ID operator maksimal 64 karakter.']);
                 $errors = array_merge($errors, $validator->errors()->all());
                 $operator = null;
-                if ($values['operator_email'] !== '') {
-                    $email = mb_strtolower($values['operator_email']);
-                    if (! array_key_exists($email, $operators)) {
-                        $operators[$email] = User::query()->where('email', $email)->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->first();
-                        $operatorEligibility[$email] = $operators[$email] !== null && PeriodOperator::query()->where('admission_period_id', $period->id)->where('user_id', $operators[$email]->id)->where('is_active', true)->exists();
+                $operatorIdentifier = mb_strtolower($values[$usesEmail ? 'operator_email' : 'id_operator']);
+                if ($operatorIdentifier !== '') {
+                    if (! array_key_exists($operatorIdentifier, $operators)) {
+                        $operators[$operatorIdentifier] = User::query()->where($usesEmail ? 'email' : 'login_id', $operatorIdentifier)->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->first();
+                        $operatorEligibility[$operatorIdentifier] = $operators[$operatorIdentifier] !== null && PeriodOperator::query()->where('admission_period_id', $period->id)->where('user_id', $operators[$operatorIdentifier]->id)->where('is_active', true)->exists();
                     }
-                    $operator = $operators[$email];
-                    if (! $operatorEligibility[$email]) {
+                    $operator = $operators[$operatorIdentifier];
+                    if (! $operatorEligibility[$operatorIdentifier]) {
                         $errors[] = 'Operator harus aktif dan terdaftar pada periode tujuan.';
                     }
                 }
@@ -179,7 +200,7 @@ class ValidateSkImport
                 $rows[] = ['sk_import_id' => $import->id, 'row_number' => $row, 'normalized_payload' => $payload, 'result' => $result, 'errors' => $errors];
             }
             if ($rows === []) {
-                throw new RuntimeException('Berkas tidak berisi peserta yang dapat diperiksa.');
+                throw new InvalidSkImportWorkbook('Berkas tidak berisi peserta yang dapat diperiksa.');
             }
             DB::transaction(function () use ($import, $rows, $counts, $period): void {
                 $locked = SkImport::query()->lockForUpdate()->findOrFail($import->id);
@@ -213,21 +234,21 @@ class ValidateSkImport
     {
         $zip = new ZipArchive;
         if ($zip->open($path) !== true) {
-            throw new RuntimeException('Berkas bukan workbook .xlsx yang dapat dibaca.');
+            throw new InvalidSkImportWorkbook('Berkas bukan workbook .xlsx yang dapat dibaca.');
         }
         try {
             $size = 0;
             if ($zip->numFiles > 1000) {
-                throw new RuntimeException('Struktur workbook terlalu besar.');
+                throw new InvalidSkImportWorkbook('Struktur workbook terlalu besar.');
             }
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $entry = $zip->statIndex($i);
                 if ($entry === false) {
-                    throw new RuntimeException('Struktur workbook tidak sah.');
+                    throw new InvalidSkImportWorkbook('Struktur workbook tidak sah.');
                 }
                 $size += $entry['size'];
                 if ($size > 50 * 1024 * 1024 || str_contains($entry['name'], 'externalLinks/') || str_contains($entry['name'], 'vbaProject')) {
-                    throw new RuntimeException('Workbook terlalu besar atau memuat tautan eksternal/macro yang tidak diizinkan.');
+                    throw new InvalidSkImportWorkbook('Workbook terlalu besar atau memuat tautan eksternal/macro yang tidak diizinkan.');
                 }
             }
         } finally {

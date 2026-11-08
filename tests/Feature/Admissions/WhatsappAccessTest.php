@@ -219,3 +219,19 @@ it('shows public claim confirmation without disclosing roster matches or operato
     $this->post(route('public.claim.store'), $input)->assertRedirect();
     $this->assertDatabaseCount('sk_claims', 1);
 });
+
+it('accepts a single character personal password during activation', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
+    $this->actingAs($c['operator'])->post(route('claims.approve', $claim), ['version' => 0])->assertSessionHasNoErrors();
+    $issuance = CredentialIssuance::query()->sole();
+    $issuance->update(['used_at' => now()]);
+    $user = $claim->fresh()->requester;
+
+    $this->actingAs($user)->withSession(['activation' => ['user_id' => $user->id, 'issuance_id' => $issuance->id, 'expires' => now()->addMinutes(10)->timestamp]])
+        ->post(route('activation.update'), ['password' => 'a', 'password_confirmation' => 'a'])
+        ->assertRedirect(route('dashboard'))->assertSessionHasNoErrors();
+
+    expect(Hash::check('a', $user->fresh()->password))->toBeTrue();
+    expect($user->fresh()->account_state)->toBe(AccountState::Active);
+});

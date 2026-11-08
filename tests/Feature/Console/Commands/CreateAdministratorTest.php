@@ -7,13 +7,13 @@ it('bootstraps an administrator with a hidden password prompt and an audit event
     $this->artisan('pmb:create-admin', ['login' => 'ADMIN.UJI'])
         ->expectsQuestion('Nama administrator', 'Administrator Uji')
         ->expectsQuestion('Email (boleh kosong)', 'Admin.Uji@example.test')
-        ->expectsQuestion('Kata sandi (minimal 12 karakter)', 'SandiKonsolUji2026!')
-        ->expectsQuestion('Ulangi kata sandi', 'SandiKonsolUji2026!')
+        ->expectsQuestion('Kata sandi', 'a')
+        ->expectsQuestion('Ulangi kata sandi', 'a')
         ->expectsOutput('Administrator berhasil dibuat.')->assertSuccessful();
     $user = User::query()->sole();
     expect($user->login_id)->toBe('admin.uji');
     expect($user->email)->toBe('admin.uji@example.test');
     expect($user->isAdministrator())->toBeTrue();
-    expect(Hash::check('SandiKonsolUji2026!', $user->password))->toBeTrue();
+    expect(Hash::check('a', $user->password))->toBeTrue();
     $this->assertDatabaseHas('audit_events', ['action' => 'Membuat administrator melalui konsol', 'actor_id' => null]);
 });

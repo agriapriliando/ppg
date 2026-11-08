@@ -31,10 +31,13 @@
                     <h2>Pengguna Pengelola</h2>
                     <p class="mb-0">Kelola akun administrator dan operator yang memiliki akses dashboard sistem.</p>
                 </div>
+                <div class="d-flex flex-wrap gap-2">
+                <a href="{{ route('admin.users.import') }}" class="btn btn-outline-purple d-inline-flex align-items-center gap-2"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i>Impor Excel</a>
                 <button type="button" class="btn btn-purple d-inline-flex align-items-center gap-2" @click="showCreateModal = true">
                     <i class="bi bi-person-plus-fill" aria-hidden="true"></i>
                     <span>Tambah Pengelola</span>
                 </button>
+                </div>
             </div>
 
             <!-- Filter dan Pencarian -->
@@ -288,8 +291,8 @@
                         <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="create-password" class="form-label fw-semibold">Kata Sandi Awal *</label>
-                                <x-password-input id="create-password" name="password" required minlength="12" autocomplete="new-password" />
-                                <div class="form-text small">Minimal 12 karakter.</div>
+                                <x-password-input id="create-password" name="password" required autocomplete="new-password" />
+                                <div class="form-text small">Tanpa batas minimal karakter.</div>
                             </div>
                             <div class="col-md-6">
                                 <label for="create-confirm" class="form-label fw-semibold">Ulangi Sandi *</label>
@@ -388,7 +391,7 @@
                             <p class="text-muted small mb-2">Kosongkan kolom berikut jika tidak ingin mengubah kata sandi pengguna ini.</p>
                             <div class="row g-2">
                                 <div class="col-md-6">
-                                    <x-password-input id="edit-password" name="password" small placeholder="Kata sandi baru (min 12)" minlength="12" autocomplete="new-password" />
+                                    <x-password-input id="edit-password" name="password" small placeholder="Kata sandi baru" autocomplete="new-password" />
                                 </div>
                                 <div class="col-md-6">
                                     <x-password-input id="edit-confirm" name="password_confirmation" small placeholder="Ulangi kata sandi baru" autocomplete="new-password" />

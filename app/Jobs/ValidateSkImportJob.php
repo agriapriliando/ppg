@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Actions\Imports\ValidateSkImport;
+use App\Exceptions\InvalidSkImportWorkbook;
 use App\Models\SkImport;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -39,7 +40,9 @@ class ValidateSkImportJob implements ShouldQueue
         $import = SkImport::find($this->importId);
         if ($import !== null && $import->state !== 'committed') {
             $import->state = 'failed';
-            $import->safe_summary = 'Berkas tidak dapat divalidasi. Periksa struktur template, ukuran, dan isi workbook lalu unggah ulang.';
+            $import->safe_summary = $exception instanceof InvalidSkImportWorkbook
+                ? $exception->getMessage()
+                : 'Berkas tidak dapat divalidasi. Periksa struktur template, ukuran, dan isi workbook lalu unggah ulang.';
             $import->save();
         }
     }

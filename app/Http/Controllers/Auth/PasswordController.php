@@ -9,7 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -24,9 +23,8 @@ class PasswordController extends Controller
     {
         $data = $request->validate([
             'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', 'confirmed', Password::min(12), 'max:255'],
+            'password' => ['required', 'string', 'confirmed', 'max:255'],
         ], [
-            'password.min' => 'Kata sandi baru minimal 12 karakter.',
             'password.confirmed' => 'Konfirmasi kata sandi belum cocok.',
             'current_password.required' => 'Masukkan kata sandi saat ini.',
         ]);

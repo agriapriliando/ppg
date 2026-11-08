@@ -19,7 +19,7 @@ function skWorkbook(array $rows, ?array $headers = null): UploadedFile
 {
     $book = new Spreadsheet;
     $book->getActiveSheet()->setTitle('Peserta_SK');
-    $book->getActiveSheet()->fromArray([$headers ?? ValidateSkImport::HEADERS, ...$rows]);
+    $book->getActiveSheet()->fromArray([$headers ?? ValidateSkImport::LEGACY_HEADERS, ...$rows]);
     $path = tempnam(sys_get_temp_dir(), 'ppg-xlsx-');
     (new Xlsx($book))->save($path);
     $content = file_get_contents($path);
@@ -32,10 +32,13 @@ function skWorkbook(array $rows, ?array $headers = null): UploadedFile
 it('includes origin lookup in the latest template and imports it without clearing it on legacy reimport', function () {
     Storage::fake('local');
     $c = registrationContext();
-    $template = $this->actingAs($c['admin'])->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v2.xlsx');
+    $template = $this->actingAs($c['admin'])->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v4.xlsx');
     Storage::disk('local')->put('origin-template.xlsx', $template->streamedContent());
     $book = IOFactory::load(Storage::disk('local')->path('origin-template.xlsx'));
-    expect($book->getSheetByName('Peserta_SK')->getCell('I1')->getValue())->toBe('kode_kota_kabupaten_asal')
+    expect($book->getSheetByName('Peserta_SK')->rangeToArray('A1:H1')[0])->toBe(ValidateSkImport::HEADERS);
+    expect($book->getSheetByName('Peserta_SK')->getCell('F1')->getValue())->toBe('id_operator');
+    expect($book->getSheetByName('Peserta_SK')->getCell('I1')->getValue())->toBeNull();
+    expect($book->getSheetByName('Peserta_SK')->getCell('H1')->getValue())->toBe('kode_kota_kabupaten_asal')
         ->and($book->getSheetByName('Referensi_Wilayah')->getCell('A2')->getValue())->toBe('0101')
         ->and($book->getSheetByName('Referensi_Wilayah')->getCell('C2')->getValue())->toBe('Provinsi Uji');
     $book->disconnectWorksheets();
@@ -48,7 +51,7 @@ it('includes origin lookup in the latest template and imports it without clearin
     $participant = SkParticipant::query()->where('sk_number', 'SK-ASAL')->sole();
     expect($participant->origin_city_code)->toBe('0101')->and($participant->origin_province_name)->toBe('Provinsi Uji');
 
-    $this->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([array_slice($row, 0, 8)], array_slice(ValidateSkImport::HEADERS, 0, 8))])->assertRedirect();
+    $this->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([array_slice($row, 0, 8)], array_slice(ValidateSkImport::LEGACY_HEADERS, 0, 8))])->assertRedirect();
     $legacy = SkImport::query()->latest('id')->first();
     expect($legacy->counts['identical'])->toBe(1);
     $this->post(route('admin.imports.commit', $legacy), ['preview_hash' => $legacy->preview_hash])->assertSessionHasNoErrors();
@@ -71,6 +74,134 @@ it('reports invalid origin codes without committing participants', function () {
     $book->disconnectWorksheets();
     $this->assertDatabaseCount('sk_participants', 1);
 });
+
+it('imports the new template without a period column using the selected period', function () {
+    Storage::fake('local');
+    $c = registrationContext();
+    $c['operator']->forceFill(['login_id' => 'operator.tujuan', 'email' => null])->save();
+    $target = AdmissionPeriod::factory()->create();
+    PeriodOperator::create(['admission_period_id' => $target->id, 'user_id' => $c['operator']->id, 'is_active' => true]);
+    $rows = [
+        ['SK-TEMPLATE-BARU', '2026-11-06', 1, 'Peserta Template Baru', '000002', ' OPERATOR.TUJUAN ', 'Catatan impor', '0101'],
+        [],
+        ['SK-TEMPLATE-BARU', '2026-11-06', 2, 'Peserta Kedua', '000003'],
+    ];
+
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $target->id, 'file' => skWorkbook($rows, ValidateSkImport::HEADERS)])->assertRedirect()->assertSessionHasNoErrors();
+    $import = SkImport::query()->sole();
+    expect($import->state)->toBe('ready');
+    expect($import->counts['new'])->toBe(2);
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertRedirect()->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('sk_participants', ['admission_period_id' => $target->id, 'name_on_sk' => 'Peserta Template Baru', 'official_participant_id' => '000002', 'assigned_operator_id' => $c['operator']->id, 'internal_note' => 'Catatan impor', 'origin_city_code' => '0101']);
+    $this->assertDatabaseHas('sk_participants', ['admission_period_id' => $target->id, 'name_on_sk' => 'Peserta Kedua', 'official_participant_id' => '000003']);
+    $this->assertDatabaseMissing('sk_participants', ['admission_period_id' => $c['period']->id, 'sk_number' => 'SK-TEMPLATE-BARU']);
+});
+
+it('still rejects a legacy template whose period code differs from the selected period', function () {
+    Storage::fake('local');
+    $c = registrationContext();
+
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([
+        ['SK-SALAH-PERIODE', '2026-11-06', 'PERIODE-LAIN', 1, 'Peserta Salah Periode', '000002'],
+    ])])->assertRedirect();
+
+    $import = SkImport::query()->sole();
+    expect($import->state)->toBe('invalid');
+    expect($import->rows()->sole()->errors)->toContain('Kode periode tidak sesuai periode tujuan.');
+    $this->assertDatabaseMissing('sk_participants', ['sk_number' => 'SK-SALAH-PERIODE']);
+});
+
+it('keeps supporting the previous template with operator email and no period column', function () {
+    Storage::fake('local');
+    $c = registrationContext();
+    $rows = [['SK-EMAIL-LAMA', '2026-11-06', 1, 'Peserta Format Sebelumnya', '000002', $c['operator']->email]];
+
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook($rows, ValidateSkImport::PREVIOUS_HEADERS)])->assertRedirect();
+    $import = SkImport::query()->sole();
+    expect($import->state)->toBe('ready');
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('sk_participants', ['sk_number' => 'SK-EMAIL-LAMA', 'assigned_operator_id' => $c['operator']->id]);
+});
+
+it('supports a legacy workbook with a period column and operator login ID', function () {
+    Storage::fake('local');
+    $c = registrationContext();
+    $c['operator']->forceFill(['login_id' => 'operator.lama', 'email' => null])->save();
+    $headers = ValidateSkImport::LEGACY_HEADERS;
+    $headers[6] = 'id_operator';
+
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([
+        ['SK-GABUNGAN', '2026-11-06', $c['period']->code, 1, 'Peserta Format Gabungan', '000002', 'operator.lama', '', '0101'],
+    ], $headers)])->assertRedirect()->assertSessionHasNoErrors();
+    $import = SkImport::query()->sole();
+    expect($import->state)->toBe('ready');
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('sk_participants', ['sk_number' => 'SK-GABUNGAN', 'admission_period_id' => $c['period']->id, 'assigned_operator_id' => $c['operator']->id, 'origin_city_code' => '0101']);
+});
+
+it('rejects IDs belonging to missing disabled unregistered or non operator accounts', function (string $condition) {
+    Storage::fake('local');
+    $c = registrationContext();
+    $c['operator']->forceFill(['login_id' => 'operator.uji'])->save();
+    $identifier = 'operator.uji';
+    if ($condition === 'missing') {
+        $identifier = 'operator.tidakada';
+    } elseif ($condition === 'disabled') {
+        $c['operator']->forceFill(['account_state' => 'disabled'])->save();
+    } elseif ($condition === 'unregistered') {
+        PeriodOperator::query()->where('user_id', $c['operator']->id)->delete();
+    } elseif ($condition === 'inactive membership') {
+        PeriodOperator::query()->where('user_id', $c['operator']->id)->update(['is_active' => false]);
+    } else {
+        $c['admin']->forceFill(['login_id' => 'admin.uji'])->save();
+        $identifier = 'admin.uji';
+    }
+
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([
+        ['SK-OPERATOR-TIDAK-VALID', '2026-11-06', 1, 'Peserta Operator Tidak Valid', '000002', $identifier],
+    ], ValidateSkImport::HEADERS)])->assertRedirect();
+    $import = SkImport::query()->sole();
+
+    expect($import->state)->toBe('invalid');
+    expect($import->rows()->sole()->errors)->toContain('Operator harus aktif dan terdaftar pada periode tujuan.');
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasErrors('import');
+    $this->assertDatabaseMissing('sk_participants', ['sk_number' => 'SK-OPERATOR-TIDAK-VALID']);
+})->with(['missing', 'disabled', 'unregistered', 'inactive membership', 'administrator']);
+
+it('preserves an existing assignment when operator ID is omitted during reimport', function () {
+    Storage::fake('local');
+    $c = registrationContext();
+    $person = $c['participant'];
+
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([
+        [$person->sk_number, $person->sk_date->format('Y-m-d'), $person->sk_order, $person->name_on_sk, $person->official_participant_id, ''],
+    ], ValidateSkImport::HEADERS)])->assertRedirect();
+    $import = SkImport::query()->sole();
+    expect($import->state)->toBe('ready');
+    expect($import->counts['identical'])->toBe(1);
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+
+    expect($person->fresh()->assigned_operator_id)->toBe($c['operator']->id);
+});
+
+it('reports invalid operator ID cells clearly', function (string|int $identifier, string $message) {
+    Storage::fake('local');
+    $c = registrationContext();
+
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([
+        ['SK-ID-INVALID', '2026-11-06', 1, 'Peserta Uji ID', '000002', $identifier],
+    ], ValidateSkImport::HEADERS)])->assertRedirect();
+
+    $import = SkImport::query()->sole();
+    expect($import->state)->toBe('invalid');
+    expect($import->rows()->sole()->errors)->toContain($message);
+})->with([
+    'email instead of ID' => ['operator@example.test', 'Isi ID login operator, bukan email atau nama operator.'],
+    'numeric cell' => [123, 'ID operator harus disimpan sebagai teks agar nilainya tetap utuh.'],
+]);
 
 it('prevents a stale import from overwriting a manual origin edit', function () {
     Storage::fake('local');
@@ -151,7 +282,7 @@ it('provides a real downloadable Excel template and a usable import preview page
     Storage::fake('local');
     $admin = User::factory()->administrator()->create();
     $period = AdmissionPeriod::factory()->create();
-    $this->actingAs($admin)->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v2.xlsx');
+    $this->actingAs($admin)->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v4.xlsx');
     $this->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Uji']])])->assertRedirect();
     $this->get(route('admin.imports.show', SkImport::query()->sole()))->assertOk()->assertSee('Peserta Uji')->assertSee('Pratinjau siap dikonfirmasi');
 });
@@ -173,7 +304,7 @@ it('reports an invalid workbook structure without exposing an internal server er
     $this->actingAs($admin)->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Uji']], ['header_tidak_sesuai'])])->assertRedirect();
     $import = SkImport::query()->sole();
     expect($import->state)->toBe('failed');
-    $this->get(route('admin.imports.show', $import))->assertOk()->assertSee('Berkas tidak dapat divalidasi.');
+    $this->get(route('admin.imports.show', $import))->assertOk()->assertSee('Header kolom A harus nomor_sk.');
     $this->assertDatabaseCount('sk_participants', 0);
 });
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\Imports\CommitSkImport;
+use App\Actions\Imports\DeleteSkImportHistory;
 use App\Actions\Imports\ValidateSkImport;
 use App\Actions\RecordAudit;
 use App\Enums\PeriodState;
@@ -16,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
@@ -51,6 +53,17 @@ class SkImportController extends Controller
     public function show(SkImport $import): View
     {
         return view('admin.import-preview', ['import' => $import->load('period'), 'rows' => $import->rows()->orderBy('row_number')->paginate(50)]);
+    }
+
+    public function destroy(Request $request, SkImport $import, DeleteSkImportHistory $delete): RedirectResponse
+    {
+        $data = $request->validate([
+            'confirmed' => ['accepted'],
+            'expected_state' => ['required', Rule::in(['uploaded', 'validating', 'ready', 'invalid', 'failed', 'committed', 'expired'])],
+        ], ['confirmed.accepted' => 'Konfirmasikan penghapusan riwayat impor terlebih dahulu.']);
+        $delete->handle($request->user(), $import, $data['expected_state']);
+
+        return redirect()->route('admin.imports')->with('status', 'Riwayat impor, berkas sumber, dan hasil validasi berhasil dihapus. Data peserta yang sudah diimpor tetap tersimpan.');
     }
 
     public function commit(Request $request, SkImport $import, CommitSkImport $commit): RedirectResponse
@@ -106,21 +119,23 @@ class SkImportController extends Controller
             $sheet = $book->getActiveSheet();
             $sheet->setTitle('Peserta_SK');
             $sheet->fromArray(ValidateSkImport::HEADERS);
-            $sheet->getStyle('A:I')->getNumberFormat()->setFormatCode('@');
-            $sheet->getStyle('A1:I1')->getFont()->setBold(true);
-            foreach (range('A', 'I') as $column) {
+            $sheet->getStyle('A:H')->getNumberFormat()->setFormatCode('@');
+            $sheet->getStyle('A1:H1')->getFont()->setBold(true);
+            foreach (range('A', 'H') as $column) {
                 $sheet->getColumnDimension($column)->setWidth(28);
             }
             $sheet->freezePane('A2');
             $guide = $book->createSheet();
             $guide->setTitle('Panduan');
             $guide->fromArray([
-                ['Template SK versi 2'],
-                ['Kolom A–E wajib. Isi periode menggunakan kode periode tujuan.'],
+                ['Template SK versi 4'],
+                ['Kolom A–D wajib. Periode seluruh baris mengikuti pilihan Periode tujuan pada formulir unggah.'],
                 ['Tanggal SK: YYYY-MM-DD. Nomor urut harus bilangan bulat positif.'],
                 ['Peg ID harus teks agar nol awal utuh. Nama bukan kunci unik.'],
-                ['Operator email opsional; harus aktif dan terdaftar pada periode.'],
-                ['Kolom I: kode_kota_kabupaten_asal opsional. Salin sebagai teks dari sheet Referensi_Wilayah.'],
+                ['Kolom F: id_operator opsional. Isi ID login operator (contoh operator.satu), bukan email atau nomor urut.'],
+                ['Operator harus aktif dan terdaftar pada periode tujuan. ID login dapat dilihat pada halaman Kelola Pengguna.'],
+                ['Jika id_operator kosong, peserta baru belum ditugaskan; penugasan peserta lama tetap dipertahankan.'],
+                ['Kolom H: kode_kota_kabupaten_asal opsional. Salin sebagai teks dari sheet Referensi_Wilayah.'],
                 ['Provinsi asal terisi otomatis dari kota/kabupaten; tidak ada kolom kecamatan.'],
                 ['Jangan ketik nama kota di kolom kode. Referensi wilayah mengikuti dataset aktif saat template diunduh.'],
                 ['Jika Referensi_Wilayah kosong, muat dan aktifkan referensi wilayah terlebih dahulu atau kosongkan kolom asal.'],
@@ -153,6 +168,6 @@ class SkImportController extends Controller
             $regions->setAutoFilter('A1:C'.max(1, $row - 1));
             (new Xlsx($book))->save('php://output');
             $book->disconnectWorksheets();
-        }, 'template-peserta-sk-v2.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Cache-Control' => 'private, no-store']);
+        }, 'template-peserta-sk-v4.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Cache-Control' => 'private, no-store']);
     }
 }

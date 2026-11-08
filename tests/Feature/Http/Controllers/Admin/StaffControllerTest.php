@@ -22,6 +22,20 @@ it('prevents an administrator from disabling their own account', function () {
     expect($admin->fresh()->account_state)->toBe(AccountState::Active);
 });
 
+it('accepts single character passwords when creating and editing staff', function (string $password) {
+    $admin = User::factory()->administrator()->create();
+    $data = ['name' => 'Operator Baru', 'login_id' => 'operator.baru', 'role' => 'operator', 'password' => $password, 'password_confirmation' => $password];
+
+    $this->actingAs($admin)->post(route('admin.users.store'), $data)->assertRedirect(route('admin.users'))->assertSessionHasNoErrors();
+    $user = User::query()->where('login_id', 'operator.baru')->sole();
+    expect(Hash::check($password, $user->password))->toBeTrue();
+
+    $user->password = 'KataSandiSebelumnya';
+    $user->save();
+    $this->put(route('admin.users.update', $user), $data)->assertRedirect(route('admin.users'))->assertSessionHasNoErrors();
+    expect(Hash::check($password, $user->fresh()->password))->toBeTrue();
+})->with(['a', '0']);
+
 it('disables another operator and audits the responsible administrator', function () {
     $admin = User::factory()->administrator()->create();
     $operator = User::factory()->operator()->create();

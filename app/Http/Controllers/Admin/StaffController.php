@@ -73,10 +73,9 @@ class StaffController extends Controller
             'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
             'login_id' => ['required', 'regex:/^[a-z0-9._-]+$/', 'max:64', 'unique:users,login_id'],
             'role' => ['required', Rule::in([UserRole::Operator->value, UserRole::Administrator->value])],
-            'password' => ['required', 'string', 'min:12', 'max:255', 'confirmed'],
+            'password' => ['required', 'string', 'max:255', 'confirmed'],
         ], [
             'required' => ':attribute wajib diisi.',
-            'password.min' => 'Kata sandi awal minimal 12 karakter.',
             'password.confirmed' => 'Konfirmasi kata sandi belum cocok.',
         ]);
 
@@ -110,10 +109,9 @@ class StaffController extends Controller
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'login_id' => ['required', 'regex:/^[a-z0-9._-]+$/', 'max:64', Rule::unique('users', 'login_id')->ignore($user->id)],
             'role' => ['required', Rule::in([UserRole::Operator->value, UserRole::Administrator->value])],
-            'password' => ['nullable', 'string', 'min:12', 'max:255', 'confirmed'],
+            'password' => ['nullable', 'string', 'max:255', 'confirmed'],
         ], [
             'required' => ':attribute wajib diisi.',
-            'password.min' => 'Kata sandi baru minimal 12 karakter.',
             'password.confirmed' => 'Konfirmasi kata sandi belum cocok.',
         ]);
 
@@ -141,7 +139,7 @@ class StaffController extends Controller
             $target->login_id = $data['login_id'];
             $target->role = $newRole;
 
-            if (! empty($data['password'])) {
+            if (isset($data['password'])) {
                 $target->password = $data['password'];
                 $target->must_change_password = false;
             }
@@ -221,7 +219,7 @@ class StaffController extends Controller
             // Cek apakah akun terikat data transaksi resmi penting
             $hasRestrictedData = ReferenceDataset::query()->where('created_by', $target->id)->exists()
                 || ConsentText::query()->where('created_by', $target->id)->exists()
-                || SkImport::query()->where('uploaded_by', $target->id)->exists()
+                || SkImport::withTrashed()->where('uploaded_by', $target->id)->exists()
                 || ApplicationReview::query()->where('reviewer_id', $target->id)->exists()
                 || Application::query()->where('accepted_by', $target->id)->exists()
                 || WhatsappVerification::query()->where('verified_by', $target->id)->exists()

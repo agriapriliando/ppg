@@ -24,12 +24,12 @@
                     <div class="mb-3" x-data="{ showNew: false }">
                         <label class="form-label" for="new_password">Kata sandi baru</label>
                         <div class="input-group">
-                            <input class="form-control" id="new_password" name="password" :type="showNew ? 'text' : 'password'" type="password" autocomplete="new-password" required minlength="12" maxlength="255">
+                            <input class="form-control" id="new_password" name="password" :type="showNew ? 'text' : 'password'" type="password" autocomplete="new-password" required maxlength="255">
                             <button type="button" class="btn btn-password-toggle" @click="showNew = !showNew" :aria-label="showNew ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'" :title="showNew ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'">
                                 <i class="bi" :class="showNew ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true"></i>
                             </button>
                         </div>
-                        <div class="form-text">Minimal 12 karakter.</div>
+                        <div class="form-text">Tanpa batas minimal karakter.</div>
                     </div>
 
                     <div class="mb-4" x-data="{ showConfirm: false }">
