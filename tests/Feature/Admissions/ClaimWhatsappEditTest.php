@@ -56,13 +56,14 @@ it('rejects stale changes and numbers already used by another participant', func
     expect($claim->fresh()->whatsapp_number)->toBe('+6281234567890');
 });
 
-it('forbids applicants and operators outside the claim period from editing numbers', function () {
+it('forbids applicants from editing numbers while allowing operators without period assignment', function () {
     $c = registrationContext();
     $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
-    foreach ([$c['applicant'], User::factory()->operator()->create()] as $user) {
-        $this->actingAs($user)->put(route('claims.update-whatsapp', $claim), ['version' => 0, 'whatsapp_number' => '081355551234'])
-            ->assertForbidden();
-    }
-
+    $this->actingAs($c['applicant'])->put(route('claims.update-whatsapp', $claim), ['version' => 0, 'whatsapp_number' => '081355551234'])
+        ->assertForbidden();
     expect($claim->fresh()->whatsapp_number)->toBe('+6281234567890');
+
+    $this->actingAs(User::factory()->operator()->create())->put(route('claims.update-whatsapp', $claim), ['version' => 0, 'whatsapp_number' => '081355551234'])
+        ->assertRedirect()->assertSessionHasNoErrors();
+    expect($claim->fresh()->whatsapp_number)->toBe('+6281355551234');
 });

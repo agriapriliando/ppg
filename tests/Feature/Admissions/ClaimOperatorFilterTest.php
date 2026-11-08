@@ -77,7 +77,21 @@ it('loads the operator filter from its URL parameter', function () {
         ->test('pages::portal.claims')->assertSet('operatorId', 'unassigned')->assertSee($claim->submitted_name);
 });
 
-it('does not expand operator access when filtering by another operator', function () {
+it('searches by linked login ID while retaining the status filter', function () {
+    $c = registrationContext();
+    $owner = User::factory()->create(['login_id' => 'agri.uji']);
+    $target = operatorFilterClaim($c, 1);
+    $target->forceFill(['requester_user_id' => $owner->id])->save();
+    $other = operatorFilterClaim($c, 2);
+
+    Livewire::actingAs($c['operator'])->test('pages::portal.claims')
+        ->set('search', 'agri.uji')->assertSee($target->submitted_name)->assertDontSee($other->submitted_name)
+        ->set('status', 'needs_information')->assertDontSee($target->submitted_name)
+        ->set('status', 'pending')->assertSee($target->submitted_name)
+        ->set('search', '')->assertSee($other->submitted_name);
+});
+
+it('lets operators see all claims and filter other operators or unassigned claims', function () {
     $c = registrationContext();
     $own = operatorFilterClaim($c, 1, $c['participant']->id);
     $other = User::factory()->operator()->create();
@@ -85,7 +99,7 @@ it('does not expand operator access when filtering by another operator', functio
     $unassigned = operatorFilterClaim($c, 3);
 
     Livewire::actingAs($c['operator'])->test('pages::portal.claims')
-        ->assertSee($own->submitted_name)->assertDontSee($hidden->submitted_name)->assertDontSee($unassigned->submitted_name)
-        ->set('operatorId', (string) $other->id)->assertDontSee($hidden->submitted_name)
-        ->set('operatorId', 'unassigned')->assertDontSee($unassigned->submitted_name);
+        ->assertSee($own->submitted_name)->assertSee($hidden->submitted_name)->assertSee($unassigned->submitted_name)
+        ->set('operatorId', (string) $other->id)->assertSee($hidden->submitted_name)->assertDontSee($own->submitted_name)
+        ->set('operatorId', 'unassigned')->assertSee($unassigned->submitted_name)->assertDontSee($hidden->submitted_name);
 });

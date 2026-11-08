@@ -8,6 +8,7 @@ use App\Models\SkClaim;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -81,24 +82,15 @@ new #[Title('Klaim & WhatsApp')] class extends Component
 
     public function mount(): void
     {
-        $user = auth()->user();
-        abort_unless($user !== null && in_array($user->role, [UserRole::Operator, UserRole::Administrator], true), 403);
+        Gate::authorize('viewAny', SkClaim::class);
     }
 
     /** @return LengthAwarePaginator<SkClaim> */
     public function getClaimsProperty(): LengthAwarePaginator
     {
-        $actor = auth()->user();
-        abort_unless($actor !== null, 403);
+        Gate::authorize('viewAny', SkClaim::class);
 
-        $claims = SkClaim::query()->with(['period', 'candidate.assignedOperator', 'reviewOwner']);
-
-        if (! $actor->isAdministrator()) {
-            $claims->where(function ($query) use ($actor): void {
-                $query->whereHas('candidate', fn ($candidate) => $candidate->visibleTo($actor))
-                    ->orWhere(fn ($unmatched) => $unmatched->whereNull('candidate_sk_participant_id')->where('review_owner_id', $actor->id)->whereExists(fn ($membership) => $membership->selectRaw('1')->from('period_operators')->whereColumn('period_operators.admission_period_id', 'sk_claims.admission_period_id')->where('period_operators.user_id', $actor->id)->where('is_active', true)));
-            });
-        }
+        $claims = SkClaim::query()->with(['period', 'candidate.assignedOperator', 'reviewOwner', 'requester:id,login_id']);
 
         $search = trim($this->search);
         if ($search !== '') {
@@ -106,7 +98,8 @@ new #[Title('Klaim & WhatsApp')] class extends Component
                 $query->where('submitted_name', 'like', "%{$search}%")
                     ->orWhere('whatsapp_number', 'like', "%{$search}%")
                     ->orWhere('submitted_identifier', 'like', "%{$search}%")
-                    ->orWhere('public_reference', 'like', "%{$search}%");
+                    ->orWhere('public_reference', 'like', "%{$search}%")
+                    ->orWhereHas('requester', fn ($requester) => $requester->where('login_id', 'like', "%{$search}%"));
             });
         }
 
@@ -165,7 +158,7 @@ new #[Title('Klaim & WhatsApp')] class extends Component
     <section class="workspace-card">
         <div class="panel-heading d-flex flex-wrap align-items-center justify-content-between gap-3 pb-3 border-bottom">
             <div>
-                <h2 class="h5 mb-1 fw-bold text-purple">Daftar Klaim & Akses WhatsApp</h2>
+                <h2 class="h5 mb-1 fw-bold text-purple">Akun Peserta</h2>
                 <p class="text-muted small mb-0">Kelola pengajuan klaim akun dan verifikasi kepemilikan nomor WhatsApp calon mahasiswa.</p>
             </div>
             <div>
@@ -183,9 +176,9 @@ new #[Title('Klaim & WhatsApp')] class extends Component
                         <i class="bi bi-info-circle-fill text-primary fs-5"></i>
                         <span class="small">Belum ada periode pendaftaran aktif. Permohonan klaim akun calon mahasiswa akan masuk saat periode pendaftaran dibuka.</span>
                     </div>
-                    @if(auth()->user()?->isAdministrator())
+                    @can('viewAny', AdmissionPeriod::class)
                         <a href="{{ route('admin.periods') }}" class="btn btn-sm btn-purple">Kelola Periode</a>
-                    @endif
+                    @endcan
                 </div>
             @endif
 
@@ -194,7 +187,7 @@ new #[Title('Klaim & WhatsApp')] class extends Component
                     <label for="claim-search" class="form-label">Pencarian klaim</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
-                        <input id="claim-search" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Cari nama, nomor WA, atau referensi…" maxlength="100">
+                        <input id="claim-search" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Cari nama, ID login, atau nomor WA…" maxlength="100">
                     </div>
                 </div>
                 <div class="col-sm-6 col-lg-3">
@@ -265,6 +258,7 @@ new #[Title('Klaim & WhatsApp')] class extends Component
                             <td>
                                 <strong>{{ $claim->submitted_name }}</strong>
                                 <small class="d-block text-purple fw-semibold">Peg ID: {{ $claim->submitted_identifier ?: ($claim->candidate?->official_participant_id ?: 'Belum diisi') }}</small>
+                                <small class="d-block text-muted">ID login: <span class="fw-semibold">{{ $claim->requester?->login_id ?: 'Belum tersedia' }}</span></small>
                                 <small class="d-block text-muted">Ref: {{ $claim->public_reference }} · WA: {{ $claim->whatsapp_number }}</small>
                                 <small class="d-block text-muted">{{ $claim->period->name }}</small>
                             </td>
@@ -301,7 +295,7 @@ new #[Title('Klaim & WhatsApp')] class extends Component
                             <td>
                                 <div class="d-inline-flex align-items-center gap-1">
                                     <a class="btn btn-sm btn-outline-purple" href="{{ route('claims.show', $claim) }}">Periksa</a>
-                                    @if($claim->status !== 'approved' || ($claim->access_path === 'whatsapp' && auth()->user()->isAdministrator()))
+                                    @if($claim->status !== 'approved' || $claim->access_path === 'whatsapp')
                                             <button type="button" class="btn btn-sm btn-outline-danger" title="Hapus Permohonan Klaim"
                                                 @click="deleteConfirmed = false; deletingClaim = @js(['url' => route('claims.destroy', $claim), 'name' => $claim->submitted_name, 'number' => $claim->whatsapp_number, 'period' => $claim->period->name, 'version' => $claim->lock_version, 'approved' => $claim->status === 'approved']);">
                                                 <i class="bi bi-trash" aria-hidden="true"></i> Hapus

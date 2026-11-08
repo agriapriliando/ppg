@@ -96,14 +96,16 @@ it('allows operators to delete pending claims from the claims list', function ()
 
     expect(SkClaim::query()->whereKey($claim->id)->exists())->toBeFalse();
 
-    // Pastikan klaim disetujui tidak bisa dihapus
+    // Operator juga dapat menghapus klaim WhatsApp yang telah disetujui.
     $approvedInput = claimInput($c);
     $approvedInput['request_key'] = (string) Str::uuid();
     $approvedClaim = app(SubmitSkClaim::class)->handle(null, $approvedInput);
     app(ApproveClaim::class)->handle($c['operator'], $approvedClaim, 0);
 
     $this->delete(route('claims.destroy', $approvedClaim))
-        ->assertForbidden();
+        ->assertRedirect(route('claims.index'))->assertSessionHasNoErrors();
+    $this->assertSoftDeleted($approvedClaim);
+    $this->assertDatabaseHas('applications', ['sk_participant_id' => $c['participant']->id]);
 });
 
 it('allows operators to access and perform whatsapp recovery when old number is lost', function () {

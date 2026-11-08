@@ -61,15 +61,8 @@ class ClaimsController extends Controller
 
     public function index(Request $request): View
     {
-        $actor = $request->user();
-        abort_unless($actor !== null, 403);
+        Gate::authorize('viewAny', SkClaim::class);
         $claims = SkClaim::query()->with(['period', 'candidate.assignedOperator', 'reviewOwner']);
-        if (! $actor->isAdministrator()) {
-            $claims->where(function ($query) use ($actor): void {
-                $query->whereHas('candidate', fn ($candidate) => $candidate->visibleTo($actor))
-                    ->orWhere(fn ($unmatched) => $unmatched->whereNull('candidate_sk_participant_id')->where('review_owner_id', $actor->id)->whereExists(fn ($membership) => $membership->selectRaw('1')->from('period_operators')->whereColumn('period_operators.admission_period_id', 'sk_claims.admission_period_id')->where('period_operators.user_id', $actor->id)->where('is_active', true)));
-            });
-        }
 
         $search = trim((string) $request->input('search'));
         if ($search !== '') {
@@ -220,7 +213,6 @@ class ClaimsController extends Controller
             throw ValidationException::withMessages(['claim' => 'Klaim telah diproses atau berubah status. Muat ulang sebelum menghapus.']);
         }
         if ($claim->status === 'approved') {
-            abort_unless($actor->isAdministrator(), 403, 'Penghapusan akun dan klaim WhatsApp yang disetujui hanya dapat dilakukan administrator.');
             $deleter->handle($actor, $claim, (int) ($data['version'] ?? $claim->lock_version));
 
             return redirect()->route('claims.index')->with('status', 'Akses akun dan klaim WhatsApp telah dihapus. Peserta dapat mengajukan ulang; data SK, pendaftaran, biodata, dan berkas tetap tersimpan.');

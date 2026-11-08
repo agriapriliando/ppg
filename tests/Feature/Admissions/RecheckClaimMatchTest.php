@@ -99,13 +99,14 @@ it('blocks rechecking archived periods and closed claim statuses', function (str
     $this->assertDatabaseHas('sk_claims', ['id' => $claim->id, 'candidate_sk_participant_id' => null, 'lock_version' => 0]);
 })->with(['archived', 'approved', 'cancelled', 'declined']);
 
-it('denies rechecking by operators outside the claim period', function () {
+it('allows active operators to recheck unmatched claims without period assignment', function () {
     $c = registrationContext();
     $claim = unmatchedClaimForRecheck($c);
     prepareMatchingParticipant($c);
     $other = User::factory()->operator()->create();
 
-    Livewire::actingAs($other)->test('pages::portal.claims')->call('recheckMatch', $claim->id, 0)->assertForbidden();
+    Livewire::actingAs($other)->test('pages::portal.claims')->assertSee('Cek Kesesuaian')
+        ->call('recheckMatch', $claim->id, 0)->assertHasNoErrors()->assertSet('matchResult', 'matched');
 
-    $this->assertDatabaseHas('sk_claims', ['id' => $claim->id, 'candidate_sk_participant_id' => null, 'lock_version' => 0]);
+    $this->assertDatabaseHas('sk_claims', ['id' => $claim->id, 'candidate_sk_participant_id' => $c['participant']->id, 'lock_version' => 1]);
 });

@@ -47,7 +47,7 @@ it('cancels only an unapproved own claim with a current version and explicit con
     $this->assertDatabaseCount('applications', 0);
 });
 
-it('delegates ambiguous claims to an active period operator and removes scope after membership is disabled', function () {
+it('delegates ambiguous claims while retaining staff access after period membership is disabled', function () {
     $c = registrationContext();
     $input = claimInput($c);
     $input['name'] = 'Nama Ambigu yang Belum Cocok';
@@ -61,8 +61,8 @@ it('delegates ambiguous claims to an active period operator and removes scope af
     $this->actingAs($c['applicant'])->post(route('claims.delegate', $claim), ['version' => 2, 'operator_id' => $c['operator']->id, 'reason' => 'Pendaftar tidak berhak mendelegasikan.'])->assertForbidden();
     $this->actingAs($c['operator']);
     PeriodOperator::query()->where('admission_period_id', $c['period']->id)->where('user_id', $c['operator']->id)->update(['is_active' => false]);
-    $this->get(route('claims.index'))->assertOk()->assertDontSee($input['name']);
-    $this->get(route('claims.show', $claim))->assertNotFound();
+    $this->get(route('claims.index'))->assertOk()->assertSee($input['name']);
+    $this->get(route('claims.show', $claim))->assertOk();
 });
 
 it('rejects delegation to outsiders and stale or already matched claims', function () {

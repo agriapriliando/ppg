@@ -74,10 +74,10 @@ it('removes WhatsApp account access and claim while retaining registration files
     $this->assertAuthenticatedAs($owner);
 })->with([[ApplicationStatus::Submitted, '081234567890'], [ApplicationStatus::Accepted, '081288888888']]);
 
-it('rejects stale claim versions and operators outside the claim period', function () {
+it('rejects stale claim versions and deletion by applicants', function () {
     $c = registrationContext();
     $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
-    $this->actingAs(User::factory()->operator()->create())->delete(route('claims.destroy', $claim))->assertForbidden();
+    $this->actingAs(User::factory()->create())->delete(route('claims.destroy', $claim))->assertForbidden();
     $claim->increment('lock_version');
     $this->actingAs($c['admin'])->delete(route('claims.destroy', $claim), ['version' => 0])->assertSessionHasErrors('claim');
     $this->assertDatabaseHas('sk_claims', ['id' => $claim->id]);

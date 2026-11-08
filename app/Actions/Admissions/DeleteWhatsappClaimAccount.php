@@ -12,6 +12,7 @@ use App\Models\SkClaim;
 use App\Models\SkParticipant;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -21,10 +22,11 @@ class DeleteWhatsappClaimAccount
 
     public function handle(User $actor, SkClaim $claim, int $version): void
     {
-        abort_unless($actor->isAdministrator(), 403);
+        Gate::forUser($actor)->authorize('review', $claim);
         DB::transaction(function () use ($actor, $claim, $version): void {
             $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($claim->admission_period_id);
             $locked = SkClaim::query()->lockForUpdate()->findOrFail($claim->id);
+            Gate::forUser($actor)->authorize('review', $locked);
             if ($locked->status !== 'approved' || $locked->access_path !== 'whatsapp' || $locked->lock_version !== $version) {
                 throw ValidationException::withMessages(['claim' => 'Klaim telah berubah atau bukan klaim WhatsApp yang disetujui. Muat ulang sebelum menghapus.']);
             }
