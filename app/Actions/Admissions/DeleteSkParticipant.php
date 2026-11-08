@@ -18,7 +18,7 @@ use Throwable;
 
 class DeleteSkParticipant
 {
-    public function __construct(private RecordAudit $audit) {}
+    public function __construct(private RecordAudit $audit, private DeleteUnlinkedApplicantAccount $deleteAccount) {}
 
     /** Returns the number of physical file deletions awaiting retry. */
     public function handle(User $actor, SkParticipant $participant, int $version): int
@@ -32,7 +32,11 @@ class DeleteSkParticipant
                 throw ValidationException::withMessages(['deletion' => 'Data peserta telah berubah. Tutup konfirmasi dan muat ulang sebelum menghapus.']);
             }
             $application = Application::query()->where('sk_participant_id', $locked->id)->lockForUpdate()->first();
-            $claims = DB::table('sk_claims')->where('candidate_sk_participant_id', $locked->id)->lockForUpdate()->pluck('id');
+            $claimRecords = DB::table('sk_claims')->where('candidate_sk_participant_id', $locked->id)->lockForUpdate()->get(['id', 'requester_user_id']);
+            $claims = $claimRecords->pluck('id');
+            $accountIds = collect([$locked->claimed_user_id, $application?->user_id])
+                ->merge($claimRecords->pluck('requester_user_id'))->filter()->unique()->sort()->values();
+            User::query()->whereIn('id', $accountIds)->orderBy('id')->lockForUpdate()->get();
             $workspaceIds = collect();
             if ($application !== null) {
                 $transfers = DB::table('application_ownership_transfers')->where('application_id', $application->id)->get();
@@ -40,6 +44,17 @@ class DeleteSkParticipant
                 // A previous owner may now use their workspace for a different participant.
                 $workspaceIds = $workspaceIds->reject(fn ($id) => Application::query()->where('workspace_id', $id)->where('id', '!=', $application->id)->exists()
                     || DB::table('application_ownership_transfers')->where('application_id', '!=', $application->id)->where(fn ($query) => $query->where('old_workspace_id', $id)->orWhere('new_workspace_id', $id))->exists());
+            }
+            $workspaceIds = $workspaceIds->merge(ApplicantWorkspace::query()->whereIn('user_id', $accountIds)
+                ->where('admission_period_id', $period->id)->pluck('id'))->unique();
+            if (Application::query()->whereIn('workspace_id', $workspaceIds)
+                ->when($application !== null, fn ($query) => $query->where('id', '!=', $application->id))->exists()) {
+                throw ValidationException::withMessages(['deletion' => 'Akun masih memiliki pendaftaran peserta lain. Seluruh penghapusan dibatalkan.']);
+            }
+            if (DB::table('application_ownership_transfers')
+                ->when($application !== null, fn ($query) => $query->where('application_id', '!=', $application->id))
+                ->where(fn ($query) => $query->whereIn('old_workspace_id', $workspaceIds)->orWhereIn('new_workspace_id', $workspaceIds))->exists()) {
+                throw ValidationException::withMessages(['deletion' => 'Biodata akun masih terhubung dengan riwayat kepemilikan peserta lain. Seluruh penghapusan dibatalkan.']);
             }
             ApplicantWorkspace::query()->whereIn('id', $workspaceIds)->orderBy('id')->lockForUpdate()->get();
             $documents = ApplicantDocument::query()->whereIn('workspace_id', $workspaceIds)->lockForUpdate()->get();
@@ -72,6 +87,9 @@ class DeleteSkParticipant
                 'period_id' => $period->id, 'documents_count' => $documents->count(), 'application_id' => $application?->id,
             ]);
             $locked->delete();
+            foreach ($accountIds as $accountId) {
+                $this->deleteAccount->handle($actor, (int) $accountId);
+            }
             $period->increment('lock_version');
 
             return $tasks;

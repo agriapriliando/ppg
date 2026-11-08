@@ -77,7 +77,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
         $pending = $deleter->handle(auth()->user(), SkParticipant::findOrFail($this->deletingId), $this->deletingVersion);
         $this->reset('showDelete', 'deleteConfirmed', 'deletingId', 'deletingVersion', 'deletingName', 'deletingPeriod', 'deletingPegId');
         $this->resetPage();
-        $this->message = $pending === 0 ? 'Peserta SK, data pendaftaran, dan berkas terkait berhasil dihapus.' : "Peserta SK dan data pendaftaran telah dihapus. {$pending} berkas masih menunggu penghapusan fisik dan akan dicoba ulang otomatis.";
+        $this->message = $pending === 0 ? 'Peserta SK, akun login, data pendaftaran, dan berkas terkait berhasil dihapus.' : "Peserta SK, akun login, dan data pendaftaran telah dihapus. {$pending} berkas masih menunggu penghapusan fisik dan akan dicoba ulang otomatis.";
     }
     public function openCreate(): void
     {
@@ -402,9 +402,9 @@ new #[Title('Daftar Peserta SK')] class extends Component
                         <dt>Peg ID</dt><dd>{{ $deletingPegId }}</dd>
                         <dt>Periode</dt><dd class="mb-0">{{ $deletingPeriod }}</dd>
                     </dl>
-                    <div class="alert alert-danger">Penghapusan permanen akan menghapus peserta SK, klaim terkait, biodata, pendaftaran beserta riwayatnya, dan berkas terkait termasuk file yang telah dikirim. Data tidak dapat dipulihkan melalui aplikasi.</div>
-                    <p>Akun login tetap tersedia karena dapat digunakan pada periode lain. Data peserta lain tetap tersimpan.</p>
-                    <label class="d-flex gap-2 align-items-start"><input type="checkbox" class="form-check-input flex-shrink-0" wire:model="deleteConfirmed"><span>Saya memahami dan menyetujui penghapusan peserta beserta data dan berkas terkait.</span></label>
+                    <div class="alert alert-danger">Penghapusan permanen akan menghapus peserta SK, akun login yang terhubung, sesi dan akses akun, klaim terkait, biodata, pendaftaran beserta riwayatnya, serta seluruh berkas terkait termasuk file yang telah dikirim. ID login dan email akun yang dihapus dapat digunakan kembali. Data tidak dapat dipulihkan melalui aplikasi.</div>
+                    <p>Jika akun masih digunakan di periode lain atau terhubung dengan data peserta lain, seluruh penghapusan dibatalkan. Catatan audit penghapusan tetap disimpan.</p>
+                    <label class="d-flex gap-2 align-items-start"><input type="checkbox" class="form-check-input flex-shrink-0" wire:model="deleteConfirmed"><span>Saya memahami dan menyetujui penghapusan permanen peserta, akun login, seluruh data, dan berkas terkait.</span></label>
                     @error('deleteConfirmed')<div class="text-danger mt-2" role="alert">{{ $message }}</div>@enderror
                     @error('deletion')<div class="text-danger mt-2" role="alert">{{ $message }}</div>@enderror
                 </div>

@@ -46,7 +46,7 @@
                     <div class="col-md-5">
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
-                            <input type="text" name="search" class="form-control" placeholder="Cari nama, ID login, atau email..." value="{{ $search }}">
+                            <input type="text" name="search" class="form-control" placeholder="Cari nama, ID login, email, atau ID akun..." value="{{ $search }}">
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -218,6 +218,37 @@
                 </div>
             @endif
         </section>
+
+        @if($search !== '')
+            <section class="workspace-card mb-4" aria-label="Hasil pencarian akun Pendaftar">
+                <div class="panel-heading">
+                    <h2 class="h5 mb-1">Akun Pendaftar yang Cocok</h2>
+                    <p class="mb-0">Pencarian ini mencakup seluruh status akun Pendaftar, terpisah dari daftar pengelola di atas.</p>
+                </div>
+                <div class="panel-body">
+                    <p class="small text-muted">ID login akun Pendaftar juga tidak dapat digunakan ulang untuk Operator. Jumlah permohonan di bawah mencakup riwayat yang sudah dihapus dari daftar.</p>
+                    @if($hasMoreApplicants)<p class="small text-muted">Menampilkan 20 hasil pertama. Gunakan kata kunci yang lebih spesifik.</p>@endif
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead><tr><th>ID Akun</th><th>Nama / Email</th><th>ID Login</th><th>Peran / Status</th><th>Keterkaitan Data</th></tr></thead>
+                            <tbody>
+                                @forelse($applicantMatches as $account)
+                                    <tr>
+                                        <td>#{{ $account->id }}</td>
+                                        <td class="text-break"><strong>{{ $account->name }}</strong><small class="d-block text-muted">{{ $account->email ?? 'Email belum diisi' }}</small></td>
+                                        <td class="text-break"><code>{{ $account->login_id ?? 'Belum tersedia' }}</code></td>
+                                        <td>{{ $account->role->label() }}<span class="d-block small text-muted">{{ $account->account_state->label() }}</span></td>
+                                        <td class="small">Permohonan: {{ $account->getAttribute('linked_claims_count') }}<br>Peserta SK: {{ $account->getAttribute('linked_participants_count') }}<br>Pendaftaran: {{ $account->getAttribute('linked_applications_count') }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="5" class="text-center text-muted py-3">Tidak ada akun Pendaftar yang cocok dengan pencarian.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        @endif
 
         <!-- ========================================== -->
         <!-- MODAL POP UP: TAMBAH PENGELOLA             -->

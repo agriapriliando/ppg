@@ -21,6 +21,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 require_once __DIR__.'/../../Fixtures/registration.php';
 
@@ -221,7 +222,7 @@ it('blocks schema rollback after a transfer so historical privacy boundaries can
     expect($c['application']->fresh()->ownership_epoch)->toBe(1);
 });
 
-it('deletes transferred participant files while protecting a former workspace reused by another participant', function (bool $reused) {
+it('deletes transferred participant data only when related accounts are not reused by another participant', function (bool $reused) {
     Storage::fake('local');
     $c = ownershipContext(true);
     $oldWorkspace = $c['application']->workspace;
@@ -236,16 +237,22 @@ it('deletes transferred participant files while protecting a former workspace re
         $otherApplication->forceFill(['sk_participant_id' => $otherParticipant->id, 'user_id' => $c['applicant']->id, 'workspace_id' => $oldWorkspace->id, 'application_number' => 'OTHER-APPLICATION'])->save();
     }
 
+    if ($reused) {
+        expect(fn () => app(DeleteSkParticipant::class)->handle($c['admin'], $c['participant']->fresh(), $c['participant']->fresh()->lock_version))
+            ->toThrow(ValidationException::class);
+        $this->assertDatabaseHas('sk_participants', ['id' => $c['participant']->id]);
+        $this->assertDatabaseHas('applications', ['id' => $otherApplication->id]);
+        $this->assertDatabaseHas('applicant_workspaces', ['id' => $oldWorkspace->id]);
+        $this->assertDatabaseCount('application_ownership_transfers', 1);
+        Storage::disk('local')->assertExists($oldFile->object_key);
+        Storage::disk('local')->assertExists($newFile->object_key);
+
+        return;
+    }
     expect(app(DeleteSkParticipant::class)->handle($c['admin'], $c['participant']->fresh(), $c['participant']->fresh()->lock_version))->toBe(0);
     $this->assertDatabaseCount('application_ownership_transfers', 0);
     $this->assertDatabaseMissing('sk_participants', ['id' => $c['participant']->id]);
     Storage::disk('local')->assertMissing($newFile->object_key);
-    if ($reused) {
-        $this->assertDatabaseHas('applications', ['id' => $otherApplication->id]);
-        $this->assertDatabaseHas('applicant_workspaces', ['id' => $oldWorkspace->id]);
-        Storage::disk('local')->assertExists($oldFile->object_key);
-    } else {
-        $this->assertDatabaseMissing('applicant_workspaces', ['id' => $oldWorkspace->id]);
-        Storage::disk('local')->assertMissing($oldFile->object_key);
-    }
+    $this->assertDatabaseMissing('applicant_workspaces', ['id' => $oldWorkspace->id]);
+    Storage::disk('local')->assertMissing($oldFile->object_key);
 })->with([false, true]);

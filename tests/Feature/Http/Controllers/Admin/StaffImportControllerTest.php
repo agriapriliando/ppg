@@ -145,10 +145,10 @@ it('rejects existing login IDs and emails during preview', function () {
     $this->assertDatabaseCount('users', 1);
 });
 
-it('identifies the conflicting applicant account even when it is absent from staff and WhatsApp claims', function (string $state, string $label) {
+it('identifies the conflicting applicant account separately from staff and WhatsApp claims', function (string $state, string $label) {
     $admin = User::factory()->administrator()->create();
     $owner = User::factory()->create(['name' => 'Akun Pendaftar Pemilik ID', 'login_id' => 'agri', 'account_state' => $state]);
-    $this->actingAs($admin)->get(route('admin.users', ['search' => 'agri']))->assertOk()->assertDontSee($owner->name);
+    $this->actingAs($admin)->get(route('admin.users', ['search' => 'agri']))->assertOk()->assertSee('Akun Pendaftar yang Cocok')->assertSee($owner->name);
     $this->assertDatabaseCount('sk_claims', 0);
 
     $preview = $this->post(route('admin.users.import.preview'), ['file' => staffWorkbook([

@@ -37,13 +37,13 @@ class StaffController extends Controller
         $status = $request->input('status');
 
         $query = User::query()->whereIn('role', [UserRole::Administrator, UserRole::Operator]);
+        $accountSearch = fn ($q) => $q->where('name', 'like', "%{$search}%")
+            ->orWhere('login_id', 'like', "%{$search}%")
+            ->orWhere('email', 'like', "%{$search}%")
+            ->when(ctype_digit($search), fn ($ids) => $ids->orWhere('id', (int) $search));
 
         if ($search !== '') {
-            $query->where(function ($q) use ($search): void {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('login_id', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
-            });
+            $query->where($accountSearch);
         }
 
         if (! empty($role) && in_array($role, [UserRole::Administrator->value, UserRole::Operator->value], true)) {
@@ -54,11 +54,20 @@ class StaffController extends Controller
             $query->where('account_state', $status);
         }
 
+        $applicantMatches = $search === '' ? collect() : User::query()->where('role', UserRole::Applicant)->where($accountSearch)
+            ->select(['id', 'name', 'login_id', 'email', 'role', 'account_state'])
+            ->selectSub(SkClaim::withTrashed()->selectRaw('count(*)')->whereColumn('requester_user_id', 'users.id'), 'linked_claims_count')
+            ->selectSub(SkParticipant::query()->selectRaw('count(*)')->whereColumn('claimed_user_id', 'users.id'), 'linked_participants_count')
+            ->selectSub(Application::query()->selectRaw('count(*)')->whereColumn('user_id', 'users.id'), 'linked_applications_count')
+            ->orderBy('name')->orderBy('id')->limit(21)->get();
+
         return view('admin.users', [
             'users' => $query->orderBy('name')->orderBy('id')->paginate(20)->withQueryString(),
             'search' => $search,
             'role' => $role,
             'status' => $status,
+            'applicantMatches' => $applicantMatches->take(20),
+            'hasMoreApplicants' => $applicantMatches->count() > 20,
         ]);
     }
 
