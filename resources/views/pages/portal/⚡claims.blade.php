@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Admissions\RecheckClaimMatch;
 use App\Enums\AccountState;
 use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
@@ -30,6 +31,25 @@ new #[Title('Klaim & WhatsApp')] class extends Component
 
     #[Url(as: 'per_page', except: 25)]
     public int $perPage = 25;
+
+    public string $matchMessage = '';
+    public string $matchResult = '';
+
+    public function recheckMatch(int $claimId, int $version, RecheckClaimMatch $recheck): void
+    {
+        $this->resetValidation('match');
+        $this->reset('matchMessage', 'matchResult');
+        $claim = SkClaim::query()->findOrFail($claimId);
+        $this->matchResult = $recheck->handle(auth()->user(), $claim, $version);
+        if ($this->matchResult === 'matched') {
+            $this->resetPage();
+        }
+        $this->matchMessage = match ($this->matchResult) {
+            'matched' => 'Kandidat ditemukan dan berhasil dicocokkan untuk '.$claim->submitted_name.'. Buka Periksa untuk melanjutkan pemeriksaan akun.',
+            'ambiguous' => 'Ditemukan lebih dari satu peserta SK yang sesuai untuk '.$claim->submitted_name.'. Buka Periksa dan pilih kandidat secara manual.',
+            default => 'Belum ditemukan peserta SK yang sesuai untuk '.$claim->submitted_name.'. Periksa nama, Peg ID, periode, dan kelayakan peserta melalui tombol Periksa.',
+        };
+    }
 
     public function updatedSearch(): void
     {
@@ -125,6 +145,10 @@ new #[Title('Klaim & WhatsApp')] class extends Component
 ?>
 
 <div x-data="{ showGuide: false, deletingClaim: null, deleteConfirmed: false, deleting: false }">
+    @if($matchMessage)
+        <div class="alert alert-{{ $matchResult === 'matched' ? 'success' : 'warning' }}" role="status">{{ $matchMessage }}</div>
+    @endif
+    <x-field-error name="match" />
     <div class="notice-box info">
         <i class="bi bi-whatsapp" aria-hidden="true"></i>
         <p class="mb-0">Periksa identitas dan kepesertaan sebelum menyetujui klaim. Bukti balasan WhatsApp dan penyerahan akses dicatat secara terpisah.</p>
@@ -263,6 +287,15 @@ new #[Title('Klaim & WhatsApp')] class extends Component
                                 @else
                                     <span class="text-muted">Nama belum cocok</span>
                                     <small class="d-block text-muted">Triase: {{ $claim->reviewOwner?->name ?? 'Administrator' }}</small>
+                                    @if(in_array($claim->status, ['pending', 'needs_information'], true) && $claim->period->state !== \App\Enums\PeriodState::Archived)
+                                        @can('review', $claim)
+                                            <button type="button" class="btn btn-sm btn-outline-purple mt-2"
+                                                wire:click="recheckMatch({{ $claim->id }}, {{ $claim->lock_version }})" wire:loading.attr="disabled" wire:target="recheckMatch">
+                                                <span wire:loading.remove wire:target="recheckMatch({{ $claim->id }}, {{ $claim->lock_version }})"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Cek Kesesuaian</span>
+                                                <span wire:loading wire:target="recheckMatch({{ $claim->id }}, {{ $claim->lock_version }})"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Memeriksa…</span>
+                                            </button>
+                                        @endcan
+                                    @endif
                                 @endif
                             </td>
                             <td>
