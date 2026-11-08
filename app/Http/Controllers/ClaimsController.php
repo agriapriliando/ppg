@@ -7,6 +7,7 @@ use App\Actions\Admissions\CancelClaimApproval;
 use App\Actions\Admissions\DeleteWhatsappClaimAccount;
 use App\Actions\Admissions\IssueClaimCredentials;
 use App\Actions\Admissions\SubmitSkClaim;
+use App\Actions\Admissions\UpdateClaimLoginId;
 use App\Actions\Admissions\UpdateClaimWhatsapp;
 use App\Actions\RecordAudit;
 use App\Enums\AccountState;
@@ -136,6 +137,39 @@ class ClaimsController extends Controller
         $update->handle($request->user(), $claim, (int) $data['version'], $data['whatsapp_number']);
 
         return redirect()->route('claims.show', $claim)->with('status', 'Nomor permohonan dan tujuan pengiriman akun berhasil diperbarui.');
+    }
+
+    public function updateLoginId(Request $request, SkClaim $claim, UpdateClaimLoginId $update): RedirectResponse
+    {
+        Gate::authorize('review', $claim);
+        abort_unless($claim->requester_user_id !== null, 404);
+
+        $request->merge([
+            'login_id' => $request->filled('login_id') ? mb_strtolower(trim($request->string('login_id')->toString())) : null,
+        ]);
+
+        $data = $request->validate([
+            'version' => ['required', 'integer', 'min:0'],
+            'login_id' => [
+                'required',
+                'string',
+                'regex:/^[a-z0-9._-]+$/',
+                'max:64',
+                Rule::unique('users', 'login_id')->ignore($claim->requester_user_id),
+            ],
+        ], [
+            'login_id.required' => 'ID login wajib diisi.',
+            'login_id.regex' => 'ID login hanya boleh berisi huruf kecil, angka, titik, garis bawah, dan tanda hubung.',
+            'login_id.unique' => 'ID login sudah digunakan akun lain.',
+            'login_id.max' => 'ID login maksimal 64 karakter.',
+        ]);
+
+        $actor = $request->user();
+        abort_unless($actor !== null, 403);
+
+        $update->handle($actor, $claim, (int) $data['version'], $data['login_id']);
+
+        return redirect()->route('claims.show', $claim)->with('status', 'ID login berhasil diperbarui.');
     }
 
     public function cancelApproval(Request $request, SkClaim $claim, CancelClaimApproval $cancelApproval): RedirectResponse

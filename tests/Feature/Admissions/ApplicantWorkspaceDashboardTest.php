@@ -104,13 +104,13 @@ it('preserves operator and administrator sidebar menus and metric summary', func
     $responseAdmin = $this->actingAs($c['admin'])->get(route('dashboard'));
     $responseAdmin->assertOk()
         ->assertSee('Peserta SK')
-        ->assertSee('Klaim & WhatsApp', false)
+        ->assertSee('Akun WhatsApp', false)
         ->assertSee('Antrean Verifikasi')
         ->assertSee('Periode & Gelombang', false);
 
     $responseOperator = $this->actingAs($c['operator'])->get(route('dashboard'));
     $responseOperator->assertOk()
         ->assertSee('Peserta SK')
-        ->assertSee('Klaim & WhatsApp', false)
+        ->assertSee('Akun WhatsApp', false)
         ->assertSee('Antrean Verifikasi');
 });

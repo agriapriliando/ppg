@@ -14,6 +14,7 @@
             . "Terima Kasih.";
 
         $waUrl = !empty($waNumber) ? 'https://wa.me/' . $waNumber . '?text=' . rawurlencode($waMessage) : null;
+        $isStaff = $isStaff ?? (auth()->user()?->isAdministrator() || auth()->user()?->role === \App\Enums\UserRole::Operator);
     @endphp
 
     <section class="workspace-card mb-4">
@@ -26,7 +27,34 @@
         </div>
         <div class="panel-body">
             <dl class="detail-list">
-                <dt>ID login</dt><dd><code>{{ $user->login_id }}</code></dd>
+                <dt>ID login</dt>
+                <dd x-data="{ editingLoginId: @js($errors->has('login_id')) }">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <code>{{ $user->login_id }}</code>
+                        @if($isStaff && $claim->status !== 'cancelled' && $claim->period->state !== \App\Enums\PeriodState::Archived)
+                            <button type="button" class="btn btn-sm btn-outline-purple" @click="editingLoginId = !editingLoginId" :aria-expanded="editingLoginId" aria-controls="edit-claim-login-id">
+                                <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Edit ID login
+                            </button>
+                        @endif
+                    </div>
+                    @if($isStaff && $claim->status !== 'cancelled' && $claim->period->state !== \App\Enums\PeriodState::Archived)
+                        <form id="edit-claim-login-id" x-cloak x-show="editingLoginId" class="mt-3 p-3 border rounded-3 bg-light" method="post" action="{{ route('claims.update-login-id', $claim) }}">
+                            @csrf
+                            @method('put')
+                            <input type="hidden" name="version" value="{{ $claim->lock_version }}">
+                            <label for="claim-login-id-input" class="form-label">ID Login Baru</label>
+                            <input id="claim-login-id-input" type="text" class="form-control" name="login_id" value="{{ \App\Support\FormInput::old('login_id', $user->login_id) }}"
+                                required maxlength="64" pattern="[a-z0-9._-]+" placeholder="contoh: budi.santoso"
+                                @input="let val = $el.value.toLowerCase().trim(); $el.value = val;">
+                            <div class="form-text">Hanya boleh berisi huruf kecil, angka, titik, garis bawah, dan tanda hubung (maksimal 64 karakter).</div>
+                            <x-field-error name="login_id" />
+                            <div class="d-flex flex-column flex-sm-row gap-2 mt-3">
+                                <button class="btn btn-purple" type="submit">Simpan ID Login</button>
+                                <button class="btn btn-outline-purple" type="button" @click="editingLoginId = false">Batal</button>
+                            </div>
+                        </form>
+                    @endif
+                </dd>
                 <dt>Status akun</dt><dd>{{ $user->account_state->label() }}</dd>
                 <dt>Kata sandi</dt><dd>@if($secret !== null)<span class="d-inline-block px-3 py-2 rounded border border-warning-subtle bg-warning-subtle text-dark fw-bold fs-5 text-break">{{ $secret }}</span>@else<span class="text-muted">Kata sandi belum tersedia atau sudah tidak berlaku. Gunakan tombol di bawah untuk membuat kata sandi.</span>@endif</dd>
                 @if($issuance)
@@ -81,4 +109,3 @@
             </form>
         </div>
     </section>
-

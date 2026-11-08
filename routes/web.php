@@ -74,6 +74,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::post('/klaim/{claim}/delegasi', [ClaimFollowupController::class, 'delegate'])->name('claims.delegate');
         Route::get('/klaim/{claim}', [ClaimsController::class, 'show'])->name('claims.show');
         Route::put('/klaim/{claim}/nomor-whatsapp', [ClaimsController::class, 'updateWhatsapp'])->name('claims.update-whatsapp');
+        Route::put('/klaim/{claim}/id-login', [ClaimsController::class, 'updateLoginId'])->name('claims.update-login-id');
         Route::post('/klaim/{claim}/setujui', [ClaimsController::class, 'approve'])->name('claims.approve');
         Route::post('/klaim/{claim}/batal-setujui', [ClaimsController::class, 'cancelApproval'])->name('claims.cancel-approval');
         Route::post('/klaim/{claim}/kandidat', [ClaimsController::class, 'candidate'])->name('claims.candidate');

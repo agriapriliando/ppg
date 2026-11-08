@@ -101,10 +101,10 @@ it('does not replace a legacy pending credential when it is viewed', function ()
     $this->assertDatabaseCount('credential_issuances', 1);
 });
 
-it('does not reveal credentials to an unrelated operator', function () {
+it('does not reveal credentials to an unauthorized user', function () {
     $c = credentialViewingContext();
 
-    $this->actingAs(User::factory()->operator()->create())->post(route('credentials.issue', $c['claim']))->assertForbidden();
+    $this->actingAs(User::factory()->applicant()->create())->post(route('credentials.issue', $c['claim']))->assertForbidden();
 
     $this->assertDatabaseCount('credential_issuances', 0);
 });
@@ -141,9 +141,9 @@ it('explicitly regenerates a password while ordinary viewing keeps the replaceme
     expect($c['owner']->fresh()->must_change_password)->toBeFalse();
 });
 
-it('refuses password regeneration by an unrelated operator or for a disabled owner', function () {
+it('refuses password regeneration by an unauthorized user or for a disabled owner', function () {
     $c = credentialViewingContext();
-    $this->actingAs(User::factory()->operator()->create())->post(route('credentials.regenerate', $c['claim']))->assertForbidden();
+    $this->actingAs(User::factory()->applicant()->create())->post(route('credentials.regenerate', $c['claim']))->assertForbidden();
     $c['owner']->forceFill(['account_state' => AccountState::Disabled])->save();
 
     $this->actingAs($c['operator'])->post(route('credentials.regenerate', $c['claim']))->assertInvalid(['claim' => 'Akun dinonaktifkan']);
