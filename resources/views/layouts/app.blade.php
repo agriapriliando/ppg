@@ -30,7 +30,7 @@
             @endif
             @if(in_array(auth()->user()->role, [App\Enums\UserRole::Operator, App\Enums\UserRole::Administrator], true))
                 <a href="{{ route('participants.index') }}" @class(['active'=>request()->routeIs('participants.*')])><i class="bi bi-people" aria-hidden="true"></i>Peserta SK</a>
-                <a href="{{ route('claims.index') }}" @class(['active'=>request()->routeIs('claims.*')])><i class="bi bi-whatsapp" aria-hidden="true"></i>Klaim & WhatsApp</a>
+                <a href="{{ route('claims.index') }}" @class(['active'=>request()->routeIs('claims.*')])><i class="bi bi-whatsapp" aria-hidden="true"></i>Akun WhatsApp</a>
                 <a href="{{ route('reviews.index') }}" @class(['active'=>request()->routeIs('reviews.*')])><i class="bi bi-list-check" aria-hidden="true"></i>Antrean Verifikasi</a>
                 <a href="{{ route('admin.document-policies.uploads') }}" @class(['active'=>request()->routeIs('admin.document-policies.uploads*', 'admin.uploads*')])><i class="bi bi-files" aria-hidden="true"></i>Daftar Unggahan</a>
                 <a href="{{ route('admin.imports') }}" @class(['active'=>request()->routeIs('admin.imports*')])><i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i>Impor SK</a>
