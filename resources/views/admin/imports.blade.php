@@ -48,7 +48,7 @@
                         </div>
                         <div class="alert alert-light border mt-3 mb-0">
                             <strong class="d-block mb-2">ID Operator</strong>
-                            <p class="mb-3">Isi kolom <code>id_operator</code> dengan <strong>ID login operator</strong>, misalnya <code>operator.satu</code>. Operator harus aktif dan terdaftar pada periode tujuan. Jika dikosongkan, peserta baru belum ditugaskan dan penugasan peserta lama tetap dipertahankan.</p>
+                            <p class="mb-3">Isi kolom <code>id_operator</code> dengan <strong>ID login operator</strong>, misalnya <code>operator.satu</code>. Semua akun Operator aktif dapat digunakan pada seluruh periode tanpa pendaftaran operator per periode. Jika dikosongkan, peserta baru belum ditugaskan dan penugasan peserta lama tetap dipertahankan.</p>
                             <strong class="d-block mb-2">Kota/Kabupaten Asal dan Provinsi</strong>
                             <p class="mb-1">Gunakan template terbaru. Isi kolom <code>kode_kota_kabupaten_asal</code> dengan kode teks dari sheet <strong>Referensi_Wilayah</strong>. Provinsi ditentukan otomatis, tanpa isian kecamatan.</p>
                             <small>Kolom asal opsional. Jika belum tersedia, kosongkan; informasi asal yang sudah tersimpan tidak akan dihapus saat impor ulang.</small>

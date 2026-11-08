@@ -6,7 +6,6 @@ use App\Enums\AccountState;
 use App\Enums\PeriodState;
 use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
-use App\Models\PeriodOperator;
 use App\Models\SkParticipant;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
@@ -25,9 +24,9 @@ class PlanBulkAssignment
         }
         $ids = array_values(array_unique($operatorIds));
         sort($ids);
-        $valid = User::query()->whereIn('id', $ids)->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->where('must_change_password', false)->whereIn('id', PeriodOperator::query()->where('admission_period_id', $period->id)->where('is_active', true)->select('user_id'))->count();
+        $valid = User::query()->whereIn('id', $ids)->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->where('must_change_password', false)->count();
         if ($ids === [] || $valid !== count($ids) || ($mode === 'transfer' && (count($ids) !== 1 || $sourceId === null || in_array($sourceId, $ids, true)))) {
-            throw ValidationException::withMessages(['operators' => 'Pilih operator tujuan aktif yang terdaftar pada periode. Sumber dan tujuan transfer harus berbeda.']);
+            throw ValidationException::withMessages(['operators' => 'Pilih akun Operator tujuan yang aktif. Sumber dan tujuan transfer harus berbeda.']);
         }
         $participants = SkParticipant::query()->where('admission_period_id', $period->id)->where('roster_state', 'active')->orderBy('sk_number')->orderBy('sk_order')->orderBy('id')->get();
         $loads = [];

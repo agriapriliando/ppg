@@ -7,7 +7,6 @@ use App\Enums\AccountState;
 use App\Enums\PeriodState;
 use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
-use App\Models\PeriodOperator;
 use App\Models\SkImport;
 use App\Models\SkParticipant;
 use App\Models\User;
@@ -34,8 +33,12 @@ class CommitSkImport
             if ($period->state === PeriodState::Archived) {
                 throw ValidationException::withMessages(['import' => 'Periode yang diarsipkan tidak dapat menerima impor.']);
             }
+            $rows = $locked->rows()->orderBy('row_number')->get();
+            $operatorIds = $rows->where('result', '!=', 'identical')->pluck('normalized_payload.assigned_operator_id')->filter()->unique()->sort()->values();
+            // Lock in ID order so imports in different periods cannot race staff changes.
+            $operators = User::query()->whereIn('id', $operatorIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $origins = [];
-            foreach ($locked->rows()->orderBy('row_number')->get() as $row) {
+            foreach ($rows as $row) {
                 if ($row->result === 'identical') {
                     continue;
                 }
@@ -56,7 +59,12 @@ class CommitSkImport
                 if ($participant->exists && $participant->claimed_user_id !== null) {
                     throw ValidationException::withMessages(['import' => 'Peserta sudah terikat klaim. Perubahan harus diperiksa secara administratif.']);
                 }
-                if ($data['assigned_operator_id'] !== null && (! User::query()->whereKey($data['assigned_operator_id'])->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->exists() || ! PeriodOperator::query()->where('admission_period_id', $period->id)->where('user_id', $data['assigned_operator_id'])->where('is_active', true)->exists())) {
+                $operatorId = $data['assigned_operator_id'];
+                if ($operatorId !== null && ! is_int($operatorId)) {
+                    throw ValidationException::withMessages(['import' => 'Data operator pada pratinjau tidak valid. Unggah ulang untuk validasi terbaru.']);
+                }
+                $operator = $operators->get($operatorId);
+                if ($operatorId !== null && ($operator === null || $operator->role !== UserRole::Operator || $operator->account_state !== AccountState::Active)) {
                     throw ValidationException::withMessages(['import' => 'Operator pada pratinjau tidak lagi aktif. Unggah ulang untuk validasi terbaru.']);
                 }
                 $oldOperator = $participant->assigned_operator_id;

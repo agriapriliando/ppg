@@ -32,6 +32,7 @@ class AssignOperators
             if ($ids === [] || $operators->count() !== count($ids)) {
                 throw ValidationException::withMessages(['operators' => 'Pilih sekurangnya satu operator yang masih aktif.']);
             }
+            // Preserve the selected distribution pool without restricting other operators.
             foreach ($ids as $index => $operatorId) {
                 PeriodOperator::query()->updateOrCreate(['admission_period_id' => $period->id, 'user_id' => $operatorId], ['is_active' => true, 'sort_order' => $index]);
             }

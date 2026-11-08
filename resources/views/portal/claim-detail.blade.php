@@ -107,7 +107,7 @@
                     <section class="workspace-card mb-4">
                         <div class="panel-heading">
                             <h2>Penanggung jawab klaim</h2>
-                            <p>Klaim tanpa kandidat dapat ditriase oleh satu operator periode.</p>
+                            <p>Klaim tanpa kandidat dapat ditriase oleh satu operator aktif dari seluruh periode.</p>
                         </div>
                         <div class="panel-body">
                             <p>Saat ini: {{ $claim->reviewOwner?->name ?? 'Administrator' }}</p>
@@ -116,7 +116,7 @@
                                 <input type="hidden" name="version" value="{{ $claim->lock_version }}">
                                 <label for="claim-owner" class="form-label">Operator pemeriksa *</label>
                                 <select id="claim-owner" name="operator_id" class="form-select mb-3" required>
-                                    <option value="">Pilih operator periode</option>
+                                    <option value="">Pilih operator aktif</option>
                                     @foreach($operators as $operator)
                                         <option value="{{ $operator->id }}" @selected($claim->review_owner_id === $operator->id)>
                                             {{ $operator->name }}

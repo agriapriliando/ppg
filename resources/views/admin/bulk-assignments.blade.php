@@ -3,7 +3,7 @@
     <section class="workspace-card mb-4">
         <div class="panel-heading">
             <h2>Tinjau transfer atau penyeimbangan beban</h2>
-            <p>Daftarkan operator pada periode melalui Pembagian Operator terlebih dahulu.</p>
+            <p>Semua akun Operator aktif dapat langsung digunakan pada seluruh periode tanpa pendaftaran terpisah.</p>
         </div>
         <div class="panel-body">
             @if($periods->isEmpty())
@@ -48,7 +48,7 @@
                     </div>
                     <fieldset class="mt-4">
                         <legend class="h6">Operator tujuan *</legend>
-                        <p class="small text-muted">Pilih satu untuk transfer; satu atau lebih untuk penyeimbangan. Target wajib aktif dan terdaftar pada periode.</p>
+                        <p class="small text-muted">Pilih satu untuk transfer; satu atau lebih untuk penyeimbangan. Semua akun Operator aktif dapat dipilih pada seluruh periode.</p>
                         <div class="row g-2">
                             @foreach($activeOperators as $operator)
                                 <div class="col-md-6">

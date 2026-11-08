@@ -9,7 +9,6 @@ use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
 use App\Models\ApplicantWorkspace;
 use App\Models\OriginEducation;
-use App\Models\PeriodOperator;
 use App\Models\ReferenceDataset;
 use App\Models\ReferenceOption;
 use App\Models\ReferenceRegion;
@@ -83,14 +82,14 @@ class ParticipantsController extends Controller
 
             $operatorId = ! empty($data['assigned_operator_id']) ? (int) $data['assigned_operator_id'] : null;
             if ($operatorId !== null) {
-                $isOperatorInPeriod = PeriodOperator::query()
-                    ->where('admission_period_id', $period->id)
-                    ->where('user_id', $operatorId)
-                    ->where('is_active', true)
-                    ->exists();
+                $operator = User::query()
+                    ->whereKey($operatorId)
+                    ->where('role', UserRole::Operator)
+                    ->where('account_state', AccountState::Active)
+                    ->lockForUpdate()->first();
 
-                if (! $isOperatorInPeriod) {
-                    throw ValidationException::withMessages(['assigned_operator_id' => 'Operator yang dipilih tidak terdaftar aktif pada periode ini.']);
+                if ($operator === null) {
+                    throw ValidationException::withMessages(['assigned_operator_id' => 'Pilih akun Operator yang aktif.']);
                 }
             }
 
@@ -473,7 +472,6 @@ class ParticipantsController extends Controller
             'operators' => User::query()
                 ->where('role', 'operator')
                 ->where('account_state', 'active')
-                ->whereIn('id', PeriodOperator::query()->where('admission_period_id', $participant->admission_period_id)->where('is_active', true)->select('user_id'))
                 ->orderBy('name')
                 ->get(),
         ]);

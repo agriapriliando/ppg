@@ -11,7 +11,6 @@ use App\Models\ApplicantDocument;
 use App\Models\ApplicantWorkspace;
 use App\Models\DocumentDeletionTask;
 use App\Models\DocumentPolicyVersion;
-use App\Models\PeriodOperator;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -209,11 +208,8 @@ it('allows assigned operator to manage documents while recording actor and preve
     expect(fn () => app(UploadApplicantDocument::class)->handle($otherOperator, $workspace, $file, 'req-unauth'))
         ->toThrow(HttpException::class);
 
-    // If operator assignment is deactivated, access is immediately revoked
-    PeriodOperator::query()
-        ->where('admission_period_id', $c['period']->id)
-        ->where('user_id', $c['operator']->id)
-        ->update(['is_active' => false]);
+    // Disabling the operator account immediately revokes access in every period.
+    $c['operator']->forceFill(['account_state' => 'disabled'])->save();
 
     expect(fn () => app(RenameApplicantDocument::class)->handle($c['operator'], $renamed, 'Ubah Lagi', 1))
         ->toThrow(HttpException::class);

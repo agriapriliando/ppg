@@ -9,7 +9,6 @@ use App\Models\AdmissionPeriod;
 use App\Models\ApplicantDocument;
 use App\Models\ApplicantWorkspace;
 use App\Models\Application;
-use App\Models\PeriodOperator;
 use App\Models\User;
 
 class ApplicantDocumentPolicy
@@ -88,16 +87,6 @@ class ApplicantDocumentPolicy
 
         // Operator access:
         if ($user->role === UserRole::Operator) {
-            $isActiveInPeriod = PeriodOperator::query()
-                ->where('admission_period_id', $workspace->admission_period_id)
-                ->where('user_id', $user->id)
-                ->where('is_active', true)
-                ->exists();
-
-            if (! $isActiveInPeriod) {
-                return false;
-            }
-
             if (! $isModify) {
                 return true;
             }

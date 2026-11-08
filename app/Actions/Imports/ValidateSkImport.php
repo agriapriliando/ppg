@@ -5,7 +5,6 @@ namespace App\Actions\Imports;
 use App\Enums\AccountState;
 use App\Enums\UserRole;
 use App\Exceptions\InvalidSkImportWorkbook;
-use App\Models\PeriodOperator;
 use App\Models\SkImport;
 use App\Models\SkParticipant;
 use App\Models\User;
@@ -122,11 +121,11 @@ class ValidateSkImport
                 if ($operatorIdentifier !== '') {
                     if (! array_key_exists($operatorIdentifier, $operators)) {
                         $operators[$operatorIdentifier] = User::query()->where($usesEmail ? 'email' : 'login_id', $operatorIdentifier)->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->first();
-                        $operatorEligibility[$operatorIdentifier] = $operators[$operatorIdentifier] !== null && PeriodOperator::query()->where('admission_period_id', $period->id)->where('user_id', $operators[$operatorIdentifier]->id)->where('is_active', true)->exists();
+                        $operatorEligibility[$operatorIdentifier] = $operators[$operatorIdentifier] !== null;
                     }
                     $operator = $operators[$operatorIdentifier];
                     if (! $operatorEligibility[$operatorIdentifier]) {
-                        $errors[] = 'Operator harus aktif dan terdaftar pada periode tujuan.';
+                        $errors[] = 'ID login harus milik akun Operator yang aktif. Operator aktif dapat digunakan pada semua periode.';
                     }
                 }
                 $originCode = $values['kode_kota_kabupaten_asal'];

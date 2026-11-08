@@ -3,7 +3,7 @@
         <i class="bi bi-diagram-3" aria-hidden="true"></i>
         <div>
             <strong>Pembagian berdasarkan seluruh peserta SK</strong>
-            <p class="mb-0">Membagi peserta secara merata kepada operator yang dipilih. Jika operator bertambah atau berubah, pembagian disesuaikan secara proporsional saat ditinjau.</p>
+            <p class="mb-0">Semua akun Operator aktif tersedia untuk seluruh periode tanpa pendaftaran terpisah. Gunakan halaman ini hanya untuk membagi peserta secara merata kepada operator yang dipilih. Jika operator bertambah atau berubah, pembagian disesuaikan secara proporsional saat ditinjau.</p>
         </div>
     </div>
 
@@ -103,7 +103,7 @@
                         <input class="form-check-input" id="assignment-confirm" type="checkbox" required>
                         <label class="form-check-label" for="assignment-confirm">Saya telah memeriksa operator dan distribusi penugasan.</label>
                     </div>
-                    <button class="btn btn-gold">Simpan Operator & Jalankan Pembagian</button>
+                    <button class="btn btn-gold">Jalankan Pembagian Peserta</button>
                 </form>
             @endif
 

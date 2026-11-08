@@ -64,8 +64,7 @@ class SkParticipant extends Model
             $query->whereRaw('1 = 0');
         }
         if (! $user->isAdministrator()) {
-            $query->where('assigned_operator_id', $user->id)
-                ->whereExists(fn ($membership) => $membership->selectRaw('1')->from('period_operators')->whereColumn('period_operators.admission_period_id', 'sk_participants.admission_period_id')->where('period_operators.user_id', $user->id)->where('period_operators.is_active', true));
+            $query->where('assigned_operator_id', $user->id);
         }
         if ($user->role === UserRole::Applicant) {
             $query->whereRaw('1 = 0');

@@ -106,7 +106,7 @@ class ClaimsController extends Controller
 
         return response()->view('portal.claim-detail', [
             'claim' => $claim->load(['period', 'candidate.assignedOperator', 'requester', 'responses', 'reviewOwner']),
-            'operators' => $isStaff ? User::query()->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->where('must_change_password', false)->whereIn('id', DB::table('period_operators')->where('admission_period_id', $claim->admission_period_id)->where('is_active', true)->select('user_id'))->orderBy('name')->get() : collect(),
+            'operators' => $isStaff ? User::query()->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->where('must_change_password', false)->orderBy('name')->get() : collect(),
             'application' => $claim->status === 'approved' ? Application::query()->with('workspace.biodata')->where('sk_participant_id', $claim->candidate_sk_participant_id)->first() : null,
             'credentials' => $credentials,
         ], headers: ['Cache-Control' => 'private, no-store, max-age=0', 'Pragma' => 'no-cache', 'Referrer-Policy' => 'no-referrer']);

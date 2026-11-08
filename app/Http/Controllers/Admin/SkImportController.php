@@ -133,7 +133,7 @@ class SkImportController extends Controller
                 ['Tanggal SK: YYYY-MM-DD. Nomor urut harus bilangan bulat positif.'],
                 ['Peg ID harus teks agar nol awal utuh. Nama bukan kunci unik.'],
                 ['Kolom F: id_operator opsional. Isi ID login operator (contoh operator.satu), bukan email atau nomor urut.'],
-                ['Operator harus aktif dan terdaftar pada periode tujuan. ID login dapat dilihat pada halaman Kelola Pengguna.'],
+                ['Semua akun Operator aktif dapat digunakan pada seluruh periode tanpa pendaftaran per periode. ID login dapat dilihat pada halaman Kelola Pengguna.'],
                 ['Jika id_operator kosong, peserta baru belum ditugaskan; penugasan peserta lama tetap dipertahankan.'],
                 ['Kolom H: kode_kota_kabupaten_asal opsional. Salin sebagai teks dari sheet Referensi_Wilayah.'],
                 ['Provinsi asal terisi otomatis dari kota/kabupaten; tidak ada kolom kecamatan.'],

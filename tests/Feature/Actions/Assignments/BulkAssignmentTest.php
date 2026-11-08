@@ -5,7 +5,6 @@ use App\Actions\Assignments\AssignOperators;
 use App\Actions\Assignments\PlanBulkAssignment;
 use App\Enums\AccountState;
 use App\Models\AdmissionPeriod;
-use App\Models\PeriodOperator;
 use App\Models\SkParticipant;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
@@ -94,11 +93,26 @@ it('requires an explicit confirmation and rejects forged expired or other-admin 
     $this->assertDatabaseCount('assignment_events', 8);
 });
 
-it('rejects unregistered targets and protects mass assignment endpoints from other roles', function () {
+it('rejects disabled targets and protects mass assignment endpoints from other roles', function () {
     $c = bulkAssignmentContext();
-    PeriodOperator::query()->where('user_id', $c['operators'][1]->id)->update(['is_active' => false]);
+    $c['operators'][1]->forceFill(['account_state' => 'disabled'])->save();
     $this->actingAs($c['admin'])->get(route('admin.assignments.bulk', ['period_id' => $c['period']->id, 'operators' => [$c['operators'][1]->id]]))->assertSessionHasErrors('operators');
     $this->actingAs(User::factory()->create())->get(route('admin.assignments.bulk'))->assertForbidden();
     $this->actingAs(User::factory()->create())->post(route('admin.assignments.bulk.store'))->assertForbidden();
     $this->actingAs($c['operators'][0])->get(route('admin.assignments.bulk'))->assertOk();
+});
+
+it('transfers participants to a global operator without period membership', function () {
+    $c = bulkAssignmentContext();
+    $target = User::factory()->operator()->create();
+    $preview = $this->actingAs($c['admin'])->get(route('admin.assignments.bulk', [
+        'period_id' => $c['period']->id, 'mode' => 'transfer', 'source_id' => $c['operators'][0]->id, 'operators' => [$target->id],
+    ]))->assertOk();
+
+    $this->post(route('admin.assignments.bulk.store'), [
+        'preview_token' => $preview->viewData('token'), 'confirmed' => 1, 'reason' => 'Pemindahan peserta ke operator lintas periode.',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    expect(SkParticipant::query()->where('assigned_operator_id', $target->id)->count())->toBe(8);
+    $this->assertDatabaseMissing('period_operators', ['user_id' => $target->id]);
 });

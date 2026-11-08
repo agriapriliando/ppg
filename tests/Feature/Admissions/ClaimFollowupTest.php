@@ -65,12 +65,12 @@ it('delegates ambiguous claims while retaining staff access after period members
     $this->get(route('claims.show', $claim))->assertOk();
 });
 
-it('rejects delegation to outsiders and stale or already matched claims', function () {
+it('rejects delegation to disabled operators and stale or already matched claims', function () {
     $c = registrationContext();
     $input = claimInput($c);
     $input['name'] = 'Nama Belum Cocok';
     $claim = app(SubmitSkClaim::class)->handle($c['applicant'], $input);
-    $payload = ['version' => 0, 'operator_id' => User::factory()->operator()->create()->id, 'reason' => 'Penugasan pemeriksaan tambahan sumber SK.'];
+    $payload = ['version' => 0, 'operator_id' => User::factory()->operator()->create(['account_state' => 'disabled'])->id, 'reason' => 'Penugasan pemeriksaan tambahan sumber SK.'];
     $this->actingAs($c['admin'])->post(route('claims.delegate', $claim), $payload)->assertSessionHasErrors('operator_id');
     $payload['operator_id'] = $c['operator']->id;
     $payload['version'] = 1;

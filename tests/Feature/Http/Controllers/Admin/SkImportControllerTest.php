@@ -80,7 +80,6 @@ it('imports the new template without a period column using the selected period',
     $c = registrationContext();
     $c['operator']->forceFill(['login_id' => 'operator.tujuan', 'email' => null])->save();
     $target = AdmissionPeriod::factory()->create();
-    PeriodOperator::create(['admission_period_id' => $target->id, 'user_id' => $c['operator']->id, 'is_active' => true]);
     $rows = [
         ['SK-TEMPLATE-BARU', '2026-11-06', 1, 'Peserta Template Baru', '000002', ' OPERATOR.TUJUAN ', 'Catatan impor', '0101'],
         [],
@@ -142,7 +141,7 @@ it('supports a legacy workbook with a period column and operator login ID', func
     $this->assertDatabaseHas('sk_participants', ['sk_number' => 'SK-GABUNGAN', 'admission_period_id' => $c['period']->id, 'assigned_operator_id' => $c['operator']->id, 'origin_city_code' => '0101']);
 });
 
-it('rejects IDs belonging to missing disabled unregistered or non operator accounts', function (string $condition) {
+it('rejects IDs belonging to missing disabled or non operator accounts', function (string $condition) {
     Storage::fake('local');
     $c = registrationContext();
     $c['operator']->forceFill(['login_id' => 'operator.uji'])->save();
@@ -151,10 +150,6 @@ it('rejects IDs belonging to missing disabled unregistered or non operator accou
         $identifier = 'operator.tidakada';
     } elseif ($condition === 'disabled') {
         $c['operator']->forceFill(['account_state' => 'disabled'])->save();
-    } elseif ($condition === 'unregistered') {
-        PeriodOperator::query()->where('user_id', $c['operator']->id)->delete();
-    } elseif ($condition === 'inactive membership') {
-        PeriodOperator::query()->where('user_id', $c['operator']->id)->update(['is_active' => false]);
     } else {
         $c['admin']->forceFill(['login_id' => 'admin.uji'])->save();
         $identifier = 'admin.uji';
@@ -166,10 +161,10 @@ it('rejects IDs belonging to missing disabled unregistered or non operator accou
     $import = SkImport::query()->sole();
 
     expect($import->state)->toBe('invalid');
-    expect($import->rows()->sole()->errors)->toContain('Operator harus aktif dan terdaftar pada periode tujuan.');
+    expect($import->rows()->sole()->errors)->toContain('ID login harus milik akun Operator yang aktif. Operator aktif dapat digunakan pada semua periode.');
     $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasErrors('import');
     $this->assertDatabaseMissing('sk_participants', ['sk_number' => 'SK-OPERATOR-TIDAK-VALID']);
-})->with(['missing', 'disabled', 'unregistered', 'inactive membership', 'administrator']);
+})->with(['missing', 'disabled', 'administrator']);
 
 it('preserves an existing assignment when operator ID is omitted during reimport', function () {
     Storage::fake('local');
@@ -342,7 +337,7 @@ it('bounds repeated operator queries and preserves staged values across batch bo
 it('keeps every repeated ineligible operator row invalid without caching beyond one validation', function () {
     Storage::fake('local');
     $admin = User::factory()->administrator()->create();
-    $operator = User::factory()->operator()->create();
+    $operator = User::factory()->operator()->create(['account_state' => 'disabled']);
     $period = AdmissionPeriod::factory()->create();
     $file = skWorkbook([
         ['SK-OPERATOR', '2026-10-01', $period->code, 1, 'Peserta Satu', '00001', $operator->email],
@@ -354,12 +349,73 @@ it('keeps every repeated ineligible operator row invalid without caching beyond 
     $import = SkImport::query()->sole();
     expect($import->counts['error'])->toBe(4);
     foreach ($import->rows()->get() as $row) {
-        expect($row->errors)->toContain('Operator harus aktif dan terdaftar pada periode tujuan.');
+        expect($row->errors)->toContain('ID login harus milik akun Operator yang aktif. Operator aktif dapat digunakan pada semua periode.');
     }
-    PeriodOperator::create(['admission_period_id' => $period->id, 'user_id' => $operator->id, 'is_active' => true]);
+    $operator->forceFill(['account_state' => 'active'])->save();
     app(ValidateSkImport::class)->handle($import);
     expect($import->fresh()->counts['new'])->toBe(2);
     expect($import->fresh()->counts['error'])->toBe(2);
     expect($import->rows()->count())->toBe(4);
     $this->assertDatabaseCount('sk_participants', 0);
+});
+
+it('imports the same active operator into multiple periods without active period memberships', function (bool $hasOldMembership) {
+    Storage::fake('local');
+    $admin = User::factory()->administrator()->create();
+    $operator = User::factory()->operator()->create(['login_id' => 'operator.global']);
+    $periods = AdmissionPeriod::factory()->count(2)->create();
+
+    foreach ($periods as $period) {
+        if ($hasOldMembership) {
+            PeriodOperator::create(['admission_period_id' => $period->id, 'user_id' => $operator->id, 'is_active' => false]);
+        }
+        $this->actingAs($admin)->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([
+            ['SK-GLOBAL', '2026-11-06', 1, 'Peserta Operator Global', '000001', 'operator.global'],
+        ], ValidateSkImport::HEADERS)])->assertSessionHasNoErrors()->assertRedirect();
+        $import = SkImport::query()->latest('id')->first();
+        expect($import->state)->toBe('ready');
+        $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertDatabaseHas('sk_participants', ['admission_period_id' => $period->id, 'assigned_operator_id' => $operator->id]);
+    }
+    expect(SkParticipant::query()->visibleTo($operator)->count())->toBe(2);
+    expect(PeriodOperator::query()->where('is_active', true)->count())->toBe(0);
+})->with([false, true]);
+
+it('cancels import if a global operator becomes ineligible after preview', function (string $change) {
+    Storage::fake('local');
+    $admin = User::factory()->administrator()->create();
+    $operator = User::factory()->operator()->create(['login_id' => 'operator.global']);
+    $period = AdmissionPeriod::factory()->create();
+    $this->actingAs($admin)->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([
+        ['SK-GLOBAL', '2026-11-06', 1, 'Peserta Operator Global', '000001', 'operator.global'],
+    ], ValidateSkImport::HEADERS)])->assertSessionHasNoErrors();
+    $import = SkImport::query()->sole();
+    expect($import->state)->toBe('ready');
+    $operator->forceFill($change === 'disabled' ? ['account_state' => 'disabled'] : ['role' => 'pendaftar_ppg'])->save();
+
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasErrors('import');
+
+    $this->assertDatabaseCount('sk_participants', 0);
+    expect($import->fresh()->state)->toBe('ready');
+})->with(['disabled', 'role changed']);
+
+it('rolls back every imported row if a later operator was disabled after preview', function () {
+    Storage::fake('local');
+    $admin = User::factory()->administrator()->create();
+    $operators = User::factory()->operator()->createMany([['login_id' => 'operator.satu'], ['login_id' => 'operator.dua']]);
+    $period = AdmissionPeriod::factory()->create();
+    $this->actingAs($admin)->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([
+        ['SK-GLOBAL', '2026-11-06', 1, 'Peserta Satu', '000001', 'operator.satu'],
+        ['SK-GLOBAL', '2026-11-06', 2, 'Peserta Dua', '000002', 'operator.dua'],
+    ], ValidateSkImport::HEADERS)])->assertSessionHasNoErrors();
+    $import = SkImport::query()->sole();
+    expect($import->state)->toBe('ready');
+    $operators[1]->forceFill(['account_state' => 'disabled'])->save();
+
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasErrors('import');
+
+    $this->assertDatabaseCount('sk_participants', 0);
+    $this->assertDatabaseCount('assignment_events', 0);
+    expect($period->fresh()->lock_version)->toBe(0);
+    expect($import->fresh()->state)->toBe('ready');
 });

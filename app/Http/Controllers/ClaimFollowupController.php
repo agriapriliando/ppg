@@ -7,7 +7,6 @@ use App\Enums\AccountState;
 use App\Enums\PeriodState;
 use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
-use App\Models\PeriodOperator;
 use App\Models\SkClaim;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -65,8 +64,8 @@ class ClaimFollowupController extends Controller
                 throw ValidationException::withMessages(['claim' => 'Delegasi hanya untuk klaim aktif tanpa kandidat. Muat ulang halaman.']);
             }
             $operator = User::query()->whereKey($data['operator_id'])->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->where('must_change_password', false)->lockForUpdate()->first();
-            if ($operator === null || ! PeriodOperator::query()->where('admission_period_id', $period->id)->where('user_id', $operator->id)->where('is_active', true)->exists()) {
-                throw ValidationException::withMessages(['operator_id' => 'Pilih operator aktif yang terdaftar pada periode ini.']);
+            if ($operator === null) {
+                throw ValidationException::withMessages(['operator_id' => 'Pilih akun Operator yang aktif.']);
             }
             $oldOwner = $locked->review_owner_id;
             $locked->forceFill(['review_owner_id' => $operator->id, 'lock_version' => $locked->lock_version + 1])->save();

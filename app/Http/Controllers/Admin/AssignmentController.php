@@ -32,6 +32,7 @@ class AssignmentController extends Controller
         $unassigned = $period ? SkParticipant::query()->where('admission_period_id', $period->id)->where('roster_state', 'active')->whereNull('assigned_operator_id')->count() : 0;
         $totalParticipants = $period ? SkParticipant::query()->where('admission_period_id', $period->id)->where('roster_state', 'active')->count() : 0;
         $loads = $period ? SkParticipant::query()->where('admission_period_id', $period->id)->where('roster_state', 'active')->whereNotNull('assigned_operator_id')->selectRaw('assigned_operator_id, count(*) as total')->groupBy('assigned_operator_id')->pluck('total', 'assigned_operator_id') : SkParticipant::query()->where('roster_state', 'active')->whereNotNull('assigned_operator_id')->selectRaw('assigned_operator_id, count(*) as total')->groupBy('assigned_operator_id')->pluck('total', 'assigned_operator_id');
+        // Remember the last distribution selection; this is not an eligibility requirement.
         $assignedOperatorIds = $period ? PeriodOperator::query()->where('admission_period_id', $period->id)->where('is_active', true)->pluck('user_id')->map(intval(...))->all() : [];
         sort($assignedOperatorIds);
         $selected = $request->has('operators') ? $ids : $assignedOperatorIds;
@@ -85,7 +86,7 @@ class AssignmentController extends Controller
         abort_unless($actor !== null, 403);
         $assign->handle($actor, $preview['period_id'], $preview['version'], $preview['ids'], (bool) ($preview['redistribute'] ?? false));
 
-        return redirect()->route('admin.assignments', ['period_id' => $preview['period_id']])->with('status', 'Operator periode disimpan dan pembagian peserta berhasil diperbarui.');
+        return redirect()->route('admin.assignments', ['period_id' => $preview['period_id']])->with('status', 'Pembagian peserta berhasil diperbarui. Semua akun Operator aktif tetap tersedia pada seluruh periode.');
     }
 
     public function transfer(Request $request, SkParticipant $participant, RecordAudit $audit): RedirectResponse
@@ -94,8 +95,8 @@ class AssignmentController extends Controller
         DB::transaction(function () use ($request, $participant, $data, $audit): void {
             $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($participant->admission_period_id);
             $operator = User::query()->where('id', $data['operator_id'])->where('role', UserRole::Operator)->where('account_state', AccountState::Active)->lockForUpdate()->first();
-            if ($operator === null || ! PeriodOperator::query()->where('admission_period_id', $period->id)->where('user_id', $operator->id)->where('is_active', true)->exists()) {
-                throw ValidationException::withMessages(['operator_id' => 'Operator tujuan harus aktif dan terdaftar pada periode.']);
+            if ($operator === null) {
+                throw ValidationException::withMessages(['operator_id' => 'Operator tujuan harus merupakan akun Operator yang aktif.']);
             }
             $locked = SkParticipant::query()->lockForUpdate()->findOrFail($participant->id);
             if ($locked->lock_version !== (int) $data['version'] || $period->state === PeriodState::Archived) {
