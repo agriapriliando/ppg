@@ -3,6 +3,17 @@
         showCreateModal: false,
         showEditModal: false,
         showDeleteModal: false,
+        applicantMode: '',
+        applicantAccount: { id: null, name: '', login_id: '', email: '', expected_login_id: '', update_url: '', delete_url: '' },
+        applicantConfirmed: false,
+        applicantBusy: false,
+        openApplicant(account, mode) {
+            this.applicantAccount = { ...account };
+            this.applicantConfirmed = false;
+            this.applicantBusy = false;
+            this.applicantMode = mode;
+        },
+        closeApplicant() { if (!this.applicantBusy) this.applicantMode = ''; },
         editUser: {
             id: null,
             name: '',
@@ -226,11 +237,11 @@
                     <p class="mb-0">Pencarian ini mencakup seluruh status akun Pendaftar, terpisah dari daftar pengelola di atas.</p>
                 </div>
                 <div class="panel-body">
-                    <p class="small text-muted">ID login akun Pendaftar juga tidak dapat digunakan ulang untuk Operator. Jumlah permohonan di bawah mencakup riwayat yang sudah dihapus dari daftar.</p>
+                    <p class="small text-muted">Selama masih dipakai akun Pendaftar, ID login tersebut tidak dapat digunakan untuk Operator. Jumlah permohonan di bawah mencakup riwayat yang sudah dihapus dari daftar.</p>
                     @if($hasMoreApplicants)<p class="small text-muted">Menampilkan 20 hasil pertama. Gunakan kata kunci yang lebih spesifik.</p>@endif
                     <div class="table-responsive">
                         <table class="table align-middle mb-0">
-                            <thead><tr><th>ID Akun</th><th>Nama / Email</th><th>ID Login</th><th>Peran / Status</th><th>Keterkaitan Data</th></tr></thead>
+                            <thead><tr><th>ID Akun</th><th>Nama / Email</th><th>ID Login</th><th>Peran / Status</th><th>Keterkaitan Data</th><th>Aksi</th></tr></thead>
                             <tbody>
                                 @forelse($applicantMatches as $account)
                                     <tr>
@@ -239,9 +250,18 @@
                                         <td class="text-break"><code>{{ $account->login_id ?? 'Belum tersedia' }}</code></td>
                                         <td>{{ $account->role->label() }}<span class="d-block small text-muted">{{ $account->account_state->label() }}</span></td>
                                         <td class="small">Permohonan: {{ $account->getAttribute('linked_claims_count') }}<br>Peserta SK: {{ $account->getAttribute('linked_participants_count') }}<br>Pendaftaran: {{ $account->getAttribute('linked_applications_count') }}</td>
+                                        <td>
+                                            @php
+                                                $accountModalData = ['id' => $account->id, 'name' => $account->name, 'login_id' => $account->login_id ?? '', 'email' => $account->email ?? '', 'expected_login_id' => $account->login_id ?? '', 'update_url' => route('admin.users.applicants.update', $account), 'delete_url' => route('admin.users.applicants.destroy', $account)];
+                                            @endphp
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <button type="button" class="btn btn-sm btn-outline-purple" @click="openApplicant(@js($accountModalData), 'edit')"><i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Edit</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" @click="openApplicant(@js($accountModalData), 'delete')"><i class="bi bi-trash me-1" aria-hidden="true"></i>Hapus</button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="5" class="text-center text-muted py-3">Tidak ada akun Pendaftar yang cocok dengan pencarian.</td></tr>
+                                    <tr><td colspan="6" class="text-center text-muted py-3">Tidak ada akun Pendaftar yang cocok dengan pencarian.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -249,6 +269,8 @@
                 </div>
             </section>
         @endif
+
+        @include('admin.partials.applicant-account-modals')
 
         <!-- ========================================== -->
         <!-- MODAL POP UP: TAMBAH PENGELOLA             -->

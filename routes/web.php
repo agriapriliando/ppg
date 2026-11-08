@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminWorkspaceDocumentController;
+use App\Http\Controllers\Admin\ApplicantAccountController;
 use App\Http\Controllers\Admin\AssignmentController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\BulkAssignmentController;
@@ -149,6 +150,8 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::post('/pendaftaran/{application}/koreksi-pemilik', [OwnershipTransferController::class, 'update'])->middleware('throttle:5,1')->name('ownership.update');
         Route::get('/pengguna', [StaffController::class, 'index'])->name('users');
         Route::post('/pengguna', [StaffController::class, 'store'])->name('users.store');
+        Route::put('/pengguna/pendaftar/{user}', [ApplicantAccountController::class, 'update'])->name('users.applicants.update');
+        Route::delete('/pengguna/pendaftar/{user}', [ApplicantAccountController::class, 'destroy'])->name('users.applicants.destroy');
         Route::get('/pengguna/impor', [StaffImportController::class, 'index'])->name('users.import');
         Route::get('/pengguna/impor/template', [StaffImportController::class, 'template'])->name('users.import.template');
         Route::post('/pengguna/impor/pratinjau', [StaffImportController::class, 'preview'])->middleware('throttle:10,1')->name('users.import.preview');

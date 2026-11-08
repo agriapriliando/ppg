@@ -50,7 +50,7 @@ class DeleteUnlinkedApplicantAccount
                         $query->orWhere($column, $userId);
                     }
                 })->exists()) {
-                    throw ValidationException::withMessages(['deletion' => 'Akun '.$user->name.' masih digunakan oleh periode atau data lain di luar peserta ini. Seluruh penghapusan dibatalkan.']);
+                    throw ValidationException::withMessages(['deletion' => 'Akun '.$user->name.' masih terhubung dengan kepesertaan, pendaftaran, permohonan, atau data lain. Seluruh penghapusan dibatalkan.']);
                 }
             }
 
