@@ -240,6 +240,7 @@ new #[Title('Klaim & WhatsApp')] class extends Component
                         <tr wire:key="claim-{{ $claim->id }}">
                             <td>
                                 <strong>{{ $claim->submitted_name }}</strong>
+                                <small class="d-block text-purple fw-semibold">Peg ID: {{ $claim->submitted_identifier ?: ($claim->candidate?->official_participant_id ?: 'Belum diisi') }}</small>
                                 <small class="d-block text-muted">Ref: {{ $claim->public_reference }} · WA: {{ $claim->whatsapp_number }}</small>
                                 <small class="d-block text-muted">{{ $claim->period->name }}</small>
                             </td>

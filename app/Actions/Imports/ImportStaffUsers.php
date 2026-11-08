@@ -154,7 +154,14 @@ class ImportStaffUsers
                 'email.email' => 'Format email tidak valid.',
                 'role.in' => 'Peran harus operator atau administrator.',
             ], ['name' => 'Nama', 'login_id' => 'ID login', 'email' => 'Email', 'role' => 'Peran', 'password' => 'Kata sandi']);
-            $row['errors'] = array_values(array_unique([...$row['errors'], ...$validator->errors()->all()]));
+            $validationErrors = $validator->errors()->all();
+            if (isset($validator->failed()['login_id']['Unique'])) {
+                $owner = User::query()->where('login_id', $row['login_id'])->first(['id', 'name', 'role', 'account_state']);
+                if ($owner !== null) {
+                    $validationErrors[] = 'Pemilik ID login: '.$owner->name.' (ID akun #'.$owner->id.', peran '.$owner->role->label().', status '.$owner->account_state->label().').';
+                }
+            }
+            $row['errors'] = array_values(array_unique([...$row['errors'], ...$validationErrors]));
             if (isset($logins[$row['login_id']])) {
                 $row['errors'][] = 'ID login berulang dalam berkas.';
             }
