@@ -144,7 +144,7 @@ new #[Title('Klaim & WhatsApp')] class extends Component
     <x-field-error name="match" />
     <div class="notice-box info">
         <i class="bi bi-whatsapp" aria-hidden="true"></i>
-        <p class="mb-0">Periksa identitas dan kepesertaan sebelum menyetujui klaim. Bukti balasan WhatsApp dan penyerahan akses dicatat secara terpisah.</p>
+        <p class="mb-0">PEG ID yang terisi digunakan untuk mencocokkan peserta SK; jika kosong, sistem menggunakan nama. Periksa identitas dan kepesertaan sebelum menyetujui klaim. Bukti balasan WhatsApp dan penyerahan akses dicatat secara terpisah.</p>
     </div>
 
     @if (session('status'))
@@ -257,7 +257,7 @@ new #[Title('Klaim & WhatsApp')] class extends Component
                         <tr wire:key="claim-{{ $claim->id }}">
                             <td>
                                 <strong>{{ $claim->submitted_name }}</strong>
-                                <small class="d-block text-purple fw-semibold">Peg ID: {{ $claim->submitted_identifier ?: ($claim->candidate?->official_participant_id ?: 'Belum diisi') }}</small>
+                                <small class="d-block text-purple fw-semibold">Peg ID: {{ trim($claim->submitted_identifier ?? '') !== '' ? $claim->submitted_identifier : ($claim->candidate?->official_participant_id ?? 'Belum diisi') }}</small>
                                 <small class="d-block text-muted">ID login: <span class="fw-semibold">{{ $claim->requester?->login_id ?: 'Belum tersedia' }}</span></small>
                                 <small class="d-block text-muted">Ref: {{ $claim->public_reference }} · WA: {{ $claim->whatsapp_number }}</small>
                                 <small class="d-block text-muted">{{ $claim->period->name }}</small>
@@ -279,7 +279,8 @@ new #[Title('Klaim & WhatsApp')] class extends Component
                                     <small class="d-block text-muted">SK: {{ $claim->candidate->sk_number }} / urut {{ $claim->candidate->sk_order }}</small>
                                     <small class="d-block text-muted">Operator: {{ $claim->candidate->assignedOperator?->name ?? 'Belum ditugaskan' }}</small>
                                 @else
-                                    <span class="text-muted">Nama belum cocok</span>
+                                    <span class="text-muted">Belum cocok dengan SK</span>
+                                    <small class="d-block text-muted">{{ trim($claim->submitted_identifier ?? '') !== '' ? 'Pencocokan berdasarkan PEG ID' : 'Pencocokan berdasarkan nama' }}</small>
                                     <small class="d-block text-muted">Triase: {{ $claim->reviewOwner?->name ?? 'Administrator' }}</small>
                                     @if(in_array($claim->status, ['pending', 'needs_information'], true) && $claim->period->state !== \App\Enums\PeriodState::Archived)
                                         @can('review', $claim)

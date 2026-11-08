@@ -33,8 +33,9 @@ class RecheckClaimMatch
             }
             $identifier = trim($locked->submitted_identifier ?? '');
             $candidates = SkParticipant::query()->where('admission_period_id', $period->id)
-                ->where('normalized_name', mb_strtolower(Str::squish($locked->submitted_name)))
-                ->when($identifier !== '', fn ($query) => $query->where('official_participant_id', $identifier))
+                ->when($identifier !== '',
+                    fn ($query) => $query->where('official_participant_id', $identifier),
+                    fn ($query) => $query->where('normalized_name', mb_strtolower(Str::squish($locked->submitted_name))))
                 ->where('roster_state', 'active')->whereNull('claimed_user_id')->where('admin_hold', false)
                 ->orderBy('id')->lockForUpdate()->limit(2)->get();
             if ($candidates->isEmpty()) {

@@ -77,7 +77,7 @@ it('accepts a global operator when editing participant data and rejects other ac
 it('lists and delegates unmatched claims to a global operator', function () {
     $c = registrationContext();
     $target = User::factory()->operator()->create();
-    $input = [...claimInput($c), 'name' => 'Nama Tidak Cocok'];
+    $input = [...claimInput($c), 'name' => 'Nama Tidak Cocok', 'identifier' => null];
     $claim = app(SubmitSkClaim::class)->handle($c['applicant'], $input);
     $view = $this->actingAs($c['admin'])->get(route('claims.show', $claim))->assertOk();
     expect($view->viewData('operators')->modelKeys())->toContain($target->id);

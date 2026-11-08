@@ -17,6 +17,7 @@ it('allows operators to match administrative candidates on claims', function () 
     $c = registrationContext();
     $input = claimInput($c);
     $input['name'] = 'Nama Belum Cocok';
+    $input['identifier'] = null;
     $claim = app(SubmitSkClaim::class)->handle($c['applicant'], $input);
 
     $this->actingAs($c['operator'])->get(route('claims.show', $claim))

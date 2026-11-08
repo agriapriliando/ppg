@@ -10,7 +10,11 @@ require_once __DIR__.'/../../Fixtures/registration.php';
 
 function unmatchedClaimForRecheck(array $context, array $input = []): SkClaim
 {
-    return app(SubmitSkClaim::class)->handle(null, [...claimInput($context), 'name' => '  NAMA   BARU SETELAH IMPOR  ', ...$input]);
+    $claim = app(SubmitSkClaim::class)->handle(null, [...claimInput($context), 'name' => '  NAMA   BARU SETELAH IMPOR  ', ...$input]);
+    // Represent legacy claims left unmatched before PEG ID took precedence.
+    $claim->forceFill(['candidate_sk_participant_id' => null])->save();
+
+    return $claim;
 }
 
 function prepareMatchingParticipant(array $context): void
@@ -53,7 +57,7 @@ it('reports ambiguous matches without choosing a participant automatically', fun
 
 it('does not match ineligible participants or mismatched identities and periods', function (string $condition) {
     $c = registrationContext();
-    $claim = unmatchedClaimForRecheck($c);
+    $claim = unmatchedClaimForRecheck($c, ['identifier' => $condition === 'name' ? null : '000001']);
     prepareMatchingParticipant($c);
     $participant = $c['participant'];
     match ($condition) {

@@ -58,12 +58,17 @@ class SubmitSkClaim
             if ($consent === null || $consent->id !== (int) $data['consent_id']) {
                 throw ValidationException::withMessages(['consent' => 'Pernyataan telah berubah atau belum tersedia. Muat ulang halaman.']);
             }
-            $candidates = SkParticipant::query()->where('admission_period_id', $period->id)->where('normalized_name', $normalizedName)->when(! empty($data['identifier']), fn ($query) => $query->where('official_participant_id', $data['identifier']))->where('roster_state', 'active')->limit(2)->get();
+            $identifier = trim($data['identifier'] ?? '');
+            $candidates = SkParticipant::query()->where('admission_period_id', $period->id)
+                ->when($identifier !== '',
+                    fn ($query) => $query->where('official_participant_id', $identifier),
+                    fn ($query) => $query->where('normalized_name', $normalizedName))
+                ->where('roster_state', 'active')->limit(2)->get();
             $candidate = $candidates->count() === 1 ? $candidates->first() : null;
             $claim = SkClaim::create([
                 'admission_period_id' => $period->id, 'requester_user_id' => $requester?->id,
                 'candidate_sk_participant_id' => $candidate?->id,
-                'submitted_name' => trim($data['name']), 'submitted_identifier' => $data['identifier'] ?? null,
+                'submitted_name' => trim($data['name']), 'submitted_identifier' => $identifier !== '' ? $identifier : null,
                 'whatsapp_number' => $number, 'access_path' => $requester === null ? 'whatsapp' : 'google',
                 'public_reference' => (string) Str::uuid(), 'request_key' => $data['request_key'],
             ]);
