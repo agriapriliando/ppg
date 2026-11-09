@@ -9,8 +9,8 @@ it('paginates audit activity events and supports navigation on riwayat page', fu
     $c = registrationContext();
     $operator = $c['operator'];
 
-    // Bersihkan audit event lama untuk operator ini jika ada
-    AuditEvent::query()->where('actor_id', $operator->id)->delete();
+    // Bersihkan audit event lama jika ada
+    AuditEvent::query()->delete();
 
     // Buat tepat 30 event audit untuk operator ini
     for ($i = 1; $i <= 30; $i++) {
@@ -58,4 +58,46 @@ it('paginates audit activity events and supports navigation on riwayat page', fu
         ->assertSee('Tindakan Pengujian Riwayat 30')
         ->assertSee('Tindakan Pengujian Riwayat 1')
         ->assertDontSee('rel="next"', false);
+});
+
+it('allows operators to see all activity events including actions by administrator and other operators', function () {
+    $admin = User::factory()->administrator()->create(['name' => 'Admin Utama']);
+    $operator = User::factory()->operator()->create(['name' => 'Operator Satu']);
+    $otherOperator = User::factory()->operator()->create(['name' => 'Operator Dua']);
+
+    AuditEvent::query()->delete();
+
+    AuditEvent::create([
+        'actor_id' => $admin->id,
+        'actor_role_snapshot' => 'administrator',
+        'action' => 'Aksi oleh Administrator Utama',
+        'subject_type' => User::class,
+        'subject_id' => $admin->id,
+        'safe_changes' => [],
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'PHPUnit',
+        'request_id' => 'req-admin',
+    ]);
+
+    AuditEvent::create([
+        'actor_id' => $otherOperator->id,
+        'actor_role_snapshot' => 'operator',
+        'action' => 'Aksi oleh Operator Dua',
+        'subject_type' => User::class,
+        'subject_id' => $otherOperator->id,
+        'safe_changes' => [],
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'PHPUnit',
+        'request_id' => 'req-operator-2',
+    ]);
+
+    $response = $this->actingAs($operator)->get(route('activity'));
+    $response->assertOk()
+        ->assertSee('Aksi oleh Administrator Utama')
+        ->assertSee('Aksi oleh Operator Dua');
+
+    $responseDashboard = $this->actingAs($operator)->get(route('dashboard'));
+    $responseDashboard->assertOk()
+        ->assertSee('Aksi oleh Administrator Utama')
+        ->assertSee('Aksi oleh Operator Dua');
 });

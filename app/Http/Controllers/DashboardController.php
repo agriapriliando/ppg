@@ -57,7 +57,7 @@ class DashboardController extends Controller
             'settings' => ApplicationSetting::query()->where('key', 'public')->first()->value ?? [],
             'periods' => $periods,
             'staffCount' => $user->isAdministrator() ? User::query()->whereIn('role', ['administrator', 'operator'])->where('account_state', 'active')->count() : null,
-            'events' => AuditEvent::query()->with('actor')->when(! $user->isAdministrator(), fn ($query) => $query->where('actor_id', $user->id))->orderByDesc('id')->limit(5)->get(),
+            'events' => AuditEvent::query()->with('actor')->orderByDesc('id')->limit(5)->get(),
             'counts' => $counts,
             'totalSk' => $totalSk,
             'applicationCount' => (clone $applicationsQuery)->count(),

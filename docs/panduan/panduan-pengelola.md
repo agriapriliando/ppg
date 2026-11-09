@@ -50,7 +50,7 @@ Aplikasi PMB PPG IAKN Palangka Raya memisahkan peran pengguna secara ketat guna 
 | **Referensi & Pernyataan** | `/admin/referensi` | Tidak | Ya | Master data wilayah, prodi, dan naskah persetujuan |
 | **Pengaturan Aplikasi** | `/admin/pengaturan` | Tidak | Ya | Kontak helpdesk, banner pengumuman, quick links |
 | **Kelola Pengguna** | `/admin/pengguna` | Tidak | Ya | Manajemen akun staf (Operator & Administrator) |
-| **Audit Aktivitas** | `/admin/audit` | Tidak | Ya | Log rekam jejak aktivitas operasional aplikasi |
+| **Audit / Riwayat Aktivitas** | `/admin/audit` / `/riwayat` | Ya | Ya | Log rekam jejak aktivitas operasional aplikasi |
 | **Ekspor Peserta** | `/admin/ekspor` | Tidak | Ya | Mengunduh data pendaftaran dalam format CSV/Excel |
 | **Akun & Keamanan** | `/akun` | Ya | Ya | Profil pengguna dan ganti kata sandi pribadi |
 
@@ -318,9 +318,9 @@ Administrator dapat membatasi atau mengamankan status peserta SK:
 
 ## 12. Panduan Administrator: Audit Aktivitas & Ekspor Data
 
-### 12.1 Audit Aktivitas (`/admin/audit`)
+### 12.1 Audit & Riwayat Aktivitas (`/admin/audit` & `/riwayat`)
 - Mencatat seluruh peristiwa sistem: *Login staf, Simpan Periode, Impor SK, Persetujuan Klaim, Penyerahan Akun, Penetapan Status Verifikasi, dan Ekspor Data*.
-- Administrator dapat memfilter riwayat audit berdasarkan tanggal, nama aktor, dan jenis aksi.
+- Administrator dan Operator dapat meninjau dan mencari riwayat aktivitas aplikasi secara lengkap (termasuk tindakan operator lain maupun administrator) untuk transparansi operasional dan audit jejak digital.
 
 ### 12.2 Ekspor Data Pendaftaran (`/admin/ekspor`)
 - Digunakan untuk pelaporan pimpinan kampus, Ditjen Bimas Kristen, dan persiapan registrasi akademik:

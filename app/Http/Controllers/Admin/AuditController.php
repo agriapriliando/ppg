@@ -23,7 +23,6 @@ class AuditController extends Controller
             'perPage' => $perPage,
             'events' => AuditEvent::query()
                 ->with('actor')
-                ->when(! $request->user()?->isAdministrator(), fn ($query) => $query->where('actor_id', $request->user()?->id))
                 ->when($search !== '', fn ($query) => $query->where('action', 'like', '%'.$search.'%'))
                 ->orderByDesc('id')
                 ->paginate($perPage)
