@@ -48,7 +48,7 @@
                         </div>
                         <div class="alert alert-light border mt-3 mb-0">
                             <strong class="d-block mb-2">Nomor HP</strong>
-                            <p class="mb-3">Isi kolom <code>nomor_hp</code> (opsional) dalam format <strong>628</strong>, misalnya <code>6281234567890</code>, tanpa tanda + atau spasi, dengan total 8–15 angka. Awalan <code>08</code> dan <code>+628</code> otomatis dikonversi ke <code>628</code>; simpan kedua format tersebut sebagai teks agar angkanya tetap utuh. Kolom kosong atau template lama mempertahankan nomor yang sudah tersimpan. Nomor dapat diubah atau dihapus langsung di daftar Peserta SK.</p>
+                            <p class="mb-3">Kolom <code>nomor_hp</code> opsional. Awalan <code>08</code> dan <code>+628</code> otomatis dikonversi ke <code>628</code>. Isian yang belum rapi tetap dapat disimpan lalu diperbaiki di daftar Peserta SK. Simpan sebagai teks agar angka tetap utuh. Kolom kosong atau template lama mempertahankan nomor yang sudah tersimpan.</p>
                             <strong class="d-block mb-2">ID Operator</strong>
                             <p class="mb-3">Isi kolom <code>id_operator</code> dengan <strong>ID login operator</strong>, misalnya <code>operator.satu</code>. Semua akun Operator aktif dapat digunakan pada seluruh periode tanpa pendaftaran operator per periode. Jika dikosongkan, peserta baru belum ditugaskan dan penugasan peserta lama tetap dipertahankan.</p>
                             <strong class="d-block mb-2">Kota/Kabupaten Asal dan Provinsi</strong>

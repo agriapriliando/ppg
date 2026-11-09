@@ -352,8 +352,8 @@
                     </div>
                     <div class="mb-3">
                         <label for="edit-phone-number" class="form-label">Nomor HP</label>
-                        <input id="edit-phone-number" name="phone_number" type="tel" class="form-control" value="{{ old('phone_number', $participant->phone_number) }}" maxlength="16" placeholder="0812… / +62812…">
-                        <div class="form-text">Opsional, 8–15 angka, boleh diawali +, tanpa spasi.</div>
+                        <input id="edit-phone-number" name="phone_number" type="tel" class="form-control" value="{{ old('phone_number', $participant->phone_number) }}" maxlength="100" placeholder="0812… / +62812…">
+                        <div class="form-text">Opsional. Nomor dapat diperbaiki kemudian.</div>
                         <x-field-error name="phone_number" />
                     </div>
                     <div class="mb-3">

@@ -86,9 +86,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
         $this->mount();
         abort_unless($this->showPhone && $this->editingPhoneId !== null, 422);
         $this->phoneNumber = trim($this->phoneNumber);
-        $this->validate(['phoneNumber' => ParticipantPhone::rules()], [
-            'phoneNumber.regex' => 'Gunakan 8–15 angka, boleh diawali +, tanpa spasi.',
-        ], ['phoneNumber' => 'Nomor HP']);
+        $this->validate(['phoneNumber' => ParticipantPhone::rules()], [], ['phoneNumber' => 'Nomor HP']);
 
         DB::transaction(function () use ($audit): void {
             $participant = SkParticipant::findOrFail($this->editingPhoneId);
@@ -466,8 +464,8 @@ new #[Title('Daftar Peserta SK')] class extends Component
                 <div class="ui-modal-body">
                     <p class="fw-semibold text-break mb-3">{{ $editingPhoneName }}</p>
                     <label for="participant-phone-number" class="form-label">Nomor HP</label>
-                    <input id="participant-phone-number" x-ref="phoneNumberInput" type="tel" inputmode="tel" autocomplete="tel" class="form-control" style="font-size: 16px" wire:model="phoneNumber" maxlength="16" placeholder="081234567890 / +6281234567890" aria-describedby="participant-phone-help{{ $errors->has('phoneNumber') ? ' phoneNumber-error' : '' }}" @error('phoneNumber') aria-invalid="true" @enderror>
-                    <div id="participant-phone-help" class="form-text">Gunakan 8–15 angka, boleh diawali +, tanpa spasi. Kosongkan untuk menghapus nomor.</div>
+                    <input id="participant-phone-number" x-ref="phoneNumberInput" type="tel" inputmode="tel" autocomplete="tel" class="form-control" style="font-size: 16px" wire:model="phoneNumber" maxlength="100" placeholder="081234567890 / +6281234567890" aria-describedby="participant-phone-help{{ $errors->has('phoneNumber') ? ' phoneNumber-error' : '' }}" @error('phoneNumber') aria-invalid="true" @enderror>
+                    <div id="participant-phone-help" class="form-text">Nomor dapat diperbaiki kemudian. Kosongkan untuk menghapus nomor.</div>
                     <x-field-error name="phoneNumber" />
                 </div>
                 <div class="d-flex flex-column flex-sm-row justify-content-end gap-2 border-top p-3">
@@ -577,8 +575,8 @@ new #[Title('Daftar Peserta SK')] class extends Component
                         </div>
                         <div class="col-sm-6">
                             <label for="create-participant-phone" class="form-label">Nomor HP</label>
-                            <input id="create-participant-phone" type="tel" class="form-control" wire:model="form.phone_number" maxlength="16" placeholder="0812… / +62812…">
-                            <div class="form-text">Opsional, 8–15 angka, boleh diawali +, tanpa spasi.</div>
+                            <input id="create-participant-phone" type="tel" class="form-control" wire:model="form.phone_number" maxlength="100" placeholder="0812… / +62812…">
+                            <div class="form-text">Opsional. Nomor dapat diperbaiki kemudian.</div>
                             <x-field-error name="form.phone_number" />
                         </div>
                     </div>

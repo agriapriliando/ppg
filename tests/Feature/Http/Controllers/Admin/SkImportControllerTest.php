@@ -60,7 +60,7 @@ it('normalizes imported phones to 628 and preserves them on blank or older templ
     }
 })->with(['081234567890', '+6281234567890', '6281234567890', 6281234567890]);
 
-it('rejects invalid or numeric spreadsheet phones and includes the value in the error report', function (mixed $phone) {
+it('accepts unfinished or numeric spreadsheet phones so they can be corrected later', function (mixed $phone) {
     Storage::fake('local');
     $c = registrationContext();
 
@@ -69,15 +69,27 @@ it('rejects invalid or numeric spreadsheet phones and includes the value in the 
     ], ValidateSkImport::HEADERS)])->assertRedirect();
 
     $import = SkImport::query()->latest('id')->first();
+    expect($import->state)->toBe('ready');
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    $this->assertDatabaseHas('sk_participants', ['sk_number' => 'SK-PHONE', 'phone_number' => (string) $phone]);
+})->with(['invalid', 81234567890, '+447123456789', '6281234', '6281234567890123', 'nomor belum tersedia', '62812 345-6789']);
+
+it('reports phone values exceeding storage capacity without preventing valid rows from being saved', function () {
+    Storage::fake('local');
+    $c = registrationContext();
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([
+        ['SK-PHONE', '2026-11-06', 1, 'Peserta Nomor HP', '000002', '', '', '', str_repeat('1', 101)],
+    ], ValidateSkImport::HEADERS)])->assertRedirect();
+
+    $import = SkImport::query()->latest('id')->first();
     expect($import->state)->toBe('invalid');
-    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasErrors('import');
     $response = $this->get(route('admin.imports.errors', $import))->assertOk();
     Storage::disk('local')->put('phone-errors.xlsx', $response->streamedContent());
     $book = IOFactory::load(Storage::disk('local')->path('phone-errors.xlsx'));
-    expect($book->getActiveSheet()->getCell('J2')->getValue())->toBe((string) $phone);
+    expect($book->getActiveSheet()->getCell('J2')->getValue())->toBe(str_repeat('1', 101));
     $book->disconnectWorksheets();
     $this->assertDatabaseMissing('sk_participants', ['sk_number' => 'SK-PHONE']);
-})->with(['invalid', 81234567890, '+447123456789', '6281234', '6281234567890123']);
+});
 
 it('detects phone changes on reimport and protects claimed participant records', function (bool $claimed) {
     Storage::fake('local');

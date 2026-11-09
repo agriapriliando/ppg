@@ -6,6 +6,16 @@ use Livewire\Livewire;
 
 require_once __DIR__.'/../../Fixtures/registration.php';
 
+it('lets staff save unfinished phone text for correction later', function (string $phone) {
+    $c = registrationContext();
+
+    Livewire::actingAs($c['operator'])->test('pages::portal.participants')
+        ->call('openPhone', $c['participant']->id)->set('phoneNumber', $phone)->call('savePhone')
+        ->assertHasNoErrors()->assertSet('showPhone', false)->assertSee($phone);
+
+    expect($c['participant']->fresh()->phone_number)->toBe($phone);
+})->with(['123', '0812 345-6789', 'Nomor menyusul']);
+
 it('renders participant phones as manual WhatsApp links with the expected country code', function (string $number, string $url) {
     $c = registrationContext();
     $c['participant']->update(['phone_number' => $number]);
@@ -36,7 +46,7 @@ it('cancels without saving and clears validation before opening another particip
     $auditCount = AuditEvent::query()->count();
 
     $component = Livewire::actingAs($c['operator'])->test('pages::portal.participants')
-        ->call('openPhone', $c['participant']->id)->set('phoneNumber', 'invalid')->call('savePhone')
+        ->call('openPhone', $c['participant']->id)->set('phoneNumber', str_repeat('1', 101))->call('savePhone')
         ->assertHasErrors('phoneNumber')->call('closePhone')->assertHasNoErrors()
         ->assertSet('showPhone', false)->assertSet('editingPhoneId', null)->assertSet('phoneNumber', '')
         ->call('openPhone', $other->id)->assertHasNoErrors()->assertSet('phoneNumber', '089876543210')
@@ -112,7 +122,7 @@ it('rejects invalid phone input without changing the participant', function (str
     expect($participant->fresh()->phone_number)->toBeNull()
         ->and($participant->fresh()->lock_version)->toBe($participant->lock_version);
     $this->assertDatabaseCount('audit_events', $auditCount);
-})->with(['123', '0812abc56789', '0812 34567890', '1234567890123456', '=123456789']);
+})->with([str_repeat('1', 101)]);
 
 it('rejects phone updates when data changes or the period is archived after opening the modal', function (string $condition) {
     $c = registrationContext();
@@ -162,10 +172,10 @@ it('rejects invalid phones in create and official edit forms', function () {
     $payload['sk_date'] = $participant->sk_date->format('Y-m-d');
 
     $this->actingAs($c['operator'])->put(route('participants.update-sk', $participant), [
-        ...$payload, 'version' => $participant->lock_version, 'phone_number' => 'invalid',
+        ...$payload, 'version' => $participant->lock_version, 'phone_number' => str_repeat('1', 101),
     ])->assertSessionHasErrors('phone_number');
     Livewire::actingAs($c['operator'])->test('pages::portal.participants')
-        ->set('form.phone_number', 'invalid')->call('saveParticipant')->assertHasErrors('form.phone_number');
+        ->set('form.phone_number', str_repeat('1', 101))->call('saveParticipant')->assertHasErrors('form.phone_number');
 
     expect($participant->fresh()->phone_number)->toBeNull();
 });

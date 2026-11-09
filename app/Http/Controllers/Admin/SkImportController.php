@@ -137,7 +137,7 @@ class SkImportController extends Controller
             $guide->setTitle('Panduan');
             $guide->fromArray([
                 ['Template SK versi 5'],
-                ['Kolom I: nomor_hp opsional. Gunakan format 628, total 8–15 angka, tanpa + atau spasi (contoh 6281234567890). Awalan 08 dan +628 otomatis dikonversi ke 628; simpan kedua format tersebut sebagai teks.'],
+                ['Kolom I: nomor_hp opsional. Awalan 08 dan +628 otomatis dikonversi ke 628. Isian lain tetap disimpan dan dapat diperbaiki kemudian. Simpan sebagai teks agar angka tetap utuh.'],
                 ['Nomor HP kosong atau template lama mempertahankan nomor HP peserta yang sudah tersimpan. Untuk menghapus nomor, gunakan halaman Peserta SK.'],
                 ['Kolom A–D wajib. Periode seluruh baris mengikuti pilihan Periode tujuan pada formulir unggah.'],
                 ['Tanggal SK: YYYY-MM-DD. Nomor urut harus bilangan bulat positif.'],

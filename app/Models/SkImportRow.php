@@ -17,8 +17,8 @@ class SkImportRow extends Model
     /** @return list<string> */
     public function errorMessages(): array
     {
-        return array_map(fn (string $error): string => $error === 'validation.regex'
-            ? 'Format nomor HP tidak sesuai. Gunakan 8–15 angka, boleh diawali +, tanpa spasi.'
+        return array_map(fn (string $error): string => $error === 'validation.regex' || str_starts_with($error, 'Nomor HP harus berformat 628')
+            ? 'Hasil pemeriksaan nomor HP dari aturan lama. Unggah ulang berkas untuk menggunakan aturan terbaru.'
             : $error, $this->errors);
     }
 

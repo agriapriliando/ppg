@@ -35,6 +35,6 @@ class ParticipantPhone
     /** @return list<string> */
     public static function rules(): array
     {
-        return ['nullable', 'string', 'max:16', 'regex:/^\+?[0-9]{8,15}$/'];
+        return ['nullable', 'string', 'max:100'];
     }
 }
