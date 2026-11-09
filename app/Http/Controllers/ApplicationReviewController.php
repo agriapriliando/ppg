@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Actions\Admissions\ReviewApplication;
 use App\Models\AdmissionPeriod;
 use App\Models\Application;
+use App\Models\OriginEducation;
+use App\Models\ReferenceDataset;
 use App\Models\ReferenceOption;
 use App\Models\ReferenceRegion;
 use App\Models\SkClaim;
@@ -31,22 +33,7 @@ class ApplicationReviewController extends Controller
     {
         abort_unless(Gate::allows('view', $application), 404);
         $application->load(['participant.assignedOperator', 'workspace.biodata', 'workspace.education', 'period', 'reviews', 'submissions.configVersion', 'submissions.documents.document']);
-        $datasetId = $application->workspace->education?->reference_dataset_id;
-        $display = [];
-        $values = SubmittedRegistrationData::forDisplay($application);
-        $options = ReferenceOption::query()->where('dataset_id', $datasetId)->get();
-        $regions = ReferenceRegion::query()->where('dataset_id', $datasetId)->whereIn('code', [$values['province_code'] ?? '', $values['city_code'] ?? '', $values['district_code'] ?? ''])->pluck('name', 'code');
-        foreach (ApplicantFields::definitions() as $key => $field) {
-            if ($field['type'] === 'choice') {
-                $display[$key] = ($field['options'] ?? [])[$values[$key] ?? ''] ?? ($values[$key] ?? 'Belum diisi');
-            }
-            if ($field['type'] === 'select') {
-                $display[$key] = $options->where('group', $field['reference'] ?? '')->firstWhere('code', $values[$key] ?? null)->label ?? '—';
-            }
-            if ($field['type'] === 'region') {
-                $display[$key] = $regions[$values[$key] ?? ''] ?? '—';
-            }
-        }
+        ['values' => $values, 'display' => $display] = $this->displayBiodata($application);
 
         return view('portal.review-detail', ['application' => $application, 'fields' => ApplicantFields::definitions(), 'data' => $values, 'display' => $display, 'claim' => SkClaim::query()->where('candidate_sk_participant_id', $application->sk_participant_id)->where('status', 'approved')->first()]);
     }
@@ -55,22 +42,7 @@ class ApplicationReviewController extends Controller
     {
         abort_unless(Gate::allows('view', $application), 404);
         $application->load(['participant.assignedOperator', 'workspace.biodata', 'workspace.education', 'period', 'workspace.availableDocuments', 'submissions.documents.document']);
-        $datasetId = $application->workspace->education?->reference_dataset_id;
-        $display = [];
-        $values = SubmittedRegistrationData::forDisplay($application);
-        $options = ReferenceOption::query()->where('dataset_id', $datasetId)->get();
-        $regions = ReferenceRegion::query()->where('dataset_id', $datasetId)->whereIn('code', [$values['province_code'] ?? '', $values['city_code'] ?? '', $values['district_code'] ?? ''])->pluck('name', 'code');
-        foreach (ApplicantFields::definitions() as $key => $field) {
-            if ($field['type'] === 'choice') {
-                $display[$key] = ($field['options'] ?? [])[$values[$key] ?? ''] ?? ($values[$key] ?? 'Belum diisi');
-            }
-            if ($field['type'] === 'select') {
-                $display[$key] = $options->where('group', $field['reference'] ?? '')->firstWhere('code', $values[$key] ?? null)->label ?? '—';
-            }
-            if ($field['type'] === 'region') {
-                $display[$key] = $regions[$values[$key] ?? ''] ?? '—';
-            }
-        }
+        ['values' => $values, 'display' => $display] = $this->displayBiodata($application);
         $submission = $application->submissions->where('ownership_epoch', $application->ownership_epoch)->sortByDesc('revision')->first();
         $documents = $submission !== null && $submission->documents_version !== null
             ? $submission->documents->map(function ($item) {
@@ -89,6 +61,44 @@ class ApplicationReviewController extends Controller
             'display' => $display,
             'documents' => $documents,
         ]);
+    }
+
+    /** @return array{values: array<string, mixed>, display: array<string, mixed>} */
+    private function displayBiodata(Application $application): array
+    {
+        $values = SubmittedRegistrationData::forDisplay($application);
+        $submission = $application->submissions->where('ownership_epoch', $application->ownership_epoch)->sortByDesc('revision')->first();
+        $datasetId = $submission?->configVersion?->reference_version_ids['biodata']
+            ?? $application->workspace->education->reference_dataset_id
+            ?? ReferenceDataset::query()->where('state', 'active')->latest('id')->value('id');
+        $options = ReferenceOption::query()->where('dataset_id', $datasetId)->get()->groupBy('group');
+        $regions = ReferenceRegion::query()->where('dataset_id', $datasetId)
+            ->whereIn('code', array_filter([$values['province_code'] ?? null, $values['city_code'] ?? null, $values['district_code'] ?? null]))
+            ->pluck('name', 'code');
+        $display = [];
+        foreach (ApplicantFields::definitions() as $key => $field) {
+            $value = $values[$key] ?? null;
+            $display[$key] = match ($field['type']) {
+                'choice' => ($field['options'] ?? [])[$value ?? ''] ?? ($value ?: 'Belum diisi'),
+                'select' => $options->get($field['reference'] ?? '')?->firstWhere('code', $value)->label ?? ($value ?: 'Belum diisi'),
+                'region' => $regions->get($value) ?? ($value ?: 'Belum diisi'),
+                'boolean' => $value === null || $value === '' ? 'Belum diisi' : ((bool) $value ? 'Ya' : 'Tidak'),
+                default => $value === null || $value === '' ? 'Belum diisi' : $value,
+            };
+        }
+        if ($submission === null && $application->workspace->draft_payload !== null) {
+            $workspace = clone $application->workspace;
+            $education = $workspace->education !== null ? clone $workspace->education : new OriginEducation;
+            $education->fill([
+                'degree_level' => $values['degree_level'] ?? null,
+                'education_history' => $values['education_history'] ?? null,
+                'graduation_year' => $values['graduation_year'] ?? null,
+            ]);
+            $workspace->setRelation('education', $education);
+            $application->setRelation('workspace', $workspace);
+        }
+
+        return ['values' => $values, 'display' => $display];
     }
 
     public function update(Request $request, Application $application, ReviewApplication $review): RedirectResponse

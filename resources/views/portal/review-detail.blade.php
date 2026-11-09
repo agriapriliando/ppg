@@ -29,7 +29,7 @@
                 <section class="workspace-card mb-4">
                     <div class="panel-heading">
                         <h2>Biodata dan pendidikan asal</h2>
-                        <p>Periksa data peserta dan kecocokan kepesertaan SK.</p>
+                        <p>{{ $application->hasCurrentOwnerSubmission() ? 'Data pada pengiriman terakhir peserta.' : 'Draf peserta yang belum dikirim.' }} Periksa kecocokan dengan kepesertaan SK.</p>
                     </div>
                     <div class="panel-body">
                         <div class="review-grid">
@@ -39,6 +39,7 @@
                                     <dl>
                                         @foreach($fields as $key=>$field)
                                             @continue($field['step']!==$step)
+                                            @continue($key === 'kps_number' && !($data['is_kps_recipient'] ?? false))
                                             <dt>{{ $field['label'] }}</dt>
                                             <dd>
                                                 @if($key==='nik' && !empty($data[$key]))
@@ -46,8 +47,6 @@
                                                         <summary>•••• •••• •••• {{ substr($data[$key],-4) }}</summary>
                                                         {{ $data[$key] }}
                                                     </details>
-                                                @elseif($key==='is_kps_recipient')
-                                                    {{ $data[$key]===null?'Belum diisi':($data[$key]?'Ya':'Tidak') }}
                                                 @else
                                                     {{ $display[$key]??($data[$key]??'—') }}
                                                 @endif
