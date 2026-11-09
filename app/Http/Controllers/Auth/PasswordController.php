@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Actions\RecordAudit;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,7 +35,11 @@ class PasswordController extends Controller
             throw ValidationException::withMessages(['current_password' => 'Kata sandi saat ini tidak sesuai.']);
         }
         DB::transaction(function () use ($user, $data, $audit): void {
-            $user->password = $data['password'];
+            if (in_array($user->role, [UserRole::Administrator, UserRole::Operator], true)) {
+                $user->setStaffPassword($data['password']);
+            } else {
+                $user->password = $data['password'];
+            }
             $user->must_change_password = false;
             $user->remember_token = Str::random(60);
             $user->save();

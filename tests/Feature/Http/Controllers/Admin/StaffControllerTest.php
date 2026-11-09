@@ -12,6 +12,7 @@ it('creates a staff account with a hashed password ready for immediate use', fun
     $user = User::query()->where('login_id', 'operator.uji')->sole();
     expect($user->must_change_password)->toBeFalse();
     expect(Hash::check('SandiOperatorUji2026!', $user->password))->toBeTrue();
+    expect($user->exportableStaffPassword())->toBe('SandiOperatorUji2026!');
     $this->assertDatabaseHas('audit_events', ['actor_id' => $admin->id, 'action' => 'Membuat akun pengelola']);
     expect(json_encode(AuditEvent::query()->sole()->safe_changes))->not->toContain('SandiOperatorUji2026!');
 });
@@ -34,6 +35,7 @@ it('accepts single character passwords when creating and editing staff', functio
     $user->save();
     $this->put(route('admin.users.update', $user), $data)->assertRedirect(route('admin.users'))->assertSessionHasNoErrors();
     expect(Hash::check($password, $user->fresh()->password))->toBeTrue();
+    expect($user->fresh()->exportableStaffPassword())->toBe($password);
 })->with(['a', '0']);
 
 it('disables another operator and audits the responsible administrator', function () {

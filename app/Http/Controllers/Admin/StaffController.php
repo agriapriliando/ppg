@@ -94,7 +94,7 @@ class StaffController extends Controller
             $user->email = ! empty($data['email']) ? mb_strtolower($data['email']) : null;
             $user->login_id = $data['login_id'];
             $user->role = UserRole::from($data['role']);
-            $user->password = $data['password'];
+            $user->setStaffPassword($data['password']);
             $user->account_state = AccountState::Active;
             $user->must_change_password = false;
             $user->save();
@@ -149,7 +149,7 @@ class StaffController extends Controller
             $target->role = $newRole;
 
             if (isset($data['password'])) {
-                $target->password = $data['password'];
+                $target->setStaffPassword($data['password']);
                 $target->must_change_password = false;
             }
 

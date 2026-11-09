@@ -41,8 +41,10 @@
                 <div>
                     <h2>Pengguna Pengelola</h2>
                     <p class="mb-0">Kelola akun administrator dan operator yang memiliki akses dashboard sistem.</p>
+                    <p class="small text-muted mb-0">Ekspor Excel mengikuti filter aktif dan menyertakan password pengelola yang dibuat atau diubah setelah fitur ini tersedia. Password lama tanpa salinan terenkripsi diberi keterangan tidak tersedia.</p>
                 </div>
                 <div class="d-flex flex-wrap gap-2">
+                <a href="{{ route('admin.users.export', array_filter(['search' => $search, 'role' => $role, 'status' => $status], fn ($value) => $value !== null && $value !== '')) }}" class="btn btn-outline-purple d-inline-flex align-items-center gap-2"><i class="bi bi-download" aria-hidden="true"></i>Ekspor Excel</a>
                 <a href="{{ route('admin.users.import') }}" class="btn btn-outline-purple d-inline-flex align-items-center gap-2"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i>Impor Excel</a>
                 <button type="button" class="btn btn-purple d-inline-flex align-items-center gap-2" @click="showCreateModal = true">
                     <i class="bi bi-person-plus-fill" aria-hidden="true"></i>

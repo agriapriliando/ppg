@@ -3,6 +3,17 @@
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
+it('keeps an encrypted export copy when staff change their own password', function (string $role) {
+    $user = User::factory()->{$role}()->create();
+
+    $this->actingAs($user)->put(route('password.update'), [
+        'current_password' => 'password', 'password' => 'SandiBaruPengelola123', 'password_confirmation' => 'SandiBaruPengelola123',
+    ])->assertRedirect(route('dashboard'))->assertSessionHasNoErrors();
+
+    expect($user->fresh()->exportableStaffPassword())->toBe('SandiBaruPengelola123');
+    expect($user->fresh()->getRawOriginal('staff_password_copy'))->not->toBe('SandiBaruPengelola123');
+})->with(['administrator', 'operator']);
+
 it('changes the password after verifying the previous password and clears the first-login restriction', function () {
     $user = User::factory()->create(['must_change_password' => true]);
     $this->actingAs($user)->put(route('password.update'), [
@@ -10,6 +21,7 @@ it('changes the password after verifying the previous password and clears the fi
     ])->assertRedirect(route('dashboard'));
     expect(Hash::check('SandiBaruYangAman2026!', $user->fresh()->password))->toBeTrue();
     expect($user->fresh()->must_change_password)->toBeFalse();
+    expect($user->fresh()->staff_password_copy)->toBeNull();
     $this->assertDatabaseHas('audit_events', ['actor_id' => $user->id, 'action' => 'Mengganti kata sandi']);
     $this->get(route('dashboard'))->assertOk();
 });

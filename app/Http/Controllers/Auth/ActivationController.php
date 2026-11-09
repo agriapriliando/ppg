@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Actions\RecordAudit;
 use App\Enums\AccountState;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\CredentialIssuance;
 use App\Models\User;
@@ -36,7 +37,11 @@ class ActivationController extends Controller
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
             $issuance = CredentialIssuance::query()->whereKey($request->session()->get('activation.issuance_id'))->where('user_id', $locked->id)->whereNotNull('used_at')->whereNull('revoked_at')->lockForUpdate()->first();
             abort_unless($locked->account_state === AccountState::PendingActivation && $issuance !== null, 403);
-            $locked->password = $data['password'];
+            if (in_array($locked->role, [UserRole::Administrator, UserRole::Operator], true)) {
+                $locked->setStaffPassword($data['password']);
+            } else {
+                $locked->password = $data['password'];
+            }
             $locked->account_state = AccountState::Active;
             $locked->must_change_password = false;
             $locked->save();

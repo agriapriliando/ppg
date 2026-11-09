@@ -50,8 +50,8 @@ class CreateAdministrator extends Command
             $user->login_id = $login;
             $user->name = (string) $name;
             $user->email = $email ? mb_strtolower((string) $email) : null;
-            $user->password = (string) $password;
             $user->role = UserRole::Administrator;
+            $user->setStaffPassword((string) $password);
             $user->account_state = AccountState::Active;
             $user->save();
             $audit->handle(null, 'Membuat administrator melalui konsol', $user);

@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\PortalQuickLinkController;
 use App\Http\Controllers\Admin\ReferenceController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\SkImportController;
+use App\Http\Controllers\Admin\StaffAccountExportController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffImportController;
 use App\Http\Controllers\Admin\WhatsappRecoveryController;
@@ -151,6 +152,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::get('/pendaftaran/{application}/koreksi-pemilik', [OwnershipTransferController::class, 'edit'])->name('ownership.edit');
         Route::post('/pendaftaran/{application}/koreksi-pemilik', [OwnershipTransferController::class, 'update'])->middleware('throttle:5,1')->name('ownership.update');
         Route::get('/pengguna', [StaffController::class, 'index'])->name('users');
+        Route::get('/pengguna/ekspor', StaffAccountExportController::class)->name('users.export');
         Route::post('/pengguna', [StaffController::class, 'store'])->name('users.store');
         Route::put('/pengguna/pendaftar/{user}', [ApplicantAccountController::class, 'update'])->name('users.applicants.update');
         Route::delete('/pengguna/pendaftar/{user}', [ApplicantAccountController::class, 'destroy'])->name('users.applicants.destroy');

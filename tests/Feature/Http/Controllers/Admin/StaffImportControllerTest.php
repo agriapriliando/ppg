@@ -56,6 +56,7 @@ it('previews normalized accounts privately then imports all with hashed password
     $url = $preview->headers->get('Location');
     $token = basename($url);
     $this->get($url)->assertOk()->assertHeader('Cache-Control', 'no-store, private')
+        ->assertViewHas('rows', fn (array $rows) => collect($rows)->every(fn (array $row) => ! array_key_exists('password', $row) && ! array_key_exists('encrypted_password', $row)))
         ->assertSee('op.baru@example.test')->assertSee('Operator')->assertSee('Administrator')
         ->assertDontSee('SandiUnikOperator2026!')->assertDontSee('SandiUnikAdmin2026!');
     $this->assertDatabaseCount('users', 1);
@@ -66,6 +67,10 @@ it('previews normalized accounts privately then imports all with hashed password
     $this->assertDatabaseHas('users', ['login_id' => 'op.baru', 'email' => 'op.baru@example.test', 'role' => 'operator', 'account_state' => 'active', 'must_change_password' => false]);
     $this->assertDatabaseHas('users', ['login_id' => 'admin.baru', 'email' => null, 'role' => 'administrator']);
     expect(Hash::check('SandiUnikOperator2026!', User::query()->where('login_id', 'op.baru')->sole()->password))->toBeTrue();
+    $operator = User::query()->where('login_id', 'op.baru')->sole();
+    expect($operator->exportableStaffPassword())->toBe('SandiUnikOperator2026!');
+    expect($operator->getRawOriginal('staff_password_copy'))->not->toBe('SandiUnikOperator2026!');
+    expect($operator->toArray())->not->toHaveKey('staff_password_copy');
     expect(AuditEvent::query()->where('action', 'Mengimpor akun pengelola')->count())->toBe(2);
     expect(AuditEvent::query()->get()->toJson())->not->toContain('SandiUnikOperator2026!')->not->toContain('SandiUnikAdmin2026!');
     expect(Cache::has('staff-import:'.$admin->id.':'.$token))->toBeFalse();

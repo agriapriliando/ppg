@@ -85,7 +85,7 @@ class StaffImportController extends Controller
         }
 
         return response()->view('admin.users-import', [
-            'rows' => array_map(fn ($row) => Arr::except($row, ['password']), $rows),
+            'rows' => array_map(fn ($row) => Arr::except($row, ['password', 'encrypted_password']), $rows),
             'token' => $token,
             'hasErrors' => collect($rows)->contains(fn ($row) => $row['errors'] !== []),
         ], headers: ['Cache-Control' => 'private, no-store']);

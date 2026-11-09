@@ -15,5 +15,6 @@ it('bootstraps an administrator with a hidden password prompt and an audit event
     expect($user->email)->toBe('admin.uji@example.test');
     expect($user->isAdministrator())->toBeTrue();
     expect(Hash::check('a', $user->password))->toBeTrue();
+    expect($user->exportableStaffPassword())->toBe('a');
     $this->assertDatabaseHas('audit_events', ['action' => 'Membuat administrator melalui konsol', 'actor_id' => null]);
 });

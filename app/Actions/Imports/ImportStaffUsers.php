@@ -8,6 +8,7 @@ use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -18,7 +19,7 @@ use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 use ZipArchive;
 
 /**
- * @phpstan-type ImportRow array{row: int, name: string, login_id: string, email: string|null, role: string, password: string, errors: list<string>}
+ * @phpstan-type ImportRow array{row: int, name: string, login_id: string, email: string|null, role: string, password: string, errors: list<string>, encrypted_password?: string|null}
  */
 class ImportStaffUsers
 {
@@ -82,6 +83,7 @@ class ImportStaffUsers
             }
             $rows = $this->validateRows($rows);
             foreach ($rows as &$row) {
+                $row['encrypted_password'] = $row['errors'] === [] ? Crypt::encryptString($row['password']) : null;
                 $row['password'] = $row['errors'] === [] ? Hash::make($row['password']) : '';
             }
             unset($row);
@@ -118,6 +120,13 @@ class ImportStaffUsers
                     $user->email = $row['email'];
                     $user->role = UserRole::from($row['role']);
                     $user->password = $row['password'];
+                    if (isset($row['encrypted_password'])) {
+                        $copy = Crypt::decryptString($row['encrypted_password']);
+                        if (! Hash::check($copy, $user->password ?? '')) {
+                            throw ValidationException::withMessages(['import' => 'Data password pada pratinjau tidak cocok. Unggah ulang berkas Excel.']);
+                        }
+                        $user->staff_password_copy = $copy;
+                    }
                     $user->account_state = AccountState::Active;
                     $user->must_change_password = false;
                     $user->save();
