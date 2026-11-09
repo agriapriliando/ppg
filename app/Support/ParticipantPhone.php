@@ -19,14 +19,16 @@ class ParticipantPhone
         return $number;
     }
 
-    public static function whatsappUrl(?string $number): ?string
+    public static function whatsappUrl(?string $number, string $participantName): ?string
     {
         if ($number === null || trim($number) === '') {
             return null;
         }
 
         try {
-            return 'https://wa.me/'.ltrim(WhatsappNumber::normalize($number), '+');
+            $message = 'Halo Bapak/Ibu '.$participantName.', Peserta PPG IAKN Palangka Raya';
+
+            return 'https://wa.me/'.ltrim(WhatsappNumber::normalize($number), '+').'?text='.rawurlencode($message);
         } catch (ValidationException) {
             return null;
         }

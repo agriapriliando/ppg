@@ -76,7 +76,7 @@ it('displays application and sk claim sections directly in workspace dashboard f
         ->assertSee($application->application_number)
         ->assertSee('Berkas Saya')
         ->assertSee('Status & Perbaikan', false)
-        ->assertSee('Daftar Akun')
+        ->assertDontSee('Daftar Akun')
         ->assertSee('Disetujui')
         ->assertSee($claim->public_reference);
 });

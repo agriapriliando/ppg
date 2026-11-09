@@ -55,6 +55,9 @@ button:focus-visible,a:focus-visible{outline:3px solid #b880d3;outline-offset:3p
 .welcome-banner h2{font-size:1.52rem;color:#fff;font-weight:750;margin-bottom:11px;max-width:550px;line-height:1.4}
 .welcome-banner p{color:#dbc8e0;font-size:.75rem;max-width:510px;margin-bottom:22px}
 .welcome-banner .btn{font-size:.73rem;padding:10px 17px;border-radius:10px;box-shadow:none;transition:all 0.2s cubic-bezier(0.4,0,0.2,1)}
+.welcome-banner .btn-form-primary{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:56px;padding:16px 26px;font-size:1rem;background:#ffce53;border:2px solid #ffe49b;color:#35133c;box-shadow:0 6px 18px #16062040}
+.welcome-banner .btn-form-primary:hover{background:#ffdc80;border-color:#fff0c7;color:#35133c;box-shadow:0 8px 22px #16062055}
+@media(max-width:575.98px){.welcome-banner .btn-form-primary{width:100%}}
 .welcome-banner .btn-banner-glass{background:rgba(255,255,255,0.12);color:#ffffff;border:1px solid rgba(255,255,255,0.28);font-weight:600;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:inline-flex;align-items:center;text-decoration:none}
 .welcome-banner .btn-banner-glass:hover{background:rgba(255,255,255,0.22);color:#ffffff;border-color:rgba(255,255,255,0.5);transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,0.25)}
 .welcome-banner .badge-counter{display:inline-flex;align-items:center;justify-content:center;min-width:1.35rem;padding:0.15rem 0.45rem;font-size:0.65rem;font-weight:700;border-radius:9999px;line-height:1}

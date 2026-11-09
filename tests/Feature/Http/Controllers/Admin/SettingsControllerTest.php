@@ -35,8 +35,9 @@ it('saves announcement placement and shows it to the selected audience', functio
     ])->assertRedirect(route('admin.settings'))->assertSessionHasNoErrors();
 
     expect(ApplicationSetting::query()->where('key', 'public')->sole()->value['notice_placement'])->toBe($placement);
+    expect(ApplicationSetting::query()->where('key', 'public')->sole()->value['notice'])->toBe($notice);
     $home = $this->get(route('home'))->assertOk();
-    if ($placement === 'dashboard') {
+    if (in_array($placement, ['dashboard', 'hidden'], true)) {
         $home->assertDontSee('Informasi jadwal terbaru');
     } else {
         $home->assertSee('Informasi jadwal terbaru')->assertSee('href="https://kampus.example/pengumuman?gelombang=1&amp;tahun=2026"', false);
@@ -48,13 +49,27 @@ it('saves announcement placement and shows it to the selected audience', functio
         default => User::factory()->create(),
     };
     $dashboard = $this->actingAs($user)->get(route('dashboard'))->assertOk();
-    if ($placement === 'homepage') {
+    if (in_array($placement, ['homepage', 'hidden'], true)) {
         $dashboard->assertDontSee('Informasi jadwal terbaru');
     } else {
         $dashboard->assertSeeInOrder(['PENGUMUMAN PENTING', 'welcome-banner'], false)
             ->assertSee('href="https://kampus.example/pengumuman?gelombang=1&amp;tahun=2026"', false);
     }
-})->with(['both', 'homepage', 'dashboard'])->with(['applicant', 'operator', 'administrator']);
+})->with(['both', 'homepage', 'dashboard', 'hidden'])->with(['applicant', 'operator', 'administrator']);
+
+it('lets administrators show a previously hidden announcement without rewriting its text', function () {
+    $admin = User::factory()->administrator()->create();
+    ApplicationSetting::create(['key' => 'public', 'value' => ['helpdesk_name' => 'Helpdesk', 'notice' => 'Pengumuman tersimpan', 'notice_placement' => 'hidden'], 'version' => 1]);
+
+    $this->actingAs($admin)->get(route('admin.settings'))->assertOk()
+        ->assertSee('Tidak ditampilkan')->assertSee('Pengumuman tersimpan');
+    $this->put(route('admin.settings.update'), [
+        'helpdesk_name' => 'Helpdesk', 'notice' => 'Pengumuman tersimpan', 'notice_placement' => 'both', 'version' => 1,
+    ])->assertRedirect(route('admin.settings'))->assertSessionHasNoErrors();
+
+    $this->get(route('home'))->assertOk()->assertSee('Pengumuman tersimpan');
+    $this->get(route('dashboard'))->assertOk()->assertSee('Pengumuman tersimpan');
+});
 
 it('escapes announcement HTML and only links web URLs on homepage and dashboard', function () {
     ApplicationSetting::create(['key' => 'public', 'value' => [

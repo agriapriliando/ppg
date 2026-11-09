@@ -53,11 +53,11 @@
             @if (auth()->user()->role === App\Enums\UserRole::Applicant)
                 @if ($activePeriod)
                     <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <a class="btn btn-banner-glass" href="{{ route('applicant.sk-information') }}"><i class="bi bi-person-vcard me-1" aria-hidden="true"></i>Informasi SK</a>
-                        <a class="btn btn-gold fw-bold" href="{{ route('applicant.form.edit', $activePeriod) }}">
+                        <a class="btn btn-gold btn-form-primary fw-bold" href="{{ route('applicant.form.edit', $activePeriod) }}">
                             <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>
                             {{ $activeApplication && ! $activeApplication->status->editable() ? 'Lihat Formulir' : 'Lengkapi Formulir' }}
                         </a>
+                        <a class="btn btn-banner-glass" href="{{ route('applicant.sk-information') }}"><i class="bi bi-person-vcard me-1" aria-hidden="true"></i>Informasi SK</a>
                         <a class="btn btn-banner-glass" href="{{ route('applicant.documents.index', $activePeriod) }}">
                             <i class="bi bi-folder2-open me-1" style="color: #FFD54F;" aria-hidden="true"></i>Berkas Saya
                             @if ($activeDocCount > 0)
@@ -75,10 +75,6 @@
                             </a>
                         @endif
                     </div>
-                @else
-                    <a href="{{ route('public.claim') }}" class="btn btn-gold">
-                        <i class="bi bi-patch-check me-1" aria-hidden="true"></i>Daftar Akun
-                    </a>
                 @endif
             @elseif (auth()->user()->isAdministrator())
                 <a href="{{ route('admin.periods') }}" class="btn btn-gold">
@@ -337,9 +333,6 @@
                         <h2 class="h4 mb-1"><i class="bi bi-patch-check text-purple me-2" aria-hidden="true"></i>Kepesertaan SK Resmi</h2>
                         <p class="text-muted small mb-0">Status pencocokan identitas dengan SK peserta resmi PMB PPG.</p>
                     </div>
-                    <a href="{{ route('public.claim') }}" class="btn btn-purple btn-sm">
-                        <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Daftar Akun
-                    </a>
                 </div>
 
                 @forelse ($claims as $claim)
@@ -397,9 +390,6 @@
                         <i class="bi bi-patch-check" aria-hidden="true"></i>
                         <h2>Belum ada permohonan klaim</h2>
                         <p>Gunakan nama dan pengenal yang tercantum pada SK resmi untuk mencocokkan kepesertaan.</p>
-                        <a href="{{ route('public.claim') }}" class="btn btn-purple btn-sm mt-2">
-                            <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Daftar Akun
-                        </a>
                     </div>
                 @endforelse
             </div>

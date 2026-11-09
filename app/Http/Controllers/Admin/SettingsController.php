@@ -30,7 +30,7 @@ class SettingsController extends Controller
             'helpdesk_whatsapp' => ['nullable', 'regex:/^\+?[0-9]{8,15}$/'],
             'service_hours' => ['nullable', 'string', 'max:100'],
             'notice' => ['nullable', 'string', 'max:2000'],
-            'notice_placement' => ['sometimes', 'required', Rule::in(['both', 'homepage', 'dashboard'])],
+            'notice_placement' => ['sometimes', 'required', Rule::in(['both', 'homepage', 'dashboard', 'hidden'])],
             'version' => ['required', 'integer', 'min:0'],
         ], ['helpdesk_whatsapp.regex' => 'Gunakan nomor internasional, misalnya +62812…, tanpa spasi.', 'helpdesk_name.required' => 'Nama helpdesk wajib diisi.']);
         DB::transaction(function () use ($request, $data, $audit): void {

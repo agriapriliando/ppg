@@ -18,11 +18,12 @@ it('lets staff save unfinished phone text for correction later', function (strin
 
 it('renders participant phones as manual WhatsApp links with the expected country code', function (string $number, string $url) {
     $c = registrationContext();
-    $c['participant']->update(['phone_number' => $number]);
+    $c['participant']->update(['phone_number' => $number, 'name_on_sk' => 'Siti & Yohana']);
 
     $response = $this->actingAs($c['operator'])->get(route('participants.index'))->assertOk();
 
-    $response->assertSee('href="'.$url.'"', false)->assertSee($number)
+    $expectedMessage = 'Halo Bapak/Ibu Siti & Yohana, Peserta PPG IAKN Palangka Raya';
+    $response->assertSee('href="'.$url.'?text='.rawurlencode($expectedMessage).'"', false)->assertSee($number)
         ->assertSee('Edit nomor HP '.$c['participant']->name_on_sk)->assertDontSee('<th>Nomor HP</th>', false);
 })->with([
     ['081234567890', 'https://wa.me/6281234567890'],

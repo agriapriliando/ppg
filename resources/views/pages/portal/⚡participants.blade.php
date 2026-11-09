@@ -384,7 +384,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
                                 @if($participant->origin_city_name)<small class="d-block text-muted">{{ $participant->origin_city_name }}{{ $participant->origin_province_name ? ', '.$participant->origin_province_name : '' }}</small>@endif
                                 <small class="d-block text-warning-emphasis lh-sm">Operator: {{ $participant->assignedOperator?->name ?? 'Belum ditugaskan' }}</small>
                                 <div class="d-flex align-items-center gap-1 mt-1">
-                                    @php($whatsappUrl = ParticipantPhone::whatsappUrl($participant->phone_number))
+                                    @php($whatsappUrl = ParticipantPhone::whatsappUrl($participant->phone_number, $participant->name_on_sk))
                                     @if($whatsappUrl)
                                         <a href="{{ $whatsappUrl }}" target="_blank" rel="noopener noreferrer" class="small text-success text-decoration-none" aria-label="Buka WhatsApp {{ $participant->name_on_sk }} di {{ $participant->phone_number }}">
                                             <i class="bi bi-whatsapp me-1" aria-hidden="true"></i>{{ $participant->phone_number }}
