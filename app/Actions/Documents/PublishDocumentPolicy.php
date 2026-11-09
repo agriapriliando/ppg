@@ -3,6 +3,7 @@
 namespace App\Actions\Documents;
 
 use App\Actions\RecordAudit;
+use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
 use App\Models\DocumentPolicyVersion;
 use App\Models\User;
@@ -19,7 +20,7 @@ class PublishDocumentPolicy
     /** @param array<string, mixed> $input */
     public function handle(User $actor, AdmissionPeriod $period, array $input): DocumentPolicyVersion
     {
-        abort_unless($actor->isAdministrator(), 403);
+        abort_unless($actor->isAdministrator() || $actor->role === UserRole::Operator, 403);
 
         $supportedExtensions = array_keys(config('document_policy.supported_types', []));
 

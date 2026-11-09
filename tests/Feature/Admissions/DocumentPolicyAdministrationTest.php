@@ -14,13 +14,13 @@ beforeEach(function () {
     Storage::fake('local');
 });
 
-it('saves long general instructions intact including paragraphs and links', function () {
+it('saves long general instructions intact including paragraphs and links', function (string $role) {
     $c = registrationContext();
     $opening = "Lampiran I\nNomor : 2708/Ikn.06/PP.00.9/11/2026\nBERKAS PERSYARATAN YANG WAJIB DIUNGGAH PESERTA\n";
     $ending = "\nSistem Lapor Diri: https://ppg.iaknpky.ac.id/klaim-whatsapp\nDasar: Keputusan Sekretaris Jenderal Kementerian Agama Nomor 15 Tahun 2025.";
     $instructions = $opening.str_repeat('a', 10000 - mb_strlen($opening) - mb_strlen($ending)).$ending;
 
-    $this->actingAs($c['admin'])->post(route('admin.document-policies.store'), [
+    $this->actingAs($c[$role])->post(route('admin.document-policies.store'), [
         'admission_period_id' => $c['period']->id, 'allowed_extensions' => ['pdf'],
         'max_file_size_mb' => 5, 'general_instructions' => $instructions,
     ])->assertRedirect()->assertSessionHasNoErrors();
@@ -29,7 +29,7 @@ it('saves long general instructions intact including paragraphs and links', func
     expect($policy->general_instructions)->toBe($instructions);
     $this->get(route('admin.document-policies.index', ['period_id' => $c['period']->id]))->assertOk()
         ->assertSee($instructions)->assertSee('maxlength="10000"', false);
-});
+})->with(['admin', 'operator']);
 
 it('rejects general instructions above the expanded limit without publishing a version', function () {
     $c = registrationContext();
@@ -43,10 +43,10 @@ it('rejects general instructions above the expanded limit without publishing a v
     $this->assertDatabaseCount('document_policy_versions', $beforeCount);
 });
 
-it('allows administrator to configure and publish new document policy version', function () {
+it('allows administrators and operators to configure and publish new document policy versions', function (string $role) {
     $c = registrationContext();
 
-    $response = $this->actingAs($c['admin'])->post(route('admin.document-policies.store'), [
+    $response = $this->actingAs($c[$role])->post(route('admin.document-policies.store'), [
         'admission_period_id' => $c['period']->id,
         'allowed_extensions' => ['pdf', 'jpg', 'png'],
         'max_file_size_mb' => 15,
@@ -65,10 +65,12 @@ it('allows administrator to configure and publish new document policy version', 
         ->and($latestPolicy->allowed_extensions)->toBe(['pdf', 'jpg', 'png'])
         ->and($latestPolicy->max_file_size_bytes)->toBe(15 * 1024 * 1024)
         ->and($latestPolicy->workspace_quota_bytes)->toBe(50 * 1024 * 1024)
-        ->and($latestPolicy->general_instructions)->toBe('Instruksi khusus admin pengujian');
-});
+        ->and($latestPolicy->general_instructions)->toBe('Instruksi khusus admin pengujian')
+        ->and($latestPolicy->created_by)->toBe($c[$role]->id);
+    $this->assertDatabaseHas('audit_events', ['actor_id' => $c[$role]->id, 'action' => 'Mempublikasikan aturan kebijakan berkas pendaftar']);
+})->with(['admin', 'operator']);
 
-it('prevents operators and applicants from publishing policy versions', function () {
+it('prevents applicants from publishing policy versions', function () {
     $c = registrationContext();
 
     $payload = [
@@ -76,10 +78,6 @@ it('prevents operators and applicants from publishing policy versions', function
         'allowed_extensions' => ['pdf'],
         'max_file_size_mb' => 5,
     ];
-
-    $this->actingAs($c['operator'])
-        ->post(route('admin.document-policies.store'), $payload)
-        ->assertForbidden();
 
     $this->actingAs($c['applicant'])
         ->post(route('admin.document-policies.store'), $payload)
