@@ -7,9 +7,34 @@
         <div class="row g-4">
             <div class="col-xl-7">
                 <section class="workspace-card mb-4">
-                    <div class="panel-heading">
+                    <div class="panel-heading" x-data="{ editingIdentity: @js($errors->hasAny(['submitted_name', 'submitted_identifier'])) }">
                         <h2>{{ $claim->submitted_name }}</h2>
                         <p>{{ $claim->period->name }} · Jalur {{ $claim->access_path === 'google' ? 'Google' : 'WhatsApp' }}</p>
+                        @if($isStaff && $claim->access_path === 'whatsapp' && $claim->status !== 'cancelled' && $claim->period->state !== \App\Enums\PeriodState::Archived)
+                            <button type="button" class="btn btn-sm btn-outline-purple" @click="editingIdentity = !editingIdentity" :aria-expanded="editingIdentity" aria-controls="edit-claim-identity">
+                                <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Edit Nama & Peg ID
+                            </button>
+                            <form id="edit-claim-identity" x-cloak x-show="editingIdentity" method="post" action="{{ route('claims.update-identity', $claim) }}" class="mt-3 p-3 border rounded-3 bg-light">
+                                @csrf
+                                @method('put')
+                                <input type="hidden" name="version" value="{{ $claim->lock_version }}">
+                                <div class="mb-3">
+                                    <label for="claim-submitted-name" class="form-label">Nama permohonan *</label>
+                                    <input id="claim-submitted-name" name="submitted_name" class="form-control" value="{{ old('submitted_name', $claim->submitted_name) }}" required maxlength="255">
+                                    <x-field-error name="submitted_name" />
+                                </div>
+                                <div class="mb-3">
+                                    <label for="claim-submitted-identifier" class="form-label">Peg ID</label>
+                                    <input id="claim-submitted-identifier" name="submitted_identifier" type="text" class="form-control" value="{{ old('submitted_identifier', $claim->submitted_identifier) }}" maxlength="100">
+                                    <x-field-error name="submitted_identifier" />
+                                </div>
+                                <p class="small text-muted">Hanya mengubah nama dan Peg ID pemohon akun klaim WhatsApp. Periksa kembali kecocokan kandidat SK sebelum menyetujui klaim.</p>
+                                <div class="d-flex flex-column flex-sm-row gap-2">
+                                    <button type="submit" class="btn btn-purple">Simpan Nama & Peg ID</button>
+                                    <button type="button" class="btn btn-outline-purple" @click="editingIdentity = false">Batal</button>
+                                </div>
+                            </form>
+                        @endif
                     </div>
                     <div class="panel-body">
                         <dl class="detail-list">

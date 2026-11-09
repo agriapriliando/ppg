@@ -11,7 +11,8 @@ class ApplicationPolicy
 {
     public function view(User $user, Application $application): bool
     {
-        return $user->account_state === AccountState::Active && ($user->id === $application->user_id || $this->review($user, $application));
+        return $user->account_state === AccountState::Active && ! $user->must_change_password
+            && ($user->id === $application->user_id || in_array($user->role, [UserRole::Administrator, UserRole::Operator], true));
     }
 
     public function review(User $user, Application $application): bool

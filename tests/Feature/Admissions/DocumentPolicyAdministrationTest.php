@@ -14,6 +14,35 @@ beforeEach(function () {
     Storage::fake('local');
 });
 
+it('saves long general instructions intact including paragraphs and links', function () {
+    $c = registrationContext();
+    $opening = "Lampiran I\nNomor : 2708/Ikn.06/PP.00.9/11/2026\nBERKAS PERSYARATAN YANG WAJIB DIUNGGAH PESERTA\n";
+    $ending = "\nSistem Lapor Diri: https://ppg.iaknpky.ac.id/klaim-whatsapp\nDasar: Keputusan Sekretaris Jenderal Kementerian Agama Nomor 15 Tahun 2025.";
+    $instructions = $opening.str_repeat('a', 10000 - mb_strlen($opening) - mb_strlen($ending)).$ending;
+
+    $this->actingAs($c['admin'])->post(route('admin.document-policies.store'), [
+        'admission_period_id' => $c['period']->id, 'allowed_extensions' => ['pdf'],
+        'max_file_size_mb' => 5, 'general_instructions' => $instructions,
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $policy = DocumentPolicyVersion::query()->where('admission_period_id', $c['period']->id)->latest('version')->firstOrFail();
+    expect($policy->general_instructions)->toBe($instructions);
+    $this->get(route('admin.document-policies.index', ['period_id' => $c['period']->id]))->assertOk()
+        ->assertSee($instructions)->assertSee('maxlength="10000"', false);
+});
+
+it('rejects general instructions above the expanded limit without publishing a version', function () {
+    $c = registrationContext();
+    $beforeCount = DocumentPolicyVersion::query()->count();
+
+    $this->actingAs($c['admin'])->post(route('admin.document-policies.store'), [
+        'admission_period_id' => $c['period']->id, 'allowed_extensions' => ['pdf'],
+        'max_file_size_mb' => 5, 'general_instructions' => str_repeat('a', 10001),
+    ])->assertSessionHasErrors('general_instructions');
+
+    $this->assertDatabaseCount('document_policy_versions', $beforeCount);
+});
+
 it('allows administrator to configure and publish new document policy version', function () {
     $c = registrationContext();
 

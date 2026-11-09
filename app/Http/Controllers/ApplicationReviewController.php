@@ -29,7 +29,7 @@ class ApplicationReviewController extends Controller
 
     public function show(Application $application): View
     {
-        abort_unless(Gate::allows('review', $application), 404);
+        abort_unless(Gate::allows('view', $application), 404);
         $application->load(['participant.assignedOperator', 'workspace.biodata', 'workspace.education', 'period', 'reviews', 'submissions.configVersion', 'submissions.documents.document']);
         $datasetId = $application->workspace->education?->reference_dataset_id;
         $display = [];
@@ -53,7 +53,7 @@ class ApplicationReviewController extends Controller
 
     public function print(Application $application): View
     {
-        abort_unless(Gate::allows('review', $application), 404);
+        abort_unless(Gate::allows('view', $application), 404);
         $application->load(['participant.assignedOperator', 'workspace.biodata', 'workspace.education', 'period', 'workspace.availableDocuments', 'submissions.documents.document']);
         $datasetId = $application->workspace->education?->reference_dataset_id;
         $display = [];

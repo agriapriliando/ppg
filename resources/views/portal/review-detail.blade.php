@@ -126,6 +126,7 @@
                         <p>Tentukan satu tindak lanjut sesuai hasil pemeriksaan Anda.</p>
                     </div>
                     <div class="panel-body">
+                        @can('review', $application)
                         <form id="review-action-form" method="post" action="{{ route('reviews.update', $application) }}" novalidate>
                             @csrf
                             <input type="hidden" name="version" value="{{ $application->lock_version }}">
@@ -177,6 +178,9 @@
                                 <div class="alert alert-info mb-0"><strong>Pendaftaran belum dikirim.</strong><span class="d-block mt-1">Keputusan tersedia setelah peserta mengirim biodata dan berkas.</span></div>
                             @endif
                         </form>
+                        @else
+                            <div class="alert alert-info mb-0">Anda dapat melihat data pendaftaran ini. Hasil pemeriksaan dikelola oleh operator yang ditugaskan atau administrator.</div>
+                        @endcan
                     </div>
                 </section>
 
@@ -281,6 +285,7 @@
         </div>
 
         <!-- Pop-up Modal Konfirmasi Tetapkan Diterima Lengkap (Alpine.js Mobile Responsive) -->
+    @can('review', $application)
     <div 
         x-cloak 
         x-show="showAcceptModal" 
@@ -361,5 +366,6 @@
             </div>
         </div>
     </div>
+    @endcan
 </div>
 </x-layouts::app>

@@ -30,7 +30,8 @@ it('manages documents within the application review page and redirects old docum
     $this->get(route('reviews.documents', $application))
         ->assertRedirect(route('reviews.show', $application).'#berkas-pendaftar');
 
-    $this->actingAs(User::factory()->operator()->create())->get(route('reviews.documents', $application))->assertForbidden();
+    $this->actingAs(User::factory()->operator()->create())->get(route('reviews.documents', $application))
+        ->assertRedirect(route('reviews.show', $application).'#berkas-pendaftar');
     $this->actingAs($c['applicant'])->get(route('reviews.documents', $application))->assertForbidden();
 });
 

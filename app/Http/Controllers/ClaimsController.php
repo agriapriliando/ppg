@@ -7,6 +7,7 @@ use App\Actions\Admissions\CancelClaimApproval;
 use App\Actions\Admissions\DeleteWhatsappClaimAccount;
 use App\Actions\Admissions\IssueClaimCredentials;
 use App\Actions\Admissions\SubmitSkClaim;
+use App\Actions\Admissions\UpdateClaimIdentity;
 use App\Actions\Admissions\UpdateClaimLoginId;
 use App\Actions\Admissions\UpdateClaimWhatsapp;
 use App\Actions\RecordAudit;
@@ -128,6 +129,20 @@ class ClaimsController extends Controller
         });
 
         return redirect()->route('claims.show', $claim)->with('status', 'Klaim disetujui dan akun siap dikirim kepada peserta.');
+    }
+
+    public function updateIdentity(Request $request, SkClaim $claim, UpdateClaimIdentity $update): RedirectResponse
+    {
+        Gate::authorize('review', $claim);
+        abort_unless($claim->access_path === 'whatsapp', 403);
+        $data = $request->validate([
+            'version' => ['required', 'integer', 'min:0'],
+            'submitted_name' => ['required', 'string', 'max:255'],
+            'submitted_identifier' => ['nullable', 'string', 'max:100'],
+        ], ['submitted_name.required' => 'Nama permohonan wajib diisi.']);
+        $update->handle($request->user(), $claim, (int) $data['version'], $data['submitted_name'], $data['submitted_identifier'] ?? null);
+
+        return redirect()->route('claims.show', $claim)->with('status', 'Nama dan Peg ID permohonan berhasil diperbarui. Periksa kembali kecocokan kandidat SK sebelum menyetujui klaim.');
     }
 
     public function updateWhatsapp(Request $request, SkClaim $claim, UpdateClaimWhatsapp $update): RedirectResponse

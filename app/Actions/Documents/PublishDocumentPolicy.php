@@ -28,11 +28,12 @@ class PublishDocumentPolicy
             'allowed_extensions.*' => ['string', 'in:'.implode(',', $supportedExtensions)],
             'max_file_size_bytes' => ['required', 'integer', 'min:1024', 'max:'.(100 * 1024 * 1024)],
             'workspace_quota_bytes' => ['nullable', 'integer', 'min:1024', 'max:'.(1024 * 1024 * 1024 * 10)],
-            'general_instructions' => ['nullable', 'string', 'max:2000'],
+            'general_instructions' => ['nullable', 'string', 'max:10000'],
         ], [
             'allowed_extensions.required' => 'Pilih minimal satu format file yang diperbolehkan.',
             'allowed_extensions.*.in' => 'Salah satu format file yang dipilih tidak didukung aplikasi.',
             'max_file_size_bytes.required' => 'Batas ukuran file maksimal wajib diisi.',
+            'general_instructions.max' => 'Petunjuk umum maksimal 10.000 karakter.',
         ])->validate();
 
         if (

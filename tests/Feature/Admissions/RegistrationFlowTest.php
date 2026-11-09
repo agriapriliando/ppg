@@ -250,12 +250,13 @@ it('renders responsive confirmation modal with simulation consent checkbox befor
 
 });
 
-it('keeps application reviews scoped while allowing shared claim access for operators', function () {
+it('allows operators to read other assignments while keeping review decisions scoped', function () {
     $c = registrationContext();
     $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
     $app = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
     $otherOperator = User::factory()->operator()->create();
-    $this->actingAs($otherOperator)->get(route('reviews.show', $app))->assertNotFound();
+    $this->actingAs($otherOperator)->get(route('reviews.show', $app))->assertOk()->assertDontSee('id="review-action-form"', false);
+    $this->get(route('reviews.print', $app))->assertOk();
     $this->get(route('claims.show', $claim))->assertOk();
     $this->post(route('reviews.update', $app), ['version' => 0, 'action' => 'accept'])->assertForbidden();
     expect($app->fresh()->status)->toBe(ApplicationStatus::Draft);

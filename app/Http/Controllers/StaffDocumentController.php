@@ -19,7 +19,7 @@ class StaffDocumentController extends Controller
         $user = $request->user();
         abort_unless($user !== null, 401);
 
-        Gate::authorize('review', $application);
+        Gate::authorize('view', $application);
 
         $application->load(['participant.assignedOperator', 'period', 'workspace.biodata', 'submissions.documents.document']);
         $workspace = $application->workspace;

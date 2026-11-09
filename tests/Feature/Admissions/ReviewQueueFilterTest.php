@@ -80,14 +80,39 @@ it('preserves operator and origin filters in URL parameters', function () {
         ->test('pages::portal.review-queue')->assertSet('operatorId', (string) $c['operator']->id)->assertSet('originCityCode', '0101')->assertSee($target->application_number);
 });
 
-it('does not expand operator access through filters or origin choices', function () {
+it('lets operators see and filter other operators assignments including drafts', function () {
     $c = registrationContext();
     $own = queueFilterApplication($c, 1, ['origin_city_code' => '0101', 'origin_city_name' => 'Kota Milik Operator']);
     $otherOperator = User::factory()->operator()->create();
-    $hidden = queueFilterApplication($c, 2, ['assigned_operator_id' => $otherOperator->id, 'origin_city_code' => '0201', 'origin_city_name' => 'Kota Tersembunyi']);
+    $shared = queueFilterApplication($c, 2, ['assigned_operator_id' => $otherOperator->id, 'origin_city_code' => '0201', 'origin_city_name' => 'Kota Bersama'], 'draf');
+    $shared->update(['submitted_at' => null]);
 
     Livewire::actingAs($c['operator'])->test('pages::portal.review-queue')
-        ->assertSee($own->application_number)->assertDontSee($hidden->application_number)->assertDontSee('Kota Tersembunyi')
-        ->set('operatorId', (string) $otherOperator->id)->set('originCityCode', '0201')->assertDontSee($hidden->application_number)
-        ->set('search', $hidden->application_number)->assertDontSee($hidden->application_number);
+        ->assertSee($own->application_number)->assertSee($shared->application_number)->assertSee('Kota Bersama')
+        ->set('operatorId', (string) $otherOperator->id)->set('originCityCode', '0201')->assertSee($shared->application_number)->assertDontSee($own->application_number)
+        ->set('status', 'draf')->assertSee($shared->application_number)
+        ->set('search', $shared->participant->official_participant_id)->assertSee($shared->application_number);
 });
+
+it('includes all statuses and unassigned applications for an operator without assigned participants', function (string $status) {
+    $c = registrationContext();
+    $assigned = queueFilterApplication($c, 1, [], $status);
+    $unassigned = queueFilterApplication($c, 2, ['assigned_operator_id' => null], $status);
+    if ($status === 'draf') {
+        $assigned->update(['submitted_at' => null]);
+        $unassigned->update(['submitted_at' => null]);
+    }
+    $operator = User::factory()->operator()->create();
+
+    Livewire::actingAs($operator)->test('pages::portal.review-queue')
+        ->assertSee($assigned->application_number)->assertSee($unassigned->application_number)
+        ->set('status', $status)->assertSee($assigned->application_number)->assertSee($unassigned->application_number)
+        ->set('operatorId', 'unassigned')->assertSee($unassigned->application_number)->assertDontSee($assigned->application_number);
+})->with(['draf', 'terkirim', 'diverifikasi', 'perbaikan', 'diterima_lengkap']);
+
+it('blocks inactive operators and accounts requiring a password change from the review queue', function (string $condition) {
+    $operator = User::factory()->operator()->create();
+    $operator->forceFill($condition === 'inactive' ? ['account_state' => 'disabled'] : ['must_change_password' => true])->save();
+
+    Livewire::actingAs($operator)->test('pages::portal.review-queue')->assertForbidden();
+})->with(['inactive', 'password']);

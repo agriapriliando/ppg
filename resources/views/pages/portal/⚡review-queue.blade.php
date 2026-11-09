@@ -72,7 +72,7 @@ new #[Title('Antrean Verifikasi')] class extends Component
     public function mount(): void
     {
         $user = auth()->user();
-        abort_unless($user !== null && in_array($user->role, [UserRole::Operator, UserRole::Administrator], true), 403);
+        abort_unless($user !== null && $user->account_state === AccountState::Active && ! $user->must_change_password && in_array($user->role, [UserRole::Operator, UserRole::Administrator], true), 403);
     }
 
     /** @return LengthAwarePaginator<Application> */
@@ -86,8 +86,7 @@ new #[Title('Antrean Verifikasi')] class extends Component
         $periodId = $this->periodId;
 
         return Application::query()
-            ->whereHas('participant', fn ($participants) => $participants->visibleTo($actor)
-                ->originCity($this->originCityCode)
+            ->whereHas('participant', fn ($participants) => $participants->originCity($this->originCityCode)
                 ->when($this->operatorId === 'unassigned', fn ($q) => $q->whereNull('assigned_operator_id'))
                 ->when($this->operatorId !== '' && $this->operatorId !== 'unassigned', fn ($q) => $q->where('assigned_operator_id', (int) $this->operatorId)))
             ->with(['participant.assignedOperator', 'period'])
@@ -117,7 +116,7 @@ new #[Title('Antrean Verifikasi')] class extends Component
         $actor = auth()->user();
         abort_unless($actor !== null, 403);
 
-        return SkParticipant::query()->visibleTo($actor)->whereHas('application')
+        return SkParticipant::query()->whereHas('application')
             ->whereNotNull('origin_city_code')->where('origin_city_code', '!=', '')
             ->select(['origin_city_code', 'origin_city_name', 'origin_province_name'])
             ->distinct()->orderBy('origin_city_name')->orderBy('origin_city_code')->get()->unique('origin_city_code')->values();
@@ -130,7 +129,7 @@ new #[Title('Antrean Verifikasi')] class extends Component
         <div class="panel-heading d-flex flex-wrap align-items-center justify-content-between gap-3 pb-3 border-bottom">
             <div>
                 <h2 class="h5 mb-1 fw-bold text-purple">Daftar Pendaftaran & Berkas Masuk</h2>
-                <p class="text-muted small mb-0">Kelola dan lakukan verifikasi berkas pendaftaran calon mahasiswa PPG.</p>
+                <p class="text-muted small mb-0">Semua operator aktif dapat melihat seluruh pendaftaran, termasuk draf. Gunakan filter untuk memilih status atau operator.</p>
             </div>
             <div>
                 <button type="button" @click="showGuide = true" class="btn btn-outline-purple d-inline-flex align-items-center gap-2">
@@ -247,7 +246,7 @@ new #[Title('Antrean Verifikasi')] class extends Component
                             <td>{{ $application->participant->assignedOperator?->name ?? 'Belum ditugaskan' }}</td>
                             <td>
                                 <div class="d-flex align-items-center gap-1 text-nowrap">
-                                    <a class="btn btn-sm btn-outline-purple" href="{{ route('reviews.show', $application) }}">Periksa</a>
+                                    <a class="btn btn-sm btn-outline-purple" href="{{ route('reviews.show', $application) }}">{{ auth()->user()->can('review', $application) ? 'Periksa' : 'Lihat Detail' }}</a>
                                     <a class="btn btn-sm btn-outline-secondary" href="{{ route('reviews.print', $application) }}" target="_blank" title="Cetak formulir biodata dan berkas">
                                         <i class="bi bi-printer me-1" aria-hidden="true"></i>Cetak
                                     </a>
