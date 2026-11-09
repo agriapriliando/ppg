@@ -27,13 +27,17 @@ class CommitSkImport
             if ($locked->state === 'committed') {
                 return;
             }
-            if ($locked->state !== 'ready' || ! hash_equals($locked->preview_hash ?? '', $previewHash) || $locked->expires_at === null || $locked->expires_at->isPast() || $period->lock_version !== $locked->dataset_version) {
+            if (! in_array($locked->state, ['ready', 'invalid'], true) || $locked->staging_purged_at !== null || ! hash_equals($locked->preview_hash ?? '', $previewHash) || $locked->expires_at === null || $locked->expires_at->isPast() || $period->lock_version !== $locked->dataset_version) {
                 throw ValidationException::withMessages(['import' => 'Pratinjau belum valid atau data telah berubah. Unggah ulang untuk pemeriksaan terbaru.']);
             }
             if ($period->state === PeriodState::Archived) {
                 throw ValidationException::withMessages(['import' => 'Periode yang diarsipkan tidak dapat menerima impor.']);
             }
-            $rows = $locked->rows()->orderBy('row_number')->get();
+            $rows = $locked->rows()->whereIn('result', ['new', 'change', 'identical'])->orderBy('row_number')->get();
+            if ($rows->isEmpty()) {
+                throw ValidationException::withMessages(['import' => 'Tidak ada baris valid untuk disimpan. Perbaiki baris bermasalah lalu unggah ulang.']);
+            }
+            $deferred = $locked->rows()->whereIn('result', ['error', 'conflict'])->count();
             $operatorIds = $rows->where('result', '!=', 'identical')->pluck('normalized_payload.assigned_operator_id')->filter()->unique()->sort()->values();
             // Lock in ID order so imports in different periods cannot race staff changes.
             $operators = User::query()->whereIn('id', $operatorIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
@@ -70,6 +74,9 @@ class CommitSkImport
                 $oldOperator = $participant->assigned_operator_id;
                 $participant->fill($data);
                 $participant->fill(['last_import_id' => $locked->id]);
+                if ($participant->exists) {
+                    $participant->lock_version++;
+                }
                 $participant->save();
                 if ($oldOperator !== $participant->assigned_operator_id) {
                     DB::table('assignment_events')->insert(['sk_participant_id' => $participant->id, 'old_operator_id' => $oldOperator, 'new_operator_id' => $participant->assigned_operator_id, 'actor_id' => $actor->id, 'mode' => 'explicit', 'reason' => 'Penugasan eksplisit dari impor SK', 'created_at' => now()]);
@@ -77,10 +84,14 @@ class CommitSkImport
             }
             $locked->state = 'committed';
             $locked->committed_at = now();
+            $saved = $rows->whereIn('result', ['new', 'change'])->count();
+            $identical = $rows->where('result', 'identical')->count();
+            $locked->safe_summary = "{$saved} baris disimpan, {$identical} baris identik, {$deferred} baris bermasalah ditunda."
+                .($deferred > 0 ? ' Perbaiki baris yang ditunda lalu unggah ulang.' : '');
             $locked->save();
             $period->lock_version++;
             $period->save();
-            $this->audit->handle($actor, 'Mengonfirmasi impor SK', $locked, ['period_id' => $period->id]);
+            $this->audit->handle($actor, 'Mengonfirmasi impor SK', $locked, ['period_id' => $period->id, 'saved_rows' => $saved, 'identical_rows' => $identical, 'deferred_rows' => $deferred]);
         });
     }
 }

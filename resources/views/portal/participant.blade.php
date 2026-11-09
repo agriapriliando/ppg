@@ -39,6 +39,12 @@
                 </div>
             </div>
 
+            <div class="panel-body py-3">
+                <dl class="detail-list mb-0">
+                    <dt>Nomor HP (SK)</dt>
+                    <dd class="mb-0">{{ $participant->phone_number ?? 'Belum diisi' }}</dd>
+                </dl>
+            </div>
     </section>
 
     <!-- Biodata Calon Mahasiswa -->
@@ -343,6 +349,12 @@
                             <label for="edit-origin-province" class="form-label">Provinsi Asal (otomatis)</label>
                             <input id="edit-origin-province" class="form-control bg-light" :value="provinceName" placeholder="Terisi setelah memilih kota/kabupaten" readonly>
                         </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-phone-number" class="form-label">Nomor HP</label>
+                        <input id="edit-phone-number" name="phone_number" type="tel" class="form-control" value="{{ old('phone_number', $participant->phone_number) }}" maxlength="16" placeholder="0812… / +62812…">
+                        <div class="form-text">Opsional, 8–15 angka, boleh diawali +, tanpa spasi.</div>
+                        <x-field-error name="phone_number" />
                     </div>
                     <div class="mb-3">
                         <label for="edit-operator-id" class="form-label fw-bold">Operator Penanggung Jawab</label>

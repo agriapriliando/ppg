@@ -16,12 +16,13 @@ it('lets staff add a participant from the modal and refreshes the list', functio
 
     Livewire::actingAs($user)->test('pages::portal.participants')
         ->call('openCreate')->assertSet('showCreate', true)
-        ->set('form', manualParticipantForm($period))
+        ->set('form', [...manualParticipantForm($period), 'phone_number' => '081234567890'])
         ->call('saveParticipant')->assertHasNoErrors()
         ->assertSet('showCreate', false)->assertSee('Peserta SK berhasil ditambahkan.')
         ->assertSee('Siti   Aminah');
 
     $this->assertDatabaseHas('sk_participants', ['admission_period_id' => $period->id, 'sk_number' => 'SK/2026/01', 'normalized_name' => 'siti aminah', 'official_participant_id' => '001234', 'assigned_operator_id' => null]);
+    $this->assertDatabaseHas('sk_participants', ['official_participant_id' => '001234', 'phone_number' => '081234567890']);
     $this->assertDatabaseHas('audit_events', ['actor_id' => $user->id, 'action' => 'Menambah peserta SK']);
     expect($period->fresh()->lock_version)->toBe($period->lock_version + 1);
 })->with(['administrator', 'operator']);

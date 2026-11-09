@@ -9,6 +9,7 @@ use App\Models\SkImport;
 use App\Models\SkParticipant;
 use App\Models\User;
 use App\Support\ParticipantOrigin;
+use App\Support\ParticipantPhone;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -21,7 +22,7 @@ use ZipArchive;
 
 class ValidateSkImport
 {
-    public const HEADERS = ['nomor_sk', 'tanggal_sk', 'nomor_urut_sk', 'nama_sesuai_sk', 'id_peserta_sk', 'id_operator', 'catatan_internal', 'kode_kota_kabupaten_asal'];
+    public const HEADERS = ['nomor_sk', 'tanggal_sk', 'nomor_urut_sk', 'nama_sesuai_sk', 'id_peserta_sk', 'id_operator', 'catatan_internal', 'kode_kota_kabupaten_asal', 'nomor_hp'];
 
     public const PREVIOUS_HEADERS = ['nomor_sk', 'tanggal_sk', 'nomor_urut_sk', 'nama_sesuai_sk', 'id_peserta_sk', 'operator_email', 'catatan_internal', 'kode_kota_kabupaten_asal'];
 
@@ -52,6 +53,9 @@ class ValidateSkImport
             $operatorIndex = $legacy ? 6 : 5;
             $usesEmail = trim((string) $sheet->getCell([$operatorIndex + 1, 1])->getValue()) === 'operator_email';
             $headers = $legacy ? self::LEGACY_HEADERS : self::HEADERS;
+            if ($legacy && Coordinate::columnIndexFromString($sheet->getHighestDataColumn()) >= 10 && trim((string) $sheet->getCell('J1')->getValue()) === 'nomor_hp') {
+                $headers[] = 'nomor_hp';
+            }
             $headers[$operatorIndex] = $usesEmail ? 'operator_email' : 'id_operator';
             if (Coordinate::columnIndexFromString($sheet->getHighestDataColumn()) > count($headers)) {
                 throw new InvalidSkImportWorkbook('Jumlah kolom tidak sesuai template. Unduh dan gunakan template terbaru.');
@@ -75,6 +79,7 @@ class ValidateSkImport
             for ($row = 2; $row <= $lastRow; $row++) {
                 $values = array_fill_keys(self::LEGACY_HEADERS, '');
                 $values['id_operator'] = '';
+                $values['nomor_hp'] = '';
                 $errors = [];
                 foreach ($headers as $index => $header) {
                     $cell = $sheet->getCell([$index + 1, $row]);
@@ -91,6 +96,9 @@ class ValidateSkImport
                     if ($header === 'id_operator' && $value !== null && ! is_string($value)) {
                         $errors[] = 'ID operator harus disimpan sebagai teks agar nilainya tetap utuh.';
                     }
+                    if ($header === 'nomor_hp' && $value !== null && ! is_string($value) && ! preg_match('/^628[0-9]{5,12}$/', (string) $value)) {
+                        $errors[] = 'Nomor HP numerik harus berformat 628. Simpan nomor berawalan 08 atau +628 sebagai teks.';
+                    }
                     if ($header === 'kode_kota_kabupaten_asal' && $value !== null && ! is_string($value)) {
                         $errors[] = 'Kode kota/kabupaten asal harus disimpan sebagai teks. Salin kode dari sheet Referensi_Wilayah.';
                     }
@@ -103,6 +111,7 @@ class ValidateSkImport
                     $values['periode'] = $period->code;
                 }
                 $values['id_operator'] = mb_strtolower($values['id_operator']);
+                $values['nomor_hp'] = ParticipantPhone::normalizeForImport($values['nomor_hp']);
                 $validator = Validator::make($values, [
                     'nomor_sk' => ['required', 'string', 'max:150'],
                     'tanggal_sk' => ['required', 'date_format:Y-m-d'],
@@ -110,11 +119,12 @@ class ValidateSkImport
                     'nomor_urut_sk' => ['required', 'integer', 'min:1', 'max:2147483647'],
                     'nama_sesuai_sk' => ['required', 'string', 'max:255'],
                     'id_peserta_sk' => ['nullable', 'string', 'max:100'],
+                    'nomor_hp' => ['nullable', 'string', 'max:15', 'regex:/^628[0-9]{5,12}$/'],
                     'operator_email' => ['nullable', 'email', 'max:255'],
                     'id_operator' => ['nullable', 'regex:/^[a-z0-9._-]+$/', 'max:64'],
                     'catatan_internal' => ['nullable', 'string', 'max:1000'],
                     'kode_kota_kabupaten_asal' => ['nullable', 'string', 'max:64'],
-                ], ['required' => ':attribute wajib diisi.', 'periode.in' => 'Kode periode tidak sesuai periode tujuan.', 'id_operator.regex' => 'Isi ID login operator, bukan email atau nama operator.', 'id_operator.max' => 'ID operator maksimal 64 karakter.']);
+                ], ['required' => ':attribute wajib diisi.', 'periode.in' => 'Kode periode tidak sesuai periode tujuan.', 'id_operator.regex' => 'Isi ID login operator, bukan email atau nama operator.', 'id_operator.max' => 'ID operator maksimal 64 karakter.', 'nomor_hp.regex' => 'Nomor HP harus berformat 628 dengan 8–15 angka, tanpa spasi. Awalan 08 atau +628 dikonversi otomatis.', 'nomor_hp.max' => 'Nomor HP maksimal 15 angka setelah dikonversi ke format 628.']);
                 $errors = array_merge($errors, $validator->errors()->all());
                 $operator = null;
                 $operatorIdentifier = mb_strtolower($values[$usesEmail ? 'operator_email' : 'id_operator']);
@@ -149,6 +159,7 @@ class ValidateSkImport
                     'sk_order' => (int) $values['nomor_urut_sk'],
                     'official_participant_id' => $values['id_peserta_sk'] ?: null,
                     'name_on_sk' => $values['nama_sesuai_sk'],
+                    'phone_number' => $values['nomor_hp'] ?: null,
                     'normalized_name' => mb_strtolower(Str::squish($values['nama_sesuai_sk'])),
                     'assigned_operator_id' => $operator?->id,
                     'internal_note' => $values['catatan_internal'] ?: null,
@@ -182,8 +193,9 @@ class ValidateSkImport
                     }
                     // An omitted operator preserves the current assignment on reimport.
                     $payload['assigned_operator_id'] ??= $existing->assigned_operator_id;
+                    $payload['phone_number'] ??= $existing->phone_number;
                     $changed = $existing->sk_date->format('Y-m-d') !== $payload['sk_date'];
-                    foreach (['name_on_sk', 'official_participant_id', 'internal_note', 'assigned_operator_id', ...ParticipantOrigin::FIELDS] as $field) {
+                    foreach (['name_on_sk', 'official_participant_id', 'phone_number', 'internal_note', 'assigned_operator_id', ...ParticipantOrigin::FIELDS] as $field) {
                         $changed = $changed || $existing->getAttribute($field) !== $payload[$field];
                     }
                     $result = $changed ? 'change' : 'identical';

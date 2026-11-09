@@ -44,9 +44,11 @@
                         </form>
                         <div class="notice-box info mt-4">
                             <i class="bi bi-shield-check" aria-hidden="true"></i>
-                            <p class="mb-0">Satu kesalahan atau konflik membatalkan konfirmasi seluruh berkas. Unggah ulang identik mempertahankan data dan penugasan yang sudah ada.</p>
+                            <p class="mb-0">Baris valid tetap dapat dikonfirmasi meskipun ada kesalahan atau konflik. Baris bermasalah ditunda dan ditandai pada pratinjau agar dapat diperbaiki lalu diunggah ulang. Unggah ulang identik mempertahankan data dan penugasan yang sudah ada.</p>
                         </div>
                         <div class="alert alert-light border mt-3 mb-0">
+                            <strong class="d-block mb-2">Nomor HP</strong>
+                            <p class="mb-3">Isi kolom <code>nomor_hp</code> (opsional) dalam format <strong>628</strong>, misalnya <code>6281234567890</code>, tanpa tanda + atau spasi, dengan total 8–15 angka. Awalan <code>08</code> dan <code>+628</code> otomatis dikonversi ke <code>628</code>; simpan kedua format tersebut sebagai teks agar angkanya tetap utuh. Kolom kosong atau template lama mempertahankan nomor yang sudah tersimpan. Nomor dapat diubah atau dihapus langsung di daftar Peserta SK.</p>
                             <strong class="d-block mb-2">ID Operator</strong>
                             <p class="mb-3">Isi kolom <code>id_operator</code> dengan <strong>ID login operator</strong>, misalnya <code>operator.satu</code>. Semua akun Operator aktif dapat digunakan pada seluruh periode tanpa pendaftaran operator per periode. Jika dikosongkan, peserta baru belum ditugaskan dan penugasan peserta lama tetap dipertahankan.</p>
                             <strong class="d-block mb-2">Kota/Kabupaten Asal dan Provinsi</strong>
@@ -78,7 +80,7 @@
                                         <strong>{{ $import->original_filename }}</strong>
                                         <small class="d-block text-muted">{{ $import->period->name }} · {{ $import->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</small>
                                     </td>
-                                    <td>{{ ['uploaded'=>'Antre validasi','validating'=>'Divalidasi','ready'=>'Siap ditinjau','invalid'=>'Perlu koreksi','failed'=>'Validasi gagal','committed'=>'Selesai','expired'=>'Kedaluwarsa'][$import->state] ?? $import->state }}</td>
+                                    <td>{{ $import->state === 'committed' && (($import->counts['error'] ?? 0) + ($import->counts['conflict'] ?? 0)) > 0 ? 'Selesai sebagian' : (['uploaded'=>'Antre validasi','validating'=>'Divalidasi','ready'=>'Siap ditinjau','invalid'=>'Perlu koreksi','failed'=>'Validasi gagal','committed'=>'Selesai','expired'=>'Kedaluwarsa'][$import->state] ?? $import->state) }}</td>
                                     <td>
                                         <div class="d-flex flex-wrap gap-2">
                                             <a class="btn btn-sm btn-outline-purple" href="{{ route('admin.imports.show', $import) }}">Lihat Hasil</a>

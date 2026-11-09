@@ -9,6 +9,7 @@ use App\Models\AdmissionPeriod;
 use App\Models\SkParticipant;
 use App\Models\User;
 use App\Support\ParticipantOrigin;
+use App\Support\ParticipantPhone;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -51,7 +52,58 @@ new #[Title('Daftar Peserta SK')] class extends Component
     public string $deletingPeriod = '';
     public string $deletingPegId = '';
     public string $message = '';
-    public array $form = ['admission_period_id' => '', 'name_on_sk' => '', 'sk_number' => '', 'sk_date' => '', 'sk_order' => '', 'official_participant_id' => '', 'internal_note' => '', 'origin_city_code' => ''];
+    public bool $showPhone = false;
+    #[Locked]
+    public ?int $editingPhoneId = null;
+    #[Locked]
+    public int $editingPhoneVersion = 0;
+    #[Locked]
+    public string $editingPhoneName = '';
+    public string $phoneNumber = '';
+    public array $form = ['admission_period_id' => '', 'name_on_sk' => '', 'sk_number' => '', 'sk_date' => '', 'sk_order' => '', 'official_participant_id' => '', 'phone_number' => '', 'internal_note' => '', 'origin_city_code' => ''];
+
+    public function openPhone(int $participantId): void
+    {
+        $this->mount();
+        $participant = SkParticipant::query()->with('period')->findOrFail($participantId);
+        abort_if($participant->period->state === PeriodState::Archived, 403);
+        $this->resetValidation();
+        $this->editingPhoneId = $participant->id;
+        $this->editingPhoneVersion = $participant->lock_version;
+        $this->editingPhoneName = $participant->name_on_sk;
+        $this->phoneNumber = $participant->phone_number ?? '';
+        $this->showPhone = true;
+    }
+
+    public function closePhone(): void
+    {
+        $this->reset('showPhone', 'editingPhoneId', 'editingPhoneVersion', 'editingPhoneName', 'phoneNumber');
+        $this->resetValidation('phoneNumber');
+    }
+
+    public function savePhone(RecordAudit $audit): void
+    {
+        $this->mount();
+        abort_unless($this->showPhone && $this->editingPhoneId !== null, 422);
+        $this->phoneNumber = trim($this->phoneNumber);
+        $this->validate(['phoneNumber' => ParticipantPhone::rules()], [
+            'phoneNumber.regex' => 'Gunakan 8–15 angka, boleh diawali +, tanpa spasi.',
+        ], ['phoneNumber' => 'Nomor HP']);
+
+        DB::transaction(function () use ($audit): void {
+            $participant = SkParticipant::findOrFail($this->editingPhoneId);
+            $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($participant->admission_period_id);
+            $locked = SkParticipant::query()->lockForUpdate()->findOrFail($this->editingPhoneId);
+            if ($period->state === PeriodState::Archived || $locked->lock_version !== $this->editingPhoneVersion) {
+                throw ValidationException::withMessages(['phoneNumber' => 'Data berubah atau periode diarsipkan. Tutup dan buka kembali formulir untuk memuat data terbaru.']);
+            }
+            $locked->forceFill(['phone_number' => $this->phoneNumber === '' ? null : $this->phoneNumber, 'lock_version' => $locked->lock_version + 1])->save();
+            $period->increment('lock_version');
+            $audit->handle(auth()->user(), 'Memperbarui nomor HP peserta SK', $locked, ['period_id' => $period->id]);
+        });
+        $this->closePhone();
+        $this->message = 'Nomor HP peserta SK berhasil disimpan.';
+    }
 
     public function openDelete(int $participantId): void
     {
@@ -104,6 +156,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
             'form.sk_date' => ['required', 'date_format:Y-m-d'],
             'form.sk_order' => ['required', 'integer', 'min:1', 'max:999999'],
             'form.official_participant_id' => ['nullable', 'string', 'max:100'],
+            'form.phone_number' => ParticipantPhone::rules(),
             'form.internal_note' => ['nullable', 'string', 'max:1000'],
             'form.origin_city_code' => ['nullable', 'string', 'max:64'],
         ], ['required' => ':attribute wajib diisi.'], [
@@ -126,6 +179,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
                 throw ValidationException::withMessages(['form.official_participant_id' => 'Peg ID sudah digunakan dalam periode tersebut.']);
             }
             $data['normalized_name'] = mb_strtolower(Str::squish($data['name_on_sk']));
+            $data['phone_number'] = ($data['phone_number'] ?? '') ?: null;
             $data = array_merge($data, ParticipantOrigin::resolve($data['origin_city_code'] ?? null, 'form.origin_city_code'));
             $participant = SkParticipant::query()->create($data);
             $period->lock_version++;
@@ -317,11 +371,9 @@ new #[Title('Daftar Peserta SK')] class extends Component
                 <thead>
                     <tr>
                         <th>Nama / Peg ID</th>
-                        <th>Nomor SK</th>
-                        <th>Periode</th>
+                        <th>Nomor SK / Periode</th>
                         <th>Status Akun</th>
                         <th>Status Antrean</th>
-                        <th>Operator</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -332,12 +384,26 @@ new #[Title('Daftar Peserta SK')] class extends Component
                                 <strong>{{ $participant->name_on_sk }}</strong>
                                 <small class="d-block text-muted">{{ $participant->official_participant_id ?? 'Tanpa pengenal tambahan' }}</small>
                                 @if($participant->origin_city_name)<small class="d-block text-muted">{{ $participant->origin_city_name }}{{ $participant->origin_province_name ? ', '.$participant->origin_province_name : '' }}</small>@endif
+                                <small class="d-block text-warning-emphasis lh-sm">Operator: {{ $participant->assignedOperator?->name ?? 'Belum ditugaskan' }}</small>
+                                <div class="d-flex align-items-center gap-1 mt-1">
+                                    @php($whatsappUrl = ParticipantPhone::whatsappUrl($participant->phone_number))
+                                    @if($whatsappUrl)
+                                        <a href="{{ $whatsappUrl }}" target="_blank" rel="noopener noreferrer" class="small text-success text-decoration-none" aria-label="Buka WhatsApp {{ $participant->name_on_sk }} di {{ $participant->phone_number }}">
+                                            <i class="bi bi-whatsapp me-1" aria-hidden="true"></i>{{ $participant->phone_number }}
+                                        </a>
+                                    @else
+                                        <small class="text-muted">{{ $participant->phone_number ?: 'Nomor HP belum diisi' }}</small>
+                                    @endif
+                                    <button type="button" class="btn btn-sm btn-link text-purple p-1 lh-1 flex-shrink-0" style="min-width: 32px; min-height: 32px" wire:click="openPhone({{ $participant->id }})" wire:loading.attr="disabled" wire:target="openPhone,savePhone" aria-label="Edit nomor HP {{ $participant->name_on_sk }}" title="Edit nomor HP" aria-haspopup="dialog" aria-controls="participant-phone-modal" @disabled($participant->period->state === PeriodState::Archived)>
+                                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                                    </button>
+                                </div>
                             </td>
                             <td>
                                 {{ $participant->sk_number }}
                                 <small class="d-block text-muted">Urut {{ $participant->sk_order }}</small>
+                                <small class="d-block text-muted">{{ $participant->period->name }}</small>
                             </td>
-                            <td>{{ $participant->period->name }}</td>
                             <td>
                                 @if($participant->claimed_user_id)
                                     @if($participant->claimedUser?->account_state === App\Enums\AccountState::Disabled)
@@ -362,17 +428,18 @@ new #[Title('Daftar Peserta SK')] class extends Component
                                     <span class="status-pill draf">Belum Masuk Antrean</span>
                                 @endif
                             </td>
-                            <td>{{ $participant->assignedOperator?->name ?? 'Belum ditugaskan' }}</td>
                             <td>
-                                <a href="{{ route('participants.show', $participant) }}" class="btn btn-sm btn-outline-purple">Lihat Detail</a>
-                                @if(auth()->user()->isAdministrator())
-                                    <button type="button" class="btn btn-sm btn-outline-danger ms-1" wire:click="openDelete({{ $participant->id }})" wire:loading.attr="disabled"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Hapus</button>
-                                @endif
+                                <div class="d-inline-flex flex-nowrap align-items-center gap-1 text-nowrap">
+                                    <a href="{{ route('participants.show', $participant) }}" class="btn btn-sm btn-outline-purple">Lihat Detail</a>
+                                    @if(auth()->user()->isAdministrator())
+                                        <button type="button" class="btn btn-sm btn-outline-danger" wire:click="openDelete({{ $participant->id }})" wire:loading.attr="disabled"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Hapus</button>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-5">Tidak ada peserta dalam penugasan atau filter ini.</td>
+                            <td colspan="5" class="text-center text-muted py-5">Tidak ada peserta dalam penugasan atau filter ini.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -385,6 +452,34 @@ new #[Title('Daftar Peserta SK')] class extends Component
             </div>
         </div>
     </section>
+
+    <div id="participant-phone-modal" x-data x-cloak x-show="$wire.showPhone" x-trap.inert.noscroll="$wire.showPhone"
+        x-effect="if ($wire.showPhone) $nextTick(() => $refs.phoneNumberInput.focus())"
+        @keydown.escape.window="if ($wire.showPhone) $wire.closePhone()"
+        class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="participant-phone-title">
+        <div class="ui-modal" style="max-width: 460px">
+            <div class="ui-modal-header">
+                <h2 id="participant-phone-title">Edit Nomor HP</h2>
+                <button type="button" class="btn-close" wire:click="closePhone" wire:loading.attr="disabled" wire:target="savePhone" aria-label="Tutup"></button>
+            </div>
+            <form wire:submit="savePhone">
+                <div class="ui-modal-body">
+                    <p class="fw-semibold text-break mb-3">{{ $editingPhoneName }}</p>
+                    <label for="participant-phone-number" class="form-label">Nomor HP</label>
+                    <input id="participant-phone-number" x-ref="phoneNumberInput" type="tel" inputmode="tel" autocomplete="tel" class="form-control" style="font-size: 16px" wire:model="phoneNumber" maxlength="16" placeholder="081234567890 / +6281234567890" aria-describedby="participant-phone-help{{ $errors->has('phoneNumber') ? ' phoneNumber-error' : '' }}" @error('phoneNumber') aria-invalid="true" @enderror>
+                    <div id="participant-phone-help" class="form-text">Gunakan 8–15 angka, boleh diawali +, tanpa spasi. Kosongkan untuk menghapus nomor.</div>
+                    <x-field-error name="phoneNumber" />
+                </div>
+                <div class="d-flex flex-column flex-sm-row justify-content-end gap-2 border-top p-3">
+                    <button type="button" class="btn btn-light border" wire:click="closePhone" wire:loading.attr="disabled" wire:target="savePhone">Batal</button>
+                    <button type="submit" class="btn btn-purple" wire:loading.attr="disabled" wire:target="savePhone">
+                        <span wire:loading.remove wire:target="savePhone">Simpan Nomor HP</span>
+                        <span wire:loading wire:target="savePhone">Menyimpan…</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     @if(auth()->user()->isAdministrator())
     <div x-cloak x-show="$wire.showDelete" x-trap.inert.noscroll="$wire.showDelete"
@@ -479,6 +574,12 @@ new #[Title('Daftar Peserta SK')] class extends Component
                             <label for="create-participant-note" class="form-label">Catatan internal</label>
                             <textarea id="create-participant-note" class="form-control" wire:model="form.internal_note" rows="3" maxlength="1000"></textarea>
                             <x-field-error name="form.internal_note" />
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="create-participant-phone" class="form-label">Nomor HP</label>
+                            <input id="create-participant-phone" type="tel" class="form-control" wire:model="form.phone_number" maxlength="16" placeholder="0812… / +62812…">
+                            <div class="form-text">Opsional, 8–15 angka, boleh diawali +, tanpa spasi.</div>
+                            <x-field-error name="form.phone_number" />
                         </div>
                     </div>
                 </div>

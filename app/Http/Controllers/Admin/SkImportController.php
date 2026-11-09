@@ -50,9 +50,16 @@ class SkImportController extends Controller
         return redirect()->route('admin.imports.show', $import)->with('status', 'Berkas diterima dan masuk antrean validasi.');
     }
 
-    public function show(SkImport $import): View
+    public function show(Request $request, SkImport $import): View
     {
-        return view('admin.import-preview', ['import' => $import->load('period'), 'rows' => $import->rows()->orderBy('row_number')->paginate(50)]);
+        $data = $request->validate(['rows' => ['nullable', Rule::in(['all', 'problems'])]]);
+        $filter = $data['rows'] ?? 'all';
+
+        return view('admin.import-preview', [
+            'import' => $import->load('period'),
+            'rows' => $import->rows()->when($filter === 'problems', fn ($query) => $query->whereIn('result', ['error', 'conflict']))->orderBy('row_number')->paginate(50)->withQueryString(),
+            'rowFilter' => $filter,
+        ]);
     }
 
     public function destroy(Request $request, SkImport $import, DeleteSkImportHistory $delete): RedirectResponse
@@ -73,23 +80,23 @@ class SkImportController extends Controller
         abort_unless($actor !== null, 403);
         $commit->handle($actor, $import, $data['preview_hash']);
 
-        return redirect()->route('admin.imports.show', $import)->with('status', 'Impor selesai. Baris identik tidak ditambahkan kembali.');
+        return redirect()->route('admin.imports.show', $import)->with('status', $import->refresh()->safe_summary ?? 'Impor selesai.');
     }
 
     public function errors(Request $request, SkImport $import, RecordAudit $audit): StreamedResponse
     {
         abort_if($import->staging_purged_at !== null, 410, 'Rincian impor telah melewati masa retensi. Unggah kembali berkas sumber untuk validasi baru.');
-        abort_unless(in_array($import->state, ['invalid', 'failed'], true), 404);
+        abort_unless(in_array($import->state, ['invalid', 'failed'], true) || ($import->state === 'committed' && $import->rows()->whereIn('result', ['error', 'conflict'])->exists()), 404);
         $audit->handle($request->user(), 'Mengunduh laporan kesalahan impor SK', $import);
 
         return response()->streamDownload(function () use ($import): void {
             $book = new Spreadsheet;
             $sheet = $book->getActiveSheet();
             $sheet->setTitle('Kesalahan_SK');
-            $sheet->fromArray(['Baris Excel', 'Nomor SK', 'Nomor urut', 'Nama sesuai SK', 'Peg ID', 'Kode Kota/Kabupaten Asal', 'Provinsi Asal', 'Hasil', 'Catatan perbaikan']);
+            $sheet->fromArray(['Baris Excel', 'Nomor SK', 'Nomor urut', 'Nama sesuai SK', 'Peg ID', 'Kode Kota/Kabupaten Asal', 'Provinsi Asal', 'Hasil', 'Catatan perbaikan', 'Nomor HP']);
             $index = 2;
             foreach ($import->rows()->whereIn('result', ['error', 'conflict'])->orderBy('row_number')->lazyById(100) as $row) {
-                $values = [(string) $row->row_number, $row->normalized_payload['sk_number'] ?? '', (string) ($row->normalized_payload['sk_order'] ?? ''), $row->normalized_payload['name_on_sk'] ?? '', $row->normalized_payload['official_participant_id'] ?? '', $row->normalized_payload['origin_city_code'] ?? '', $row->normalized_payload['origin_province_name'] ?? '', $row->result === 'conflict' ? 'Konflik' : 'Kesalahan', implode("\n", $row->errors)];
+                $values = [(string) $row->row_number, $row->normalized_payload['sk_number'] ?? '', (string) ($row->normalized_payload['sk_order'] ?? ''), $row->normalized_payload['name_on_sk'] ?? '', $row->normalized_payload['official_participant_id'] ?? '', $row->normalized_payload['origin_city_code'] ?? '', $row->normalized_payload['origin_province_name'] ?? '', $row->result === 'conflict' ? 'Konflik' : 'Kesalahan', implode("\n", $row->errorMessages()), $row->normalized_payload['phone_number'] ?? ''];
                 foreach ($values as $column => $value) {
                     $sheet->setCellValueExplicit(Coordinate::stringFromColumnIndex($column + 1).$index, (string) $value, DataType::TYPE_STRING);
                 }
@@ -99,14 +106,15 @@ class SkImportController extends Controller
                 $sheet->setCellValueExplicit('I2', $import->safe_summary ?? 'Periksa struktur workbook dan gunakan template resmi.', DataType::TYPE_STRING);
             }
             $sheet->freezePane('A2');
-            $sheet->setAutoFilter('A1:I'.max(2, $index - 1));
-            $sheet->getStyle('A1:I1')->getFont()->setBold(true);
+            $sheet->setAutoFilter('A1:J'.max(2, $index - 1));
+            $sheet->getStyle('A1:J1')->getFont()->setBold(true);
             $sheet->getColumnDimension('A')->setWidth(14);
             foreach (['B', 'C', 'D', 'E', 'F', 'G', 'H'] as $column) {
                 $sheet->getColumnDimension($column)->setWidth(25);
             }
             $sheet->getColumnDimension('I')->setWidth(80);
-            $sheet->getStyle('A:I')->getAlignment()->setWrapText(true);
+            $sheet->getColumnDimension('J')->setWidth(25);
+            $sheet->getStyle('A:J')->getAlignment()->setWrapText(true);
             (new Xlsx($book))->save('php://output');
             $book->disconnectWorksheets();
         }, 'kesalahan-impor-sk-'.$import->id.'.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
@@ -119,16 +127,18 @@ class SkImportController extends Controller
             $sheet = $book->getActiveSheet();
             $sheet->setTitle('Peserta_SK');
             $sheet->fromArray(ValidateSkImport::HEADERS);
-            $sheet->getStyle('A:H')->getNumberFormat()->setFormatCode('@');
-            $sheet->getStyle('A1:H1')->getFont()->setBold(true);
-            foreach (range('A', 'H') as $column) {
+            $sheet->getStyle('A:I')->getNumberFormat()->setFormatCode('@');
+            $sheet->getStyle('A1:I1')->getFont()->setBold(true);
+            foreach (range('A', 'I') as $column) {
                 $sheet->getColumnDimension($column)->setWidth(28);
             }
             $sheet->freezePane('A2');
             $guide = $book->createSheet();
             $guide->setTitle('Panduan');
             $guide->fromArray([
-                ['Template SK versi 4'],
+                ['Template SK versi 5'],
+                ['Kolom I: nomor_hp opsional. Gunakan format 628, total 8–15 angka, tanpa + atau spasi (contoh 6281234567890). Awalan 08 dan +628 otomatis dikonversi ke 628; simpan kedua format tersebut sebagai teks.'],
+                ['Nomor HP kosong atau template lama mempertahankan nomor HP peserta yang sudah tersimpan. Untuk menghapus nomor, gunakan halaman Peserta SK.'],
                 ['Kolom A–D wajib. Periode seluruh baris mengikuti pilihan Periode tujuan pada formulir unggah.'],
                 ['Tanggal SK: YYYY-MM-DD. Nomor urut harus bilangan bulat positif.'],
                 ['Peg ID harus teks agar nol awal utuh. Nama bukan kunci unik.'],
@@ -143,6 +153,7 @@ class SkImportController extends Controller
                 ['Jangan gunakan formula, macro, atau tautan eksternal.'],
                 ['Satu berkas memuat satu periode, maksimal 5.000 baris.'],
                 ['Periksa seluruh hasil validasi sebelum mengonfirmasi impor.'],
+                ['Baris valid dapat disimpan meskipun ada baris error atau konflik. Baris bermasalah ditunda; perbaiki dan unggah ulang.'],
             ]);
             $guide->getColumnDimension('A')->setWidth(110);
             $guide->getStyle('A:A')->getAlignment()->setWrapText(true);
@@ -168,6 +179,6 @@ class SkImportController extends Controller
             $regions->setAutoFilter('A1:C'.max(1, $row - 1));
             (new Xlsx($book))->save('php://output');
             $book->disconnectWorksheets();
-        }, 'template-peserta-sk-v4.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Cache-Control' => 'private, no-store']);
+        }, 'template-peserta-sk-v5.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Cache-Control' => 'private, no-store']);
     }
 }

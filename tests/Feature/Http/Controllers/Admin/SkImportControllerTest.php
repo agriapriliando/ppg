@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -20,6 +21,14 @@ function skWorkbook(array $rows, ?array $headers = null): UploadedFile
     $book = new Spreadsheet;
     $book->getActiveSheet()->setTitle('Peserta_SK');
     $book->getActiveSheet()->fromArray([$headers ?? ValidateSkImport::LEGACY_HEADERS, ...$rows]);
+    $phoneIndex = array_search('nomor_hp', $headers ?? ValidateSkImport::LEGACY_HEADERS, true);
+    if ($phoneIndex !== false) {
+        foreach ($rows as $index => $row) {
+            if (isset($row[$phoneIndex]) && is_string($row[$phoneIndex])) {
+                $book->getActiveSheet()->setCellValueExplicit([$phoneIndex + 1, $index + 2], $row[$phoneIndex], DataType::TYPE_STRING);
+            }
+        }
+    }
     $path = tempnam(sys_get_temp_dir(), 'ppg-xlsx-');
     (new Xlsx($book))->save($path);
     $content = file_get_contents($path);
@@ -29,15 +38,76 @@ function skWorkbook(array $rows, ?array $headers = null): UploadedFile
     return UploadedFile::fake()->createWithContent('peserta-sk.xlsx', $content);
 }
 
+it('normalizes imported phones to 628 and preserves them on blank or older template reimports', function (string|int $phone) {
+    Storage::fake('local');
+    $c = registrationContext();
+    $row = ['SK-PHONE', '2026-11-06', 1, 'Peserta Nomor HP', '000002', '', '', '', $phone];
+
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([$row], ValidateSkImport::HEADERS)])->assertRedirect();
+    $import = SkImport::query()->latest('id')->first();
+    expect($import->state)->toBe('ready');
+    $this->get(route('admin.imports.show', $import))->assertOk()->assertSee('6281234567890');
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    $participant = SkParticipant::query()->where('sk_number', 'SK-PHONE')->sole();
+    expect($participant->phone_number)->toBe('6281234567890');
+
+    foreach ([ValidateSkImport::HEADERS, array_slice(ValidateSkImport::HEADERS, 0, 8)] as $headers) {
+        $this->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([array_slice($row, 0, 8)], $headers)])->assertRedirect();
+        $reimport = SkImport::query()->latest('id')->first();
+        expect($reimport->state)->toBe('ready')->and($reimport->counts['identical'])->toBe(1);
+        $this->post(route('admin.imports.commit', $reimport), ['preview_hash' => $reimport->preview_hash])->assertSessionHasNoErrors();
+        expect($participant->fresh()->phone_number)->toBe('6281234567890');
+    }
+})->with(['081234567890', '+6281234567890', '6281234567890', 6281234567890]);
+
+it('rejects invalid or numeric spreadsheet phones and includes the value in the error report', function (mixed $phone) {
+    Storage::fake('local');
+    $c = registrationContext();
+
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([
+        ['SK-PHONE', '2026-11-06', 1, 'Peserta Nomor HP', '000002', '', '', '', $phone],
+    ], ValidateSkImport::HEADERS)])->assertRedirect();
+
+    $import = SkImport::query()->latest('id')->first();
+    expect($import->state)->toBe('invalid');
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasErrors('import');
+    $response = $this->get(route('admin.imports.errors', $import))->assertOk();
+    Storage::disk('local')->put('phone-errors.xlsx', $response->streamedContent());
+    $book = IOFactory::load(Storage::disk('local')->path('phone-errors.xlsx'));
+    expect($book->getActiveSheet()->getCell('J2')->getValue())->toBe((string) $phone);
+    $book->disconnectWorksheets();
+    $this->assertDatabaseMissing('sk_participants', ['sk_number' => 'SK-PHONE']);
+})->with(['invalid', 81234567890, '+447123456789', '6281234', '6281234567890123']);
+
+it('detects phone changes on reimport and protects claimed participant records', function (bool $claimed) {
+    Storage::fake('local');
+    $c = registrationContext();
+    $participant = $c['participant'];
+    $participant->forceFill(['phone_number' => '081234567890', 'claimed_user_id' => $claimed ? $c['applicant']->id : null])->save();
+    $row = [$participant->sk_number, $participant->sk_date->format('Y-m-d'), $participant->sk_order, $participant->name_on_sk, $participant->official_participant_id, '', $participant->internal_note ?? '', '', '+6289876543210'];
+
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([$row], ValidateSkImport::HEADERS)])->assertRedirect();
+    $import = SkImport::query()->latest('id')->first();
+    expect($import->rows()->sole()->result)->toBe($claimed ? 'conflict' : 'change');
+    $response = $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash]);
+    if ($claimed) {
+        $response->assertSessionHasErrors('import');
+    } else {
+        $response->assertSessionHasNoErrors();
+    }
+    expect($participant->fresh()->phone_number)->toBe($claimed ? '081234567890' : '6289876543210');
+    expect($participant->fresh()->lock_version)->toBe($claimed ? $participant->lock_version : $participant->lock_version + 1);
+})->with([false, true]);
+
 it('includes origin lookup in the latest template and imports it without clearing it on legacy reimport', function () {
     Storage::fake('local');
     $c = registrationContext();
-    $template = $this->actingAs($c['admin'])->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v4.xlsx');
+    $template = $this->actingAs($c['admin'])->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v5.xlsx');
     Storage::disk('local')->put('origin-template.xlsx', $template->streamedContent());
     $book = IOFactory::load(Storage::disk('local')->path('origin-template.xlsx'));
-    expect($book->getSheetByName('Peserta_SK')->rangeToArray('A1:H1')[0])->toBe(ValidateSkImport::HEADERS);
+    expect($book->getSheetByName('Peserta_SK')->rangeToArray('A1:I1')[0])->toBe(ValidateSkImport::HEADERS);
     expect($book->getSheetByName('Peserta_SK')->getCell('F1')->getValue())->toBe('id_operator');
-    expect($book->getSheetByName('Peserta_SK')->getCell('I1')->getValue())->toBeNull();
+    expect($book->getSheetByName('Peserta_SK')->getCell('I1')->getValue())->toBe('nomor_hp');
     expect($book->getSheetByName('Peserta_SK')->getCell('H1')->getValue())->toBe('kode_kota_kabupaten_asal')
         ->and($book->getSheetByName('Referensi_Wilayah')->getCell('A2')->getValue())->toBe('0101')
         ->and($book->getSheetByName('Referensi_Wilayah')->getCell('C2')->getValue())->toBe('Provinsi Uji');
@@ -238,18 +308,88 @@ it('reads actual Excel contents and commits participants once while preserving l
     $this->assertDatabaseCount('sk_participants', 1);
 });
 
-it('rejects the entire import when one row is invalid and reports its row number', function () {
+it('saves valid rows while deferring invalid rows with their Excel row numbers', function (string $role) {
     Storage::fake('local');
-    $admin = User::factory()->administrator()->create();
+    $admin = User::factory()->{$role}()->create();
     $period = AdmissionPeriod::factory()->create();
     $file = skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Valid'], ['SK-UJI', '2026-10-01', $period->code, 2, '']]);
     $this->actingAs($admin)->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => $file])->assertRedirect();
     $import = SkImport::query()->sole();
     expect($import->state)->toBe('invalid');
     expect($import->rows()->where('result', 'error')->sole()->row_number)->toBe(3);
-    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasErrors('import');
-    $this->assertDatabaseCount('sk_participants', 0);
+    $this->get(route('admin.imports.show', $import))->assertOk()->assertSee('Simpan Baris Valid')->assertSee('table-danger');
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    $this->assertDatabaseCount('sk_participants', 1);
+    $this->assertDatabaseHas('sk_participants', ['name_on_sk' => 'Peserta Valid', 'sk_order' => 1]);
+    $this->assertDatabaseMissing('sk_participants', ['sk_order' => 2]);
+    expect($import->fresh()->state)->toBe('committed');
+    expect($import->rows()->where('result', 'error')->sole()->row_number)->toBe(3);
+    $this->get(route('admin.imports.show', $import))->assertOk()->assertSee('Impor selesai sebagian')->assertSee('Tersimpan')->assertSee('Ditunda');
+    $this->get(route('admin.imports.errors', $import))->assertOk();
+
+    $version = $period->fresh()->lock_version;
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    $this->assertDatabaseCount('sk_participants', 1);
+    expect($period->fresh()->lock_version)->toBe($version);
+
+    $this->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([
+        ['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Valid'],
+        ['SK-UJI', '2026-10-01', $period->code, 2, 'Peserta Diperbaiki'],
+    ])])->assertRedirect();
+    $corrected = SkImport::query()->latest('id')->first();
+    expect($corrected->counts['identical'])->toBe(1)->and($corrected->counts['new'])->toBe(1);
+    $this->post(route('admin.imports.commit', $corrected), ['preview_hash' => $corrected->preview_hash])->assertSessionHasNoErrors();
+    $this->assertDatabaseCount('sk_participants', 2);
+})->with(['administrator', 'operator']);
+
+it('skips conflicts while committing independent valid rows and keeps a filterable problem report', function () {
+    Storage::fake('local');
+    $c = registrationContext();
+    $participant = $c['participant'];
+    $participant->forceFill(['claimed_user_id' => $c['applicant']->id])->save();
+    $rows = [[$participant->sk_number, $participant->sk_date->format('Y-m-d'), $c['period']->code, $participant->sk_order, 'Perubahan Terikat Klaim', $participant->official_participant_id]];
+    foreach (range(1, 51) as $order) {
+        $rows[] = ['SK-PARTIAL', '2026-11-06', $c['period']->code, $order, 'Peserta Valid '.$order];
+    }
+    $rows[] = ['SK-PARTIAL', '2026-11-06', $c['period']->code, 52, ''];
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook($rows)])->assertRedirect();
+    $import = SkImport::query()->latest('id')->first();
+    expect($import->counts)->toBe(['new' => 51, 'identical' => 0, 'change' => 0, 'conflict' => 1, 'error' => 1]);
+
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+
+    $this->assertDatabaseCount('sk_participants', 52);
+    expect($participant->fresh()->name_on_sk)->toBe($participant->name_on_sk);
+    $this->get(route('admin.imports.show', ['import' => $import, 'rows' => 'problems']))
+        ->assertOk()->assertSee('Perubahan Terikat Klaim')->assertSee('table-warning')->assertSee('table-danger')
+        ->assertDontSee('Peserta Valid 1')->assertDontSee('Simpan Baris Valid');
+    $this->get(route('admin.imports.errors', $import))->assertOk();
+    $this->assertDatabaseHas('audit_events', ['actor_id' => $c['admin']->id, 'action' => 'Mengonfirmasi impor SK']);
 });
+
+it('still rejects stale expired purged archived or mismatched previews for partial commits', function (string $condition) {
+    Storage::fake('local');
+    $c = registrationContext();
+    $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([
+        ['SK-PARTIAL', '2026-11-06', $c['period']->code, 1, 'Peserta Valid'],
+        ['SK-PARTIAL', '2026-11-06', $c['period']->code, 2, ''],
+    ])])->assertRedirect();
+    $import = SkImport::query()->latest('id')->first();
+    if ($condition === 'stale') {
+        $c['period']->increment('lock_version');
+    } elseif ($condition === 'expired') {
+        $import->forceFill(['expires_at' => now()->subMinute()])->save();
+    } elseif ($condition === 'purged') {
+        $import->forceFill(['staging_purged_at' => now()])->save();
+    } elseif ($condition === 'archived') {
+        $c['period']->update(['state' => 'archived']);
+    }
+
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $condition === 'hash' ? str_repeat('x', 64) : $import->preview_hash])->assertSessionHasErrors('import');
+
+    $this->assertDatabaseMissing('sk_participants', ['sk_number' => 'SK-PARTIAL']);
+    expect($import->fresh()->state)->toBe('invalid');
+})->with(['stale', 'expired', 'purged', 'archived', 'hash']);
 
 it('rejects duplicate business keys within one workbook', function () {
     Storage::fake('local');
@@ -277,7 +417,7 @@ it('provides a real downloadable Excel template and a usable import preview page
     Storage::fake('local');
     $admin = User::factory()->administrator()->create();
     $period = AdmissionPeriod::factory()->create();
-    $this->actingAs($admin)->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v4.xlsx');
+    $this->actingAs($admin)->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v5.xlsx');
     $this->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Uji']])])->assertRedirect();
     $this->get(route('admin.imports.show', SkImport::query()->sole()))->assertOk()->assertSee('Peserta Uji')->assertSee('Pratinjau siap dikonfirmasi');
 });

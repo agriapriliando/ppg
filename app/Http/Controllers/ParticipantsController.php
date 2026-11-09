@@ -16,6 +16,7 @@ use App\Models\SkParticipant;
 use App\Models\User;
 use App\Support\ApplicantFields;
 use App\Support\ParticipantOrigin;
+use App\Support\ParticipantPhone;
 use App\Support\SubmittedRegistrationData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -66,6 +67,7 @@ class ParticipantsController extends Controller
             'sk_date' => ['required', 'date'],
             'sk_order' => ['required', 'integer', 'min:1', 'max:999999'],
             'official_participant_id' => ['nullable', 'string', 'max:100'],
+            'phone_number' => ParticipantPhone::rules(),
             'origin_city_code' => ['nullable', 'string', 'max:64'],
             'assigned_operator_id' => ['nullable', 'integer', 'exists:users,id'],
             'reason' => ['nullable', 'string', 'max:1000'],
@@ -109,16 +111,13 @@ class ParticipantsController extends Controller
                     : ParticipantOrigin::resolve($data['origin_city_code']);
             }
             $changes = array_merge($changes, $origin);
+            if (array_key_exists('phone_number', $data)) {
+                $changes['phone_number'] = trim($data['phone_number'] ?? '') ?: null;
+            }
 
             $locked->forceFill([
-                ...$origin,
-                'name_on_sk' => $cleanName,
+                ...$changes,
                 'normalized_name' => mb_strtolower(Str::squish($cleanName)),
-                'sk_number' => $changes['sk_number'],
-                'sk_date' => $changes['sk_date'],
-                'sk_order' => $changes['sk_order'],
-                'official_participant_id' => $changes['official_participant_id'],
-                'assigned_operator_id' => $changes['assigned_operator_id'],
                 'lock_version' => $locked->lock_version + 1,
             ])->save();
 
@@ -218,6 +217,7 @@ class ParticipantsController extends Controller
             'Kota/Kabupaten Asal (SK)',
             'Provinsi Asal (SK)',
             'Nama Sesuai SK',
+            'Nomor HP (SK)',
             'Kondisi Roster SK',
             'Status Penahanan SK',
             'Operator Penugasan',
@@ -325,6 +325,7 @@ class ParticipantsController extends Controller
                 (string) ($participant->origin_city_name ?? ''),
                 (string) ($participant->origin_province_name ?? ''),
                 $participant->name_on_sk,
+                (string) ($participant->phone_number ?? ''),
                 $participant->roster_state === 'active' ? 'Aktif' : 'Mundur',
                 $participant->admin_hold ? 'Ditahan' : 'Normal',
                 $participant->assignedOperator !== null ? $participant->assignedOperator->name : 'Belum Ditugaskan',

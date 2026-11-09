@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /** @property CarbonImmutable $sk_date */
-#[Fillable(['admission_period_id', 'sk_number', 'sk_date', 'sk_order', 'official_participant_id', 'name_on_sk', 'normalized_name', 'assigned_operator_id', 'last_import_id', 'internal_note', 'origin_reference_dataset_id', 'origin_city_code', 'origin_city_name', 'origin_province_code', 'origin_province_name'])]
+#[Fillable(['admission_period_id', 'sk_number', 'sk_date', 'sk_order', 'official_participant_id', 'name_on_sk', 'normalized_name', 'phone_number', 'assigned_operator_id', 'last_import_id', 'internal_note', 'origin_reference_dataset_id', 'origin_city_code', 'origin_city_name', 'origin_province_code', 'origin_province_name'])]
 class SkParticipant extends Model
 {
     /** @param Builder<SkParticipant> $query */

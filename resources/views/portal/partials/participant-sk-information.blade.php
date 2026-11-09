@@ -10,6 +10,8 @@
 
     <dt>Peg ID</dt>
     <dd>{{ $participant->official_participant_id ?? 'Tidak tersedia' }}</dd>
+    <dt>Nomor HP (SK)</dt>
+    <dd>{{ $participant->phone_number ?? 'Belum diisi' }}</dd>
     <dt>Kota/Kabupaten Asal</dt><dd>{{ $participant->origin_city_name ?? 'Belum diisi' }}</dd>
     <dt>Provinsi Asal</dt><dd>{{ $participant->origin_province_name ?? 'Belum diisi' }}</dd>
 
