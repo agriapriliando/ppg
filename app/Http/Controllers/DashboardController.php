@@ -71,7 +71,8 @@ class DashboardController extends Controller
                         $phone = null;
                     }
                     if ($phone !== null) {
-                        $operatorContact = ['name' => $operator->name, 'url' => 'https://wa.me/'.$phone.'?text='.rawurlencode('Shalom, Izin bertanya Bapak/Ibu Operator :')];
+                        $message = "Shalom, Izin bertanya Bapak/Ibu {$operator->name}\nsaya {$user->name}\n>>";
+                        $operatorContact = ['name' => $operator->name, 'url' => 'https://wa.me/'.$phone.'?text='.rawurlencode($message)];
                     }
                 }
             }

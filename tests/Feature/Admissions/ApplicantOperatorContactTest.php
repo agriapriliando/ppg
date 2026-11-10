@@ -19,8 +19,9 @@ function applicantOperatorContactContext(): array
 
 it('shows a manual WhatsApp button to the assigned operator with the exact message', function (string $number) {
     $c = applicantOperatorContactContext();
-    $c['operator']->forceFill(['phone_number' => $number])->save();
-    $url = 'https://wa.me/6281355551234?text='.rawurlencode('Shalom,Izin bertanya Bapak/Ibu Operator :');
+    $c['operator']->forceFill(['name' => 'Maria & Andreas', 'phone_number' => $number])->save();
+    $c['applicant']->forceFill(['name' => 'Yohanes Putra S.Pd.'])->save();
+    $url = 'https://wa.me/6281355551234?text='.rawurlencode("Shalom, Izin bertanya Bapak/Ibu Maria & Andreas\nsaya Yohanes Putra S.Pd.\n>>");
 
     $this->actingAs($c['applicant'])->get(route('dashboard'))->assertOk()->assertSee('Tanya Operator')
         ->assertSee('href="'.$url.'"', false)->assertSee('operator-contact-button')
