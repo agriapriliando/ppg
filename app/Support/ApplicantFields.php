@@ -133,6 +133,7 @@ class ApplicantFields
         $rules['rw'][] = 'regex:/^[0-9]{1,5}$/';
         $rules['postal_code'][] = 'max:10';
         $rules['npwp'][] = 'max:40';
+        $rules['npwp'][] = 'regex:/^[0-9]+$/';
         $rules['kps_number'][] = 'max:100';
         if ($final && ($input['is_kps_recipient'] ?? null)) {
             $rules['kps_number'][] = 'required';
@@ -181,7 +182,7 @@ class ApplicantFields
         $labels['prodi_name'] = 'Program studi asal';
         $labels['pt_external_id'] = 'Perguruan tinggi asal';
         $labels['prodi_external_id'] = 'Program studi asal';
-        $data = Validator::make($input, $rules, ['nuptk.regex' => 'NUPTK harus terdiri dari 16 angka.', 'integer' => ':attribute harus berupa bilangan bulat.', 'between.numeric' => ':attribute harus antara :min dan :max.', 'max.string' => ':attribute maksimal :max karakter.', 'in' => ':attribute tidak sesuai pilihan yang tersedia.', 'date_format' => ':attribute harus memakai format :format.', 'required' => ':attribute wajib diisi.', 'exists' => ':attribute tidak tersedia pada referensi aktif.', 'digits' => ':attribute harus terdiri dari :digits digit.', 'birth_date.before' => 'Tanggal lahir harus sebelum hari ini.'], $labels)->validate();
+        $data = Validator::make($input, $rules, ['npwp.regex' => 'NPWP hanya boleh berisi angka 0-9, tanpa titik, tanda hubung, spasi, atau huruf. Perbaiki kolom NPWP pada bagian Tambahan.', 'nuptk.regex' => 'NUPTK harus terdiri dari 16 angka.', 'integer' => ':attribute harus berupa bilangan bulat.', 'between.numeric' => ':attribute harus antara :min dan :max.', 'max.string' => ':attribute maksimal :max karakter.', 'in' => ':attribute tidak sesuai pilihan yang tersedia.', 'date_format' => ':attribute harus memakai format :format.', 'required' => ':attribute wajib diisi.', 'exists' => ':attribute tidak tersedia pada referensi aktif.', 'digits' => ':attribute harus terdiri dari :digits digit.', 'birth_date.before' => 'Tanggal lahir harus sebelum hari ini.'], $labels)->validate();
         $history = $data['education_history'] ?? [];
         $previousYear = null;
         foreach ($levels as $level) {

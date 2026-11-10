@@ -6,9 +6,17 @@
                 <strong>{{ $issues ? 'Biodata masih perlu dilengkapi' : 'Biodata lengkap' }}</strong>
                 <span class="d-block">{{ $documents->count() }} berkas tersimpan.</span>
             </div>
-            @if($issues)
+            @if(isset($issues['npwp']))
+                <div class="alert alert-danger" role="alert" id="npwp-submission-error">
+                    <strong>NPWP perlu diperbaiki</strong>
+                    <p class="mb-2">{{ $issues['npwp'][0] }}</p>
+                    <a class="alert-link" href="{{ route('applicant.form.edit', ['period' => $workspace->admission_period_id, 'section' => 3]).'#form-npwp' }}">Perbaiki NPWP di bagian Tambahan</a>
+                </div>
+            @endif
+            @if(array_diff_key($issues, ['npwp' => true]))
                 <ul class="small">
                     @foreach($issues as $key => $messages)
+                        @continue($key === 'npwp')
                         @php($section = str_starts_with($key, 'education_history') || in_array($key, ['degree_level', 'pt_name', 'prodi_name', 'graduation_year']) ? 4 : (\App\Support\ApplicantFields::definitions()[$key]['step'] ?? 1))
                         <li><a href="{{ route('applicant.form.edit', ['period' => $workspace->admission_period_id, 'section' => $section]) }}">{{ $messages[0] }}</a></li>
                     @endforeach
