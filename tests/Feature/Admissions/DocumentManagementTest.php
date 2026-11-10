@@ -229,6 +229,7 @@ it('does not give old owner files to new owner upon ownership transfer', functio
     $target = User::factory()->create(['name' => 'Akun Pemilik Sah']);
     $input = claimInput($c);
     $input['whatsapp_number'] = '081234567899';
+    $input['identifier'] = '';
     $targetClaim = app(SubmitSkClaim::class)->handle($target, $input);
 
     $c['participant']->refresh()->forceFill(['admin_hold' => true, 'hold_reason' => 'Penahanan sementara untuk pemeriksaan kedua pihak.', 'lock_version' => $c['participant']->lock_version + 1])->save();

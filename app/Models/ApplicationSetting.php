@@ -12,6 +12,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['key', 'value', 'version', 'updated_by'])]
 class ApplicationSetting extends Model
 {
+    public static function claimPegIdRequired(): bool
+    {
+        $settings = static::query()->where('key', 'public')->first()->value ?? [];
+
+        return (bool) ($settings['claim_peg_id_required'] ?? false);
+    }
+
     /** @return BelongsTo<User, $this> */
     public function updatedBy(): BelongsTo
     {

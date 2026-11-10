@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Actions\RecordAudit;
 use App\Http\Controllers\Controller;
 use App\Models\ApplicationSetting;
-use App\Models\PortalQuickLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +18,6 @@ class SettingsController extends Controller
     {
         return view('admin.settings', [
             'setting' => ApplicationSetting::query()->where('key', 'public')->first(),
-            'quickLinks' => PortalQuickLink::query()->orderBy('sort_order')->orderBy('id')->get(),
         ]);
     }
 
@@ -31,6 +29,7 @@ class SettingsController extends Controller
             'service_hours' => ['nullable', 'string', 'max:100'],
             'notice' => ['nullable', 'string', 'max:2000'],
             'notice_placement' => ['sometimes', 'required', Rule::in(['both', 'homepage', 'dashboard', 'hidden'])],
+            'claim_peg_id_required' => ['sometimes', 'required', 'boolean'],
             'version' => ['required', 'integer', 'min:0'],
         ], ['helpdesk_whatsapp.regex' => 'Gunakan nomor internasional, misalnya +62812…, tanpa spasi.', 'helpdesk_name.required' => 'Nama helpdesk wajib diisi.']);
         DB::transaction(function () use ($request, $data, $audit): void {
@@ -41,6 +40,9 @@ class SettingsController extends Controller
             }
             unset($data['version']);
             $data['notice_placement'] ??= $setting->value['notice_placement'] ?? 'both';
+            $data['claim_peg_id_required'] = array_key_exists('claim_peg_id_required', $data)
+                ? (bool) $data['claim_peg_id_required']
+                : (bool) ($setting->value['claim_peg_id_required'] ?? false);
             $setting->value = $data;
             $setting->version++;
             $setting->updatedBy()->associate($request->user());

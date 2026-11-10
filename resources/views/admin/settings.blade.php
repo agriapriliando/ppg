@@ -10,13 +10,13 @@
             icon: 'bi-box-arrow-up-right',
             button_color: 'purple',
             target: '_blank',
-            is_active: true
+            placement: 'both'
         },
         openEdit(link) {
-            this.activeEditLink = { ...link };
+            this.activeEditLink = { ...link, placement: link.is_active ? (link.placement || 'both') : 'hidden' };
             this.editLinkModal = true;
         }
-    }">
+    }" @edit-quick-link.window="openEdit($event.detail.link)">
         <div class="row g-4">
             <div class="col-xl-8">
                 <!-- Identitas & Layanan PMB -->
@@ -55,6 +55,17 @@
                                 <x-field-error name="notice_placement" />
                             </div>
 
+                            <div class="mb-4">
+                                <label for="setting-claim-peg-id" class="form-label fw-bold">Peg ID pada klaim WhatsApp</label>
+                                <select id="setting-claim-peg-id" name="claim_peg_id_required" class="form-select">
+                                    @foreach([0 => 'Tidak wajib', 1 => 'Wajib'] as $value => $label)
+                                        <option value="{{ $value }}" @selected((int) \App\Support\FormInput::old('claim_peg_id_required', $setting?->value['claim_peg_id_required'] ?? false) === $value)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="form-text">Mengatur kewajiban pengisian Peg ID pada formulir klaim WhatsApp.</div>
+                                <x-field-error name="claim_peg_id_required" />
+                            </div>
+
                             <button class="btn btn-purple">Simpan Pengaturan</button>
                         </form>
                     </div>
@@ -64,8 +75,8 @@
                 <section class="workspace-card mb-4">
                     <div class="panel-heading d-flex flex-wrap align-items-center justify-content-between gap-3">
                         <div>
-                            <h2 class="h5 mb-1 fw-bold text-purple"><i class="bi bi-link-45deg me-1"></i>Tombol Tautan Cepat (Ruang Kerja)</h2>
-                            <p class="text-muted small mb-0">Kelola tombol tautan langsung ke LMS, UKIN, Web IAKNPKY, atau sistem eksternal lainnya yang tampil di Beranda Ruang Kerja.</p>
+                            <h2 class="h5 mb-1 fw-bold text-purple"><i class="bi bi-link-45deg me-1"></i>Tombol Tautan Cepat</h2>
+                            <p class="text-muted small mb-0">Kelola tombol tautan dan tentukan apakah tampil di Homepage, Dashboard, keduanya, atau disembunyikan.</p>
                         </div>
                         <button type="button" @click="addLinkModal = true" class="btn btn-sm btn-purple d-inline-flex align-items-center gap-1">
                             <i class="bi bi-plus-circle" aria-hidden="true"></i>
@@ -73,107 +84,7 @@
                         </button>
                     </div>
                     <div class="panel-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 90px;" class="text-center">Urutan</th>
-                                        <th>Nama Tombol & Deskripsi</th>
-                                        <th>URL Tujuan</th>
-                                        <th style="width: 110px;" class="text-center">Tampilan</th>
-                                        <th style="width: 90px;" class="text-center">Status</th>
-                                        <th style="width: 120px;" class="text-end pe-3">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse($quickLinks as $index => $link)
-                                        <tr>
-                                            <td class="text-center">
-                                                <div class="d-inline-flex align-items-center gap-1">
-                                                    <span class="badge text-bg-light border text-muted me-1">{{ $loop->iteration }}</span>
-                                                    <div class="btn-group-vertical btn-group-sm">
-                                                        <form method="post" action="{{ route('admin.quick-links.move-up', $link) }}">
-                                                            @csrf
-                                                            <button type="submit" class="btn btn-sm btn-outline-secondary p-0 px-1" title="Pindah ke Atas" @disabled($loop->first)>
-                                                                <i class="bi bi-arrow-up" style="font-size: 0.75rem;"></i>
-                                                            </button>
-                                                        </form>
-                                                        <form method="post" action="{{ route('admin.quick-links.move-down', $link) }}">
-                                                            @csrf
-                                                            <button type="submit" class="btn btn-sm btn-outline-secondary p-0 px-1" title="Pindah ke Bawah" @disabled($loop->last)>
-                                                                <i class="bi bi-arrow-down" style="font-size: 0.75rem;"></i>
-                                                            </button>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <span class="dayak-shield-badge" style="width: 30px; height: 30px; font-size: 0.8rem; background-color: #f3e8fa; color: #4A154B;">
-                                                        <i class="bi {{ $link->icon ?: 'bi-box-arrow-up-right' }}" aria-hidden="true"></i>
-                                                    </span>
-                                                    <div>
-                                                        <strong class="d-block text-dark">{{ $link->title }}</strong>
-                                                        @if($link->description)
-                                                            <small class="text-muted">{{ $link->description }}</small>
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <a href="{{ $link->url }}" target="_blank" rel="noopener noreferrer" class="text-decoration-none small text-truncate d-inline-block" style="max-width: 200px;" title="{{ $link->url }}">
-                                                    {{ $link->url }} <i class="bi bi-box-arrow-up-right ms-1" style="font-size: 0.65rem;"></i>
-                                                </a>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge" style="
-                                                    @if($link->button_color === 'purple') background-color: #6a3283; color: white;
-                                                    @elseif($link->button_color === 'gold') background-color: #eab308; color: black;
-                                                    @elseif($link->button_color === 'blue') background-color: #2563eb; color: white;
-                                                    @elseif($link->button_color === 'green') background-color: #16a34a; color: white;
-                                                    @elseif($link->button_color === 'teal') background-color: #0d9488; color: white;
-                                                    @else background-color: #334155; color: white;
-                                                    @endif
-                                                ">
-                                                    {{ ucfirst($link->button_color) }}
-                                                </span>
-                                            </td>
-                                            <td class="text-center">
-                                                @if($link->is_active)
-                                                    <span class="badge bg-success-subtle text-success border border-success-subtle">Aktif</span>
-                                                @else
-                                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Nonaktif</span>
-                                                @endif
-                                            </td>
-                                            <td class="text-end pe-3">
-                                                <div class="d-inline-flex gap-1">
-                                                    <button type="button" @click="openEdit({{ json_encode($link) }})" class="btn btn-sm btn-outline-purple" title="Edit Tautan">
-                                                        <i class="bi bi-pencil" aria-hidden="true"></i>
-                                                    </button>
-                                                    <form method="post" action="{{ route('admin.quick-links.destroy', $link) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus tautan ini?')">
-                                                        @csrf
-                                                        @method('delete')
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus Tautan">
-                                                            <i class="bi bi-trash" aria-hidden="true"></i>
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="6" class="text-center py-4 text-muted">
-                                                <i class="bi bi-link-45deg fs-3 d-block mb-2 text-secondary"></i>
-                                                Belum ada tombol tautan cepat yang ditambahkan.<br>
-                                                <button type="button" @click="addLinkModal = true" class="btn btn-sm btn-purple mt-2">
-                                                    <i class="bi bi-plus-circle me-1"></i>Tambah Tautan Pertama
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
+                        <livewire:admin.quick-links-table />
                     </div>
                 </section>
             </div>
@@ -193,11 +104,11 @@
                         <h2 class="h6 mb-0 fw-bold"><i class="bi bi-lightbulb text-warning me-2"></i>Petunjuk Tautan Cepat</h2>
                     </div>
                     <div class="panel-body small text-muted">
-                        <p>Tombol tautan cepat akan langsung tampil di <strong>Beranda Ruang Kerja</strong> (<code>/ruang-kerja</code>) untuk seluruh pengguna (pendaftar, operator, dan administrator).</p>
+                        <p>Setiap tombol dapat ditampilkan di <strong>Homepage</strong>, <strong>Dashboard</strong>, keduanya, atau disembunyikan melalui pilihan <strong>Tampilkan di</strong>.</p>
                         <ul class="ps-3 mb-0">
-                            <li class="mb-2">Gunakan tombol <strong>panah atas/bawah</strong> untuk mengatur urutan tombol sesuai prioritas.</li>
+                            <li class="mb-2">Gunakan tombol <strong>panah atas/bawah</strong> untuk mengatur urutan tombol tanpa memuat ulang halaman.</li>
                             <li class="mb-2">Tautan dapat berupa URL lengkap seperti <code>https://lms.iaknpky.ac.id</code> atau <code>https://ukin.kemdikbud.go.id</code>.</li>
-                            <li>Tautan nonaktif akan disembunyikan dari dashboard tanpa perlu menghapus datanya.</li>
+                            <li>Pilihan Tidak tampil menyembunyikan tombol dari semua halaman tanpa menghapus datanya.</li>
                         </ul>
                     </div>
                 </div>
@@ -293,11 +204,15 @@
                                     <option value="_self">Tab Saat Ini (_self)</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 d-flex align-items-center pt-3">
-                                <div class="form-check">
-                                    <input type="checkbox" id="new-is-active" name="is_active" class="form-check-input" value="1" checked>
-                                    <label for="new-is-active" class="form-check-label fw-bold">Tampilkan di Beranda (Aktif)</label>
-                                </div>
+                            <div class="col-md-6">
+                                <label for="new-placement" class="form-label fw-bold">Tampilkan di</label>
+                                <select id="new-placement" name="placement" class="form-select">
+                                    <option value="dashboard">Dashboard</option>
+                                    <option value="homepage">Homepage</option>
+                                    <option value="both" selected>Semua (Homepage dan Dashboard)</option>
+                                    <option value="hidden">Tidak tampil</option>
+                                </select>
+                                <x-field-error name="placement" />
                             </div>
                         </div>
                     </div>
@@ -402,11 +317,15 @@
                                     <option value="_self">Tab Saat Ini (_self)</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 d-flex align-items-center pt-3">
-                                <div class="form-check">
-                                    <input type="checkbox" id="edit-is-active" name="is_active" class="form-check-input" value="1" x-model="activeEditLink.is_active">
-                                    <label for="edit-is-active" class="form-check-label fw-bold">Tampilkan di Beranda (Aktif)</label>
-                                </div>
+                            <div class="col-md-6">
+                                <label for="edit-placement" class="form-label fw-bold">Tampilkan di</label>
+                                <select id="edit-placement" name="placement" class="form-select" x-model="activeEditLink.placement">
+                                    <option value="dashboard">Dashboard</option>
+                                    <option value="homepage">Homepage</option>
+                                    <option value="both">Semua (Homepage dan Dashboard)</option>
+                                    <option value="hidden">Tidak tampil</option>
+                                </select>
+                                <x-field-error name="placement" />
                             </div>
                         </div>
                     </div>

@@ -148,6 +148,7 @@ it('does not accept a second claim for the same SK participant', function () {
     $other = User::factory()->create();
     $input = claimInput($c);
     $input['whatsapp_number'] = '081234567891';
+    $input['identifier'] = '';
     $second = app(SubmitSkClaim::class)->handle($other, $input);
     app(ApproveClaim::class)->handle($c['operator'], $first, 0);
     expect(fn () => app(ApproveClaim::class)->handle($c['operator'], $second, 0))->toThrow(ValidationException::class);

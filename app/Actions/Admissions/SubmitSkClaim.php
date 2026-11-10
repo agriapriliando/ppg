@@ -5,6 +5,7 @@ namespace App\Actions\Admissions;
 use App\Actions\RecordAudit;
 use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
+use App\Models\ApplicationSetting;
 use App\Models\ConsentRecord;
 use App\Models\ConsentText;
 use App\Models\SkClaim;
@@ -27,20 +28,33 @@ class SubmitSkClaim
         $data = Validator::make($input, [
             'period_id' => ['required', 'integer', 'exists:admission_periods,id'],
             'name' => ['required', 'string', 'max:255'],
-            'identifier' => ['nullable', 'string', 'max:100'],
+            'identifier' => [ApplicationSetting::claimPegIdRequired() ? 'required' : 'nullable', 'string', 'max:100'],
             'whatsapp_number' => ['required', 'string', 'max:30'],
             'request_key' => ['required', 'uuid'],
             'consent_id' => ['required', 'integer'],
             'consent' => ['accepted'],
-        ], ['consent.accepted' => 'Persetujuan pemeriksaan klaim wajib diberikan.', 'required' => ':attribute wajib diisi.'])->validate();
+        ], [
+            'consent.accepted' => 'Persetujuan pemeriksaan klaim wajib diberikan.',
+            'required' => ':attribute wajib diisi.',
+            'string' => ':attribute harus berupa teks.',
+            'integer' => ':attribute tidak valid.',
+            'max.string' => ':attribute maksimal :max karakter.',
+            'period_id.exists' => 'Periode pendaftaran tidak tersedia. Pilih periode yang masih dibuka.',
+            'identifier.required' => 'Nomor Peg ID wajib diisi.',
+            'request_key.uuid' => 'Referensi formulir tidak valid. Muat ulang halaman sebelum mengirim.',
+        ], [
+            'period_id' => 'Periode pendaftaran', 'name' => 'Nama lengkap', 'identifier' => 'Peg ID',
+            'whatsapp_number' => 'Nomor WhatsApp', 'request_key' => 'Referensi formulir', 'consent_id' => 'Pernyataan persetujuan',
+        ])->validate();
         $number = WhatsappNumber::normalize($data['whatsapp_number']);
         $normalizedName = mb_strtolower(Str::squish($data['name']));
+        $identifier = trim($data['identifier'] ?? '');
 
-        return DB::transaction(function () use ($requester, $data, $number, $normalizedName): SkClaim {
+        return DB::transaction(function () use ($requester, $data, $number, $normalizedName, $identifier): SkClaim {
             $period = AdmissionPeriod::query()->whereKey($data['period_id'])->lockForUpdate()->firstOrFail();
             $existing = SkClaim::query()->where('request_key', $data['request_key'])->first();
             if ($existing !== null) {
-                if ($existing->requester_user_id !== $requester?->id || $existing->whatsapp_number !== $number || $existing->submitted_name !== trim($data['name'])) {
+                if ($existing->requester_user_id !== $requester?->id || $existing->admission_period_id !== $period->id || $existing->whatsapp_number !== $number || $existing->submitted_name !== trim($data['name']) || ($existing->submitted_identifier ?? '') !== $identifier) {
                     throw ValidationException::withMessages(['claim' => 'Referensi permohonan sudah digunakan. Muat ulang formulir.']);
                 }
 
@@ -52,13 +66,15 @@ class SubmitSkClaim
             $duplicate = SkClaim::query()->where('admission_period_id', $period->id)->where('whatsapp_number', $number)
                 ->get(['id', 'submitted_name'])->contains(fn (SkClaim $claim) => mb_strtolower(Str::squish($claim->submitted_name)) === $normalizedName);
             if ($duplicate) {
-                throw ValidationException::withMessages(['claim' => 'Kombinasi nama dan nomor WhatsApp ini sudah terdaftar pada periode yang dipilih. Tidak perlu mengirim pendaftaran akun kembali.']);
+                throw ValidationException::withMessages(['claim' => 'Kombinasi nama dan nomor WhatsApp ini sudah terdaftar pada periode yang dipilih. Tidak perlu mengirim pendaftaran akun kembali. Tunggu informasi akun melalui WhatsApp atau hubungi operator untuk bantuan.']);
+            }
+            if ($identifier !== '' && SkClaim::query()->where('admission_period_id', $period->id)->where('submitted_identifier', $identifier)->exists()) {
+                throw ValidationException::withMessages(['identifier' => 'Peg ID ini sudah terdaftar pada periode yang dipilih. Pendaftaran ulang tidak diperlukan meskipun nama atau nomor WhatsApp berbeda. Tunggu informasi akun melalui WhatsApp atau hubungi operator untuk perbaikan data.']);
             }
             $consent = ConsentText::query()->where('purpose', 'claim')->orderByDesc('id')->first();
             if ($consent === null || $consent->id !== (int) $data['consent_id']) {
                 throw ValidationException::withMessages(['consent' => 'Pernyataan telah berubah atau belum tersedia. Muat ulang halaman.']);
             }
-            $identifier = trim($data['identifier'] ?? '');
             $candidates = SkParticipant::query()->where('admission_period_id', $period->id)
                 ->when($identifier !== '',
                     fn ($query) => $query->where('official_participant_id', $identifier),

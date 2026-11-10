@@ -16,7 +16,15 @@
                         <h2 class="h3">Pendaftaran Akun</h2>
                         <p class="text-muted">Lengkapi data berikut untuk mengajukan akun. Pendaftaran akan diperiksa
                             oleh pengelola sebelum akun dapat digunakan.</p>
-                        <x-notice />
+                        @if($errors->any())
+                            <div class="alert alert-danger border-start border-4 rounded-3 mb-4" role="alert" tabindex="-1" x-init="$el.focus()">
+                                <h3 class="h6 fw-bold">Pendaftaran akun belum dapat dikirim</h3>
+                                <p class="mb-2">Periksa pesan berikut dan perbaiki data sebelum mengirim kembali.</p>
+                                <ul class="mb-0 ps-3">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+                            </div>
+                        @else
+                            <x-notice />
+                        @endif
 
                         @if (session('claim_submitted'))
                             <div class="alert alert-success border-success border-start border-4 rounded-3 p-4 mb-4"
@@ -82,14 +90,16 @@
                                     </select>
                                     <div class="form-text">Hanya periode dengan pendaftaran dibuka yang dapat dipilih.
                                     </div>
+                                    <x-field-error name="period_id" />
                                 </div>
-                                @foreach (['name' => 'Nama persis sesuai SK atau Surat', 'whatsapp_number' => 'Nomor WhatsApp aktif', 'identifier' => 'Nomor Peg ID (sesuai surat, kosongkan jika belum menerima surat)'] as $key => $label)
+                                @foreach (['name' => 'Nama persis sesuai SK atau Surat', 'whatsapp_number' => 'Nomor WhatsApp aktif', 'identifier' => $pegIdRequired ? 'Nomor Peg ID (sesuai surat)' : 'Nomor Peg ID (sesuai surat, kosongkan jika belum menerima surat)'] as $key => $label)
                                     <div class="mb-3">
                                         <label for="claim-{{ $key }}"
-                                            class="form-label">{{ $label }}</label>
+                                            class="form-label">{{ $label }} @if($key === 'identifier' && $pegIdRequired)<span class="text-danger">*</span>@endif</label>
                                         <input id="claim-{{ $key }}" name="{{ $key }}"
-                                            class="form-control" value="{{ \App\Support\FormInput::old($key) }}"
-                                            @required($key !== 'identifier')
+                                            @class(['form-control', 'is-invalid' => $errors->has($key)]) value="{{ \App\Support\FormInput::old($key) }}"
+                                            @if($errors->has($key)) aria-invalid="true" aria-describedby="{{ $key }}-error" @endif
+                                            @required($key !== 'identifier' || $pegIdRequired)
                                             maxlength="{{ $key === 'name' ? 255 : ($key === 'identifier' ? 100 : 30) }}"
                                             type="{{ $key === 'whatsapp_number' ? 'tel' : 'text' }}"
                                             @if ($key === 'whatsapp_number') inputmode="numeric" autocomplete="tel" placeholder="Contoh : 6281234567890" pattern="628[0-9]{7,12}"
@@ -99,9 +109,10 @@
                                             <div class="form-text">Gunakan format 628…, tanpa tanda +, spasi, atau tanda
                                                 baca.</div>
                                         @endif
+                                        <x-field-error :name="$key" />
                                     </div>
                                 @endforeach
-                                <p class="small text-muted">Kombinasi nama dan nomor WhatsApp yang sama hanya dapat didaftarkan satu kali pada periode yang sama.</p>
+                                <p class="small text-muted">Peg ID yang sama hanya dapat didaftarkan satu kali pada periode yang sama. Kombinasi nama dan nomor WhatsApp yang sama juga tidak dapat didaftarkan ulang.</p>
                                 <button class="btn btn-gold w-100">Daftar Akun</button>
                                 <div x-cloak x-show="showConfirmation" x-trap.inert.noscroll="showConfirmation"
                                     @keydown.escape.window="closeConfirmation()" @click.self="closeConfirmation()"

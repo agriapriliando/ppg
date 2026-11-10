@@ -112,6 +112,7 @@ it('allows only one of two simultaneous claims to acquire the same SK', function
     $other = User::factory()->create();
     $input = claimInput($c);
     $input['whatsapp_number'] = '081234567891';
+    $input['identifier'] = '';
     $second = app(SubmitSkClaim::class)->handle($other, $input);
     $results = runAdmissionsRace([
         ['operation' => 'approve', 'actor' => $c['operator']->id, 'subject' => $first->id, 'version' => 0],

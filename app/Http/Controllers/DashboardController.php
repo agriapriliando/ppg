@@ -65,7 +65,7 @@ class DashboardController extends Controller
             'ownApplications' => $ownApplications,
             'workspaces' => $workspaces,
             'claims' => $claims,
-            'quickLinks' => PortalQuickLink::query()->where('is_active', true)->orderBy('sort_order')->orderBy('id')->get(),
+            'quickLinks' => PortalQuickLink::query()->visibleOn('dashboard')->orderBy('sort_order')->orderBy('id')->get(),
         ]);
     }
 }

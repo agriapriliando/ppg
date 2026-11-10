@@ -25,7 +25,7 @@ it('removes WhatsApp account access and claim while retaining registration files
     Storage::fake('local');
     $c = registrationContext();
     $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
-    $otherInput = [...claimInput($c), 'request_key' => (string) Str::uuid(), 'whatsapp_number' => '081299999999'];
+    $otherInput = [...claimInput($c), 'request_key' => (string) Str::uuid(), 'whatsapp_number' => '081299999999', 'identifier' => ''];
     $other = app(SubmitSkClaim::class)->handle(User::factory()->create(), $otherInput);
     $application = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
     $oldIssuance = app(IssueClaimCredentials::class)->handle($c['operator'], $claim->fresh());

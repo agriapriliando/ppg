@@ -44,6 +44,7 @@ it('rejects stale changes and numbers already used by another participant', func
     $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
     $input = claimInput($c);
     $input['name'] = 'Peserta Lain';
+    $input['identifier'] = '000002';
     $input['request_key'] = (string) Str::uuid();
     $input['whatsapp_number'] = '081355551234';
     app(SubmitSkClaim::class)->handle(null, $input);

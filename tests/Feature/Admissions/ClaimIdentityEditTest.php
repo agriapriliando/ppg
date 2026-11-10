@@ -103,7 +103,7 @@ it('allows clearing a submitted Peg ID without changing the SK identifier', func
 it('rejects duplicate applicant names sharing the same WhatsApp number in one period', function () {
     $c = registrationContext();
     $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
-    app(SubmitSkClaim::class)->handle(null, [...claimInput($c), 'request_key' => (string) Str::uuid(), 'name' => 'Pemohon Lain']);
+    app(SubmitSkClaim::class)->handle(null, [...claimInput($c), 'request_key' => (string) Str::uuid(), 'name' => 'Pemohon Lain', 'identifier' => '000002']);
 
     $this->actingAs($c['admin'])->put(route('claims.update-identity', $claim), [
         'version' => 0, 'submitted_name' => '  PEMOHON   LAIN ', 'submitted_identifier' => '000002',

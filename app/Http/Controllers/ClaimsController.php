@@ -16,6 +16,7 @@ use App\Enums\UserRole;
 use App\Models\AdministrativeCase;
 use App\Models\AdmissionPeriod;
 use App\Models\Application;
+use App\Models\ApplicationSetting;
 use App\Models\ConsentRecord;
 use App\Models\ConsentText;
 use App\Models\CredentialIssuance;
@@ -40,7 +41,7 @@ class ClaimsController extends Controller
         $periods = AdmissionPeriod::query()->where('state', 'published')->orderByDesc('id')->get();
         $openPeriods = $periods->filter(fn (AdmissionPeriod $period) => $period->acceptsApplications());
 
-        return view('public.claim', ['periods' => $periods, 'defaultPeriodId' => $openPeriods->count() === 1 ? $openPeriods->first()->id : null, 'consent' => ConsentText::query()->where('purpose', 'claim')->latest('id')->first(), 'requestKey' => (string) Str::uuid()]);
+        return view('public.claim', ['periods' => $periods, 'defaultPeriodId' => $openPeriods->count() === 1 ? $openPeriods->first()->id : null, 'consent' => ConsentText::query()->where('purpose', 'claim')->latest('id')->first(), 'requestKey' => (string) Str::uuid(), 'pegIdRequired' => ApplicationSetting::claimPegIdRequired()]);
     }
 
     public function store(Request $request, SubmitSkClaim $submit): RedirectResponse

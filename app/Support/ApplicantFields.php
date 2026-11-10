@@ -70,7 +70,7 @@ class ApplicantFields
             'birth_place' => ['label' => 'Tempat lahir', 'step' => 1, 'type' => 'text', 'required' => true, 'column' => 'birth_place'],
             'birth_date' => ['label' => 'Tanggal lahir', 'step' => 1, 'type' => 'date', 'required' => true, 'column' => 'birth_date'],
             'nik' => ['label' => 'NIK (16 digit)', 'step' => 1, 'type' => 'text', 'required' => true, 'column' => 'nik_encrypted'],
-            'nisn' => ['label' => 'NISN', 'step' => 1, 'type' => 'text', 'required' => true, 'column' => 'nisn_encrypted'],
+            'nisn' => ['label' => 'NISN (Nomor Induk Sekolah Nasional)', 'step' => 1, 'type' => 'text', 'required' => true, 'column' => 'nisn_encrypted'],
             'religion_code' => ['label' => 'Agama', 'step' => 1, 'type' => 'select', 'required' => true, 'column' => 'religion_code', 'reference' => 'religion'],
             'nationality_code' => ['label' => 'Kewarganegaraan', 'step' => 1, 'type' => 'select', 'required' => true, 'column' => 'nationality_code', 'reference' => 'nationality'],
             'mother_name' => ['label' => 'Nama ibu kandung', 'step' => 1, 'type' => 'text', 'required' => true, 'column' => 'mother_name_encrypted'],
@@ -131,7 +131,6 @@ class ApplicantFields
             }
         }
         $rules['nik'][] = 'digits:16';
-        $rules['nisn'][] = 'digits:10';
         $rules['nuptk'][] = 'regex:/^[0-9]{16}$/';
         $rules['peg_id'][] = 'max:100';
         $rules['contact_email'][] = 'email';

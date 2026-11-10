@@ -13,7 +13,7 @@ it('rejects repeated public submissions with normalized matching names and Whats
     $this->post(route('public.claim.store'), $input)->assertRedirect(route('public.claim'))->assertSessionHasNoErrors();
 
     $this->post(route('public.claim.store'), [...$input, 'request_key' => (string) Str::uuid(), 'name' => $name, 'whatsapp_number' => $number, 'identifier' => 'IDENTIFIER-BERBEDA'])
-        ->assertSessionHasErrors(['claim' => 'Kombinasi nama dan nomor WhatsApp ini sudah terdaftar pada periode yang dipilih. Tidak perlu mengirim pendaftaran akun kembali.']);
+        ->assertSessionHasErrors(['claim' => 'Kombinasi nama dan nomor WhatsApp ini sudah terdaftar pada periode yang dipilih. Tidak perlu mengirim pendaftaran akun kembali. Tunggu informasi akun melalui WhatsApp atau hubungi operator untuk bantuan.']);
 
     $this->assertDatabaseCount('sk_claims', 1);
     $this->assertDatabaseCount('consent_records', 1);
@@ -57,12 +57,12 @@ it('keeps exact request retries idempotent without creating extra claims or cons
     $this->assertDatabaseCount('consent_records', 1);
 });
 
-it('allows combinations that differ by name or WhatsApp number', function (array $change) {
+it('allows combinations that differ by name or WhatsApp number when Peg IDs are also different', function (array $change) {
     $c = registrationContext();
     $input = claimInput($c);
     $this->post(route('public.claim.store'), $input)->assertSessionHasNoErrors();
 
-    $this->post(route('public.claim.store'), [...$input, ...$change, 'request_key' => (string) Str::uuid()])->assertRedirect(route('public.claim'))->assertSessionHasNoErrors();
+    $this->post(route('public.claim.store'), [...$input, ...$change, 'identifier' => 'IDENTIFIER-BERBEDA', 'request_key' => (string) Str::uuid()])->assertRedirect(route('public.claim'))->assertSessionHasNoErrors();
 
     $this->assertDatabaseCount('sk_claims', 2);
 })->with([

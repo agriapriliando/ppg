@@ -39,6 +39,7 @@ function ownershipContext(bool $submitted = false, bool $targetDraft = false): a
     $target = User::factory()->create(['name' => 'Akun Pemilik Sah']);
     $input = claimInput($c);
     $input['whatsapp_number'] = '081234567899';
+    $input['identifier'] = '';
     $targetClaim = app(SubmitSkClaim::class)->handle($target, $input);
     if ($targetDraft) {
         app(SaveApplicantForm::class)->handle($target, $c['period']->id, 0, ['full_name' => 'Biodata Tujuan Pribadi', 'nik' => '0000000000000002', 'street_address' => 'Alamat Tujuan Pribadi', 'whatsapp_number' => '081234567899'], false);
@@ -185,6 +186,7 @@ it('creates a pending WhatsApp account only after recording a verified reply and
     $c = ownershipContext(true);
     $input = claimInput($c);
     $input['whatsapp_number'] = '081234567898';
+    $input['identifier'] = '';
     $claim = app(SubmitSkClaim::class)->handle(null, $input);
     $payload = [...ownershipInput($c), 'target_claim_id' => $claim->id, 'target_claim_version' => 0];
     $this->actingAs($c['admin'])->get(route('admin.ownership.edit', ['application' => $c['application'], 'target_claim_id' => $claim->id]))->assertOk()->assertSee('Akun baru, menunggu aktivasi');
