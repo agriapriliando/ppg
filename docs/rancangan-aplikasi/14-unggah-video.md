@@ -8,13 +8,17 @@ Halaman pengaturan: `/admin/aturan-berkas?period_id={id}`. Rancangan meliputi vi
 
 **Keputusan tampilan:** video yang telah tersimpan dibuka melalui tombol **Buka Video** di **tab baru**. Halaman formulir, tabel unggahan, daftar berkas dan detail pemeriksaan tidak memuat pemutar video inline, iframe atau modal pemutar.
 
+**Keputusan integrasi terbaru:** seluruh dokumen, gambar dan video menggunakan **menu, input dan area Unggah Berkas yang sudah ada**, baik untuk pendaftar maupun operator. Tidak membuat menu/halaman Unggah Video atau tombol transfer khusus video. Pola umum mengikuti [15 — Validasi frontend untuk seluruh unggahan](15-validasi-frontend-unggahan.md); dokumen ini melengkapi pemeriksaan khusus media. Jika ada perbedaan mengenai antrean, pemicu transfer atau status batch, gunakan pola bersama pada rancangan 15.
+
+**Keputusan pengguna terbaru:** durasi video **tidak dibatasi**. Ukuran video mengikuti **pengaturan ukuran maksimal berkas yang sudah ada (`max_file_size_bytes`)**, sama dengan dokumen/gambar. Tidak menambah batas ukuran atau batas durasi khusus video.
+
 ## 1. Keputusan utama dan batasannya
 
-Peserta memilih file, browser memeriksa video, hasilnya langsung ditampilkan, lalu tombol **Unggah Video** aktif setelah pemeriksaan lolos. File gagal tidak dikirim, sehingga peserta tidak menghabiskan kuota internet hanya untuk mengetahui ukuran atau durasinya salah.
+Peserta atau operator memilih dokumen, gambar dan/atau video pada area **Unggah Berkas** yang sudah ada. Browser menjalankan validasi umum seluruh file, lalu pemeriksaan tambahan video. File yang lolos otomatis masuk antrean transfer; tidak memerlukan tombol khusus video. File gagal tidak dikirim, sehingga pengguna tidak menghabiskan kuota internet hanya untuk mengetahui ukuran atau formatnya tidak sesuai.
 
 Server memeriksa autentikasi, izin, periode, ukuran aktual, ekstensi-MIME terdeteksi, kuota, jumlah file dan keutuhan penyimpanan. **Server rilis awal tidak memeriksa ulang durasi, resolusi atau codec dengan FFmpeg/ffprobe.** Tidak ada antrean wajib, status menunggu worker atau kebutuhan transkode di server untuk alur awal.
 
-Konsekuensi yang perlu diketahui: hasil pemeriksaan browser dan metadata yang dikirimnya dapat dimodifikasi melalui request. Rilis ini memberi umpan balik dan pembatasan melalui antarmuka, tetapi **tidak menjamin bahwa batas durasi/codec tidak dapat dilewati oleh request yang dibuat di luar antarmuka**. Apabila batas tersebut kelak harus dibuktikan oleh server, tambahkan pemeriksaan media independen pada fase lanjutan. Pemeriksaan frontend tetap dipertahankan pada fase tersebut.
+Konsekuensi yang perlu diketahui: hasil pemeriksaan browser dan metadata yang dikirimnya dapat dimodifikasi melalui request. Rilis ini memberi umpan balik dan pembatasan melalui antarmuka, tetapi **tidak menjamin bahwa aturan codec/resolusi tidak dapat dilewati oleh request yang dibuat di luar antarmuka**. Apabila batas tersebut kelak harus dibuktikan oleh server, tambahkan pemeriksaan media independen pada fase lanjutan. Pemeriksaan frontend tetap dipertahankan pada fase tersebut.
 
 ## 2. Rekomendasi pengaturan awal
 
@@ -26,16 +30,16 @@ Nilai berikut adalah usulan untuk uji kapasitas, bukan ketentuan kampus atau kon
 | --- | --- | --- |
 | Pengaktifan video | Nonaktif sampai pengelola memilih MP4 | Tidak mengubah periode lama secara otomatis |
 | Format | `.mp4`, H.264, AAC-LC jika ada audio | Diperiksa oleh validator frontend |
-| Ukuran video | 100 MiB/file | Diperiksa sebelum upload dan berdasarkan byte aktual di server |
-| Durasi | 600 detik; dapat diatur 1-30 menit | Diperiksa di browser sebelum upload |
+| Ukuran video | Mengikuti `max_file_size_bytes` pada aturan berkas periode | Batas yang sama untuk semua format; frontend dan server memakai nilai yang sama |
+| Durasi | Tidak dibatasi | Metadata durasi hanya informasi opsional, bukan syarat kelolosan |
 | Resolusi | Anjuran 720p; sisi panjang maksimal 1920 dan sisi pendek maksimal 1080 piksel | Mendukung orientasi horizontal dan vertikal |
 | Jumlah video peserta | 1/workspace/periode; dapat diatur 1-5 | Server menghitung ulang untuk menangani upload bersamaan |
 | Kuota workspace | Disarankan 500 MiB dan wajib terbatas jika video aktif | Mencakup dokumen dan video |
-| Batas PDF/gambar | Tetap mengikuti pengaturan dokumen yang berlaku | Tidak ikut dinaikkan menjadi 100 MiB |
+| Batas PDF/gambar | Mengikuti `max_file_size_bytes` yang sama | Mengubah pengaturan ukuran berkas berlaku pada seluruh format |
 | Melihat video | Tombol **Buka Video** menuju tab baru | Halaman utama hanya menampilkan tautan/tombol dan informasi file |
 | Penyimpanan | Disk privat yang sudah ada | Izin file peserta tetap berlaku |
 
-Durasi di bawah 10 menit tidak menjamin file di bawah 100 MiB. Petunjuk menyarankan ekspor 720p, kompresi secukupnya dan pemeriksaan ukuran akhir. Frame rate 25/30 fps merupakan anjuran, bukan syarat penolakan baru.
+Video pendek dapat berukuran besar dan video panjang dapat berukuran kecil. Penerimaan ukuran mengikuti pengaturan berkas, tanpa menolak berdasarkan lamanya rekaman. Petunjuk menyarankan ekspor 720p, kompresi secukupnya dan pemeriksaan ukuran akhir. Frame rate 25/30 fps merupakan anjuran, bukan syarat penolakan baru.
 
 Untuk rekaman mengajar 30-60 menit atau banyak upload serentak, rencanakan unggahan yang dapat dilanjutkan dan object storage privat sebelum menaikkan batas. Belum ada ukuran server/jumlah peserta produksi yang diverifikasi pada pekerjaan ini.
 
@@ -56,19 +60,19 @@ Untuk rekaman mengajar 30-60 menit atau banyak upload serentak, rencanakan ungga
 ## 4. Pengaturan pada Aturan Berkas
 
 1. Pengelola memilih periode seperti sekarang.
-2. Pisahkan tampilan **Dokumen & Gambar** dan **Video**.
+2. Kelompokkan pengaturan **Dokumen & Gambar** dan **Video** pada halaman Aturan Berkas yang sama, bukan menu/tab navigasi unggah terpisah. Area unggah pengguna tetap satu input/dropzone untuk semua format.
 3. Pilihan **Izinkan video MP4** menambah `mp4` ke `allowed_extensions`. Daftar ini menjadi sumber pengaktifan tunggal; jangan menambah boolean lain yang dapat bertentangan.
-4. Saat MP4 aktif, tampilkan batas ukuran video, durasi, resolusi, jumlah video peserta dan kuota workspace. Resolusi awal dapat berupa profil tetap Full HD, sedangkan 720p menjadi petunjuk ekspor.
-5. Pertahankan batas dokumen/gambar, petunjuk umum, riwayat dan publikasi versi baru.
+4. Saat MP4 aktif, tampilkan resolusi, jumlah video peserta dan kuota workspace. Ukuran tetap memakai satu pengaturan maksimal berkas yang sudah ada; tidak ada input durasi maksimum atau ukuran khusus video. Resolusi awal dapat berupa profil tetap Full HD, sedangkan 720p menjadi petunjuk ekspor.
+5. Pertahankan batas ukuran berkas bersama, petunjuk umum, riwayat dan publikasi versi baru.
 6. Kirim aturan aktif ke frontend sebagai JSON yang dihasilkan server, beserta ID/versi kebijakan. Jangan menggandakan nilai batas secara manual pada JavaScript.
 
 ```text
 Dokumen & Gambar:        [PDF] [JPG] [PNG] ...
-Batas dokumen/gambar:    10 MiB per file
+Batas semua berkas:      10 MiB per file (contoh pengaturan periode)
 
 Video:                  [x] Izinkan video MP4
-Batas video:            100 MiB per file
-Durasi maksimum:        10 menit
+Ukuran video:           mengikuti batas semua berkas di atas
+Durasi:                 tidak dibatasi (keterangan, bukan input batas)
 Resolusi maksimum:      Full HD; mendukung video vertikal
 Jumlah video peserta:   1 per peserta pada periode ini
 Kuota total peserta:    500 MiB
@@ -77,29 +81,29 @@ Petunjuk umum:          [................................]
                         [Publikasikan Aturan Baru]
 ```
 
-Administrator dan operator mengikuti akses publikasi yang sudah berlaku. Kuota workspace dan batas jumlah video peserta berlaku untuk workspace peserta, bukan sebagai kuota workspace pada berkas informasi periode milik pengelola. Video panduan pengelola memakai pemeriksaan format, ukuran, durasi dan resolusi frontend yang sama.
+Administrator dan operator mengikuti akses publikasi yang sudah berlaku. Kuota workspace dan batas jumlah video peserta berlaku untuk workspace peserta, bukan sebagai kuota workspace pada berkas informasi periode milik pengelola. Video panduan pengelola memakai pemeriksaan format, ukuran dan resolusi frontend yang sama; durasi hanya informasi opsional.
 
-Jika video aktif, kuota wajib terbatas dan minimal sebesar maksimum batas dokumen/video. Plafon video rilis awal tetap 100 MiB. Penonaktifan video atau penurunan batas tidak menghapus file sah terdahulu; file lama tetap memiliki versi kebijakan saat diterima. Peserta di atas kuota baru tidak dapat menambah file, tetapi file lama tidak dihapus otomatis.
+Jika video aktif, kuota wajib terbatas dan minimal sebesar batas ukuran berkas bersama. Plafon teknis pengaturan berkas saat telaah adalah 100 MiB untuk semua format; angka itu bukan batas video terpisah dan tidak otomatis menjadi ukuran yang diizinkan setiap periode. Penonaktifan video atau penurunan batas tidak menghapus file sah terdahulu; file lama tetap memiliki versi kebijakan saat diterima. Peserta di atas kuota baru tidak dapat menambah file, tetapi file lama tidak dihapus otomatis.
 
 ## 5. Validasi frontend sebelum transfer
 
 ### 5.1 Urutan pemeriksaan
 
-1. Pengguna memilih file melalui input lokal `accept=".mp4"`; untuk unggahan campuran gunakan daftar ekstensi nyata kebijakan, bukan `video/*`.
+1. Pengguna memilih atau menyeret file melalui input/dropzone **Unggah Berkas** yang sama untuk dokumen, gambar dan video. `accept` memuat seluruh ekstensi nyata kebijakan aktif, termasuk `.mp4` jika diizinkan, bukan input video terpisah atau `video/*`.
 2. Browser memeriksa video diizinkan, ukuran `File.size` positif dan di bawah batas, jumlah file yang sedang dipilih serta sisa kuota terakhir yang diketahui. Tolak file besar sebelum membaca metadata.
 3. Periksa ekstensi `.mp4`. `File.type` hanya informasi pendukung, karena nilainya dapat kosong atau bergantung pada penamaan/lingkungan perangkat; bukan bukti isi file. Dasar perilakunya: [Blob.type](https://developer.mozilla.org/en-US/docs/Web/API/Blob/type).
 4. Baca container dan track menggunakan parser MP4 lokal di browser. Kandidat: **MP4Box.js dari GPAC**. Parser menyediakan informasi track/codec dan dapat membaca buffer secara bertahap; evaluasi lisensi, versi, ukuran bundle dan konsumsi memori sebelum memasangnya. Rujukan: [dokumentasi MP4Box.js](https://github.com/gpac/mp4box.js).
 5. Pastikan container sesuai MP4, terdapat track video H.264 (`avc1`/`avc3` sesuai profil yang diuji), audio AAC-LC bila ada, dan media tidak terenkripsi. HEVC atau format lain ditolak dengan pesan ekspor ulang. MP4 berisi audio saja tidak lolos.
 6. Untuk validasi saja, buat object URL lokal dan elemen video sementara yang tidak ditampilkan pada halaman. Tunggu `loadedmetadata`, lalu baca durasi dan dimensi; tangani juga perubahan durasi. Elemen ini tidak memiliki kontrol yang terlihat dan tidak menjalankan `play()`. Event tersebut menandai tersedianya metadata, bukan selesainya upload. Rujukan: [loadedmetadata](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/loadedmetadata_event).
-7. Pastikan durasi finite, positif dan tidak melebihi batas. Nilai `NaN`, `Infinity`, dimensi nol, error pemutaran atau ketidaksesuaian metadata parser/browser menghasilkan pesan tidak dapat diperiksa. Terapkan batas waktu pemeriksaan, usulan awal 15 detik untuk diuji pada ponsel.
+7. Tidak membandingkan durasi dengan batas apa pun. Jika durasi finite dan positif tersedia, tampilkan sebagai informasi; jika tidak tersedia/`NaN`/`Infinity`, simpan null dan jangan menolak hanya karena nilai durasi tersebut. Container/track tidak sah, dimensi nol, atau kegagalan pemeriksaan format/codec tetap menghasilkan pesan tidak dapat diperiksa. Terapkan batas waktu proses pemeriksaan, usulan awal 15 detik untuk diuji pada ponsel; ini timeout kerja browser, bukan batas panjang video.
 8. Validasi dimensi dengan orientasi/rotasi yang benar: periksa sisi panjang dan pendek, bukan hanya `width <= 1920`. Jangan menolak video vertikal yang masih memenuhi profil.
-9. Tampilkan ringkasan nama, ukuran, durasi dan resolusi sebagai teks, tanpa pratinjau video. Aktifkan **Unggah Video** setelah semua pemeriksaan lolos untuk file dan versi aturan yang sama. Setelah server mengonfirmasi penyimpanan, tampilkan tombol **Buka Video** yang membuka tab baru.
+9. Tampilkan ringkasan nama, ukuran, durasi dan resolusi sebagai teks, tanpa pratinjau video. Setelah semua pemeriksaan lolos untuk file dan versi aturan yang sama, masukkan file ke antrean unggah otomatis bersama dokumen/gambar. Setelah server mengonfirmasi penyimpanan, tampilkan tombol **Buka Video** yang membuka tab baru.
 
 `canPlayType()` hanya menyatakan kemungkinan browser mendukung kombinasi MIME/codec yang ditanyakan. Metode itu tidak membaca codec file yang dipilih, sehingga tidak dapat menggantikan parser. Browser yang bisa memainkan HEVC juga tidak menjadi alasan meloloskan HEVC ketika kebijakannya H.264. Lihat [canPlayType](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/canPlayType).
 
 ### 5.2 Memori, pembatalan dan data lokal
 
-- Validator digunakan bersama oleh unggahan peserta dan unggahan berkas periode. Muat parser secara lokal melalui bundle aplikasi ketika diperlukan; jangan mengirim video ke layanan pemeriksa eksternal.
+- Validator video adalah perluasan validator umum file pada rancangan 15. Gunakan implementasi yang sama pada DocumentManager mode applicant/reviewer/admin dan PeriodDocumentManager. Muat parser secara lokal melalui bundle aplikasi ketika diperlukan; jangan mengirim video ke layanan pemeriksa eksternal.
 - Gunakan `Blob.slice()` dan pembacaan buffer bertahap, bukan satu `arrayBuffer()` untuk seluruh file. Hindari menyimpan payload media `mdat` di memori parser saat hanya memerlukan metadata.
 - Tangani metadata `moov` di awal maupun akhir file. Strategi offset/pembacaan mengikuti parser; baca metadata secukupnya dan hentikan jika melampaui anggaran waktu/memori. Jangan menganggap membaca beberapa byte pertama selalu cukup.
 - Proses satu video per giliran; gunakan Web Worker untuk parsing bila diperlukan agar formulir tetap responsif. Tidak melakukan transkode atau decode seluruh video pada rilis awal.
@@ -112,11 +116,12 @@ Jika video aktif, kuota wajib terbatas dan minimal sebesar maksimum batas dokume
 
 | Status | Tampilan dan tindakan |
 | --- | --- |
-| Belum memilih | Pilih video; ringkasan batas periode terlihat |
-| Memeriksa video | Indikator pemeriksaan lokal; Unggah nonaktif; Batalkan tersedia |
+| Belum memilih | Pilih/seret berkas pada area unggah lama; ringkasan batas dokumen/video terlihat |
+| Memeriksa video | Indikator pemeriksaan lokal; belum ada transfer file; Batalkan tersedia |
 | Perlu diperbaiki | Alasan pada file terkait; tidak ada transfer file ke server |
-| Siap diunggah | Ringkasan teks ukuran, durasi dan resolusi; Unggah aktif |
+| Siap diunggah | Ringkasan teks ukuran, durasi dan resolusi; menunggu giliran transfer otomatis |
 | Mengunggah | Persentase transfer, ukuran dan tombol Batalkan |
+| Menyimpan | Transfer selesai, menunggu konfirmasi penyimpanan final dari server |
 | Tersimpan | Tampilkan nama, ukuran dan tombol Buka Video yang membuka tab baru, sesuai izin |
 | Upload gagal | Pesan jelas; retry hanya file gagal; pemeriksaan diulang bila file/aturan berubah |
 
@@ -129,12 +134,13 @@ Jika video aktif, kuota wajib terbatas dan minimal sebesar maksimum batas dokume
 | Format dipilih dalam aturan | Ya | Ya, aturan yang berlaku saat penerimaan |
 | Ukuran per file | Ya, `File.size` | Ya, ukuran aktual file |
 | Container/codec | Parser MP4 dan metadata lokal tanpa player yang terlihat | Pencocokan ekstensi-MIME konten; tidak melakukan probe codec |
-| Durasi/resolusi | Ya, parser dan metadata video | Memvalidasi bentuk metadata kiriman, bukan mengukur ulang file |
+| Durasi | Informasi opsional, tanpa batas dan tanpa penolakan berdasarkan lama rekaman | Metadata opsional yang dapat dinullkan; bukan syarat penerimaan |
+| Resolusi | Ya, parser dan metadata video | Memvalidasi bentuk metadata kiriman, bukan mengukur ulang file |
 | Jumlah video/kuota | Cek awal berdasarkan data halaman | Hitung ulang dalam transaksi; keputusan final ada di server |
 | Identitas, izin, kepemilikan/periode | Memberi informasi yang relevan | Wajib diperiksa ulang |
 | Duplikasi retry dan integritas penyimpanan | ID unggah yang stabil | Kunci idempoten, UUID, SHA-256 |
 
-Validasi bentuk metadata kiriman berarti tipe angka/string, nilai finite, rentang wajar dan panjang field diperiksa sebelum disimpan. Nilai durasi yang diklaim browser dapat dibandingkan dengan aturan, tetapi **perbandingan itu bukan pengukuran durasi aktual oleh server**. Jangan menggunakan metadata tersebut sebagai bukti keaslian konten atau keputusan verifikasi akademik otomatis.
+Validasi bentuk metadata kiriman berarti tipe angka/string, nilai finite dan panjang field diperiksa sebelum disimpan. Durasi tidak dibandingkan dengan aturan maksimum dan tidak boleh menjadi alasan penolakan; nilai durasi yang tidak dapat direpresentasikan disimpan null. Metadata tersebut **bukan pengukuran aktual oleh server**. Jangan menggunakannya sebagai bukti keaslian konten atau keputusan verifikasi akademik otomatis.
 
 MIME terdeteksi harus cocok dengan ekstensi; jangan memakai `application/octet-stream` untuk meloloskan semua video. Jalur upload langsung yang tidak melalui UI tetap wajib memenuhi pemeriksaan penerimaan server. Tidak ada jaminan seluruh frame bebas kerusakan hanya dari metadata lokal; uji pemutaran sampel nyata tetap diperlukan.
 
@@ -146,6 +152,8 @@ MIME terdeteksi harus cocok dengan ekstensi; jangan memakai `application/octet-s
 4. Jika aturan berubah dan hasil pemeriksaan lokal sudah usang, jangan menerima diam-diam. Kembalikan konflik aturan, muat batas terbaru dan periksa ulang file lokal sebelum transfer ulang. Bersihkan temporary file yang ditolak agar tidak menjadi sampah.
 5. Simpan privat menggunakan UUID, hash dan versi kebijakan penerimaan. Sesudah penyimpanan berhasil, file mengikuti status `available` yang sudah ada; tidak perlu menambahkan status antrean pemeriksaan media di server.
 6. Retry dengan kunci yang sama tidak menggandakan file. Jika sebagian batch gagal, file yang sudah berhasil tetap tersimpan.
+
+Untuk pilihan campuran, pemeriksaan umum dokumen/gambar dan video memakai antrean, identitas per-file serta reservasi lokal yang sama, sesuai rancangan 15. Transfer baseline satu file per request dan berurutan; jangan mengirim kumpulan file 100 MiB sekaligus dalam satu request. Slot video dan kuota yang sudah dipesan file sebelumnya diperhitungkan sebelum file berikutnya lolos. File yang ditolak lokal tidak membuat batch gagal di database. Busy pada kirim final mencakup pemeriksaan lokal, antrean siap, transfer dan penyimpanan; konfirmasi temporary upload bukan konfirmasi final.
 
 Video tidak otomatis menjadi syarat wajib pendaftaran. Pengiriman final mengikuti guard batch yang sudah ada: jangan izinkan kirim ketika upload masih berlangsung atau ada batch gagal yang belum diselesaikan/dibatalkan. Tidak ada guard menunggu ffprobe. Versi berkas, referensi pengajuan dan rekaman pengajuan lama tetap dipertahankan.
 
@@ -170,22 +178,22 @@ Semua nama baru berikut adalah **usulan implementasi**, belum tersedia sebagai f
 
 | Sasaran | Perubahan |
 | --- | --- |
-| `document_policy_versions` | Nullable `max_video_size_bytes`, `max_video_duration_seconds`, `max_video_files`; profil dimensi/codec dari konfigurasi server; aktivasi tetap melalui `allowed_extensions` |
-| Helper kebijakan | Batas berdasarkan kelompok file dan ekspor JSON aturan aktif; versi lama tanpa pengaturan video tetap menonaktifkan video |
+| `document_policy_versions` | Ukuran tetap memakai `max_file_size_bytes` yang sudah ada; hanya usulan `max_video_files` untuk jumlah, tanpa `max_video_size_bytes` atau `max_video_duration_seconds`; profil dimensi/codec dari konfigurasi server; aktivasi tetap melalui `allowed_extensions` |
+| Helper kebijakan | Ekspor satu batas ukuran berkas bersama dan JSON aturan aktif; versi lama tanpa MP4 tetap menonaktifkan video |
 | Metadata video tersimpan | `client_duration_seconds`, `client_width`, `client_height`, `client_video_codec`, `client_audio_codec`, `client_validator_version` dan `client_policy_version_id`, nullable pada kedua model file |
 | Identitas metadata | Terikat pada UUID/kunci upload yang sama dan hash file final dari server; metadata ditandai berasal dari browser |
-| `VideoFileValidator` | Modul JavaScript bersama yang mengatur ukuran, parser, metadata native, timeout, pembatalan, hasil dan pembersihan sumber lokal |
-| Komponen upload | Validator harus selesai sebelum memanggil upload Livewire/temporary upload, bukan setelah `wire:model` otomatis mengirim file |
+| `VideoFileValidator` | Modul tambahan pada validator umum rancangan 15, untuk parser, metadata native, timeout, pembatalan dan pembersihan sumber lokal |
+| Komponen upload yang sudah ada | Satu input/dropzone campuran; validator umum lalu validator video harus selesai sebelum upload Livewire/temporary upload, bukan setelah `wire:model` otomatis mengirim file |
 | Tombol video | Komponen tautan Buka Video dengan tab baru; route file privat tetap memeriksa akses |
 | `ffprobe`/job media | Tidak dibutuhkan pada rilis frontend ini; opsi penguatan terpisah bila kelak diperlukan |
 
-Usulan tipe metadata: durasi `decimal(10,3)`, dimensi `unsignedInteger`, codec/versi string terbatas. Ukuran file aktual dan hash tetap berasal dari server. Jangan membuat field bernama `verified_duration` untuk nilai yang hanya dilaporkan browser. Metadata lokal tidak digunakan untuk mengubah status kelulusan atau mengganti bukti revisi pengajuan.
+Usulan tipe metadata: durasi nullable `double` hanya untuk informasi, dimensi `unsignedInteger`, codec/versi string terbatas. Durasi yang tidak tersedia/tidak finite disimpan null dan tidak menolak file; tidak ada batas durasi bisnis. Ukuran file aktual dan hash tetap berasal dari server. Jangan membuat field bernama `verified_duration` untuk nilai yang hanya dilaporkan browser. Metadata lokal tidak digunakan untuk mengubah status kelulusan atau mengganti bukti revisi pengajuan.
 
 Berkas sasaran:
 
 - `config/document_policy.php`, `DocumentPolicyVersion`, `PublishDocumentPolicy`, `Admin/DocumentPolicyController` dan `admin/document-policies.blade.php`.
 - `Livewire/Documents/DocumentManager`, `Livewire/Documents/PeriodDocumentManager` beserta view dan modul frontend baru.
-- `UploadApplicantDocument` dan `UploadPeriodDocument` untuk batas per tipe, pasangan MIME, penerusan metadata serta pemeriksaan kapasitas.
+- `UploadApplicantDocument` dan `UploadPeriodDocument` untuk batas ukuran berkas bersama, pasangan MIME, penerusan metadata serta pemeriksaan kapasitas.
 - `ApplicantDocumentController`, `StaffDocumentController`, `PeriodDocumentController` dan komponen tautan Buka Video bersama.
 - Guard batch/pengajuan dan pembersihan tetap mengikuti arsitektur yang ada; tidak menambahkan ketergantungan worker media pada kirim final.
 
@@ -193,7 +201,7 @@ Berkas sasaran:
 
 `1 MiB = 1.048.576 byte`; `100 MiB = 104.857.600 byte`. UI memakai MiB sesuai perhitungan aplikasi. Sebelum rilis, periksa PHP, web server, proxy/CDN, temporary storage, disk final, timeout, masa berlaku upload serta backup.
 
-Untuk satu video per request, contoh baseline uji adalah PHP `upload_max_filesize=100M`, `post_max_size=128M` dan batas body web server setidaknya 128 MiB. Ini rekomendasi untuk diuji, bukan konfigurasi produksi yang sudah diverifikasi. Limit upstream yang lebih kecil harus diselaraskan atau batas aplikasi diturunkan. Rujukan Nginx: [client_max_body_size](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size).
+Transport disesuaikan dengan ukuran maksimal pada pengaturan berkas, bukan angka khusus video. Jika pengelola mengatur 100 MiB, contoh baseline uji adalah PHP `upload_max_filesize=100M`, `post_max_size=128M` dan batas body web server setidaknya 128 MiB. Jika pengaturannya 10 MiB, video tetap dibatasi 10 MiB meskipun transport menerima lebih besar. Ini rekomendasi untuk diuji, bukan konfigurasi produksi yang sudah diverifikasi. Limit upstream yang lebih kecil harus diselaraskan atau batas aplikasi diturunkan. Rujukan Nginx: [client_max_body_size](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size).
 
 Pemindahan validasi media ke frontend mengurangi pekerjaan pemeriksaan media di server, tetapi tidak menghilangkan transfer, penyimpanan atau bandwidth pemutaran. Sebagai perhitungan batas, 1.000 peserta x satu video x 100 MiB sekitar **97,7 GiB** sumber video, belum termasuk dokumen, temporary file dan backup.
 
@@ -202,8 +210,7 @@ Pemindahan validasi media ke frontend mengurangi pekerjaan pemeriksaan media di 
 | Keadaan | Contoh pesan |
 | --- | --- |
 | Pemeriksaan lokal berjalan | "Memeriksa video di perangkat Anda. File belum diunggah." |
-| Ukuran berlebih | "Ukuran video 124 MiB. Batas periode ini 100 MiB. Kompres video, lalu pilih ulang." |
-| Durasi berlebih | "Durasi video 14 menit. Batasnya 10 menit. Sesuaikan video sebelum mengunggah." |
+| Ukuran berlebih | "Ukuran video 14 MiB. Batas ukuran berkas periode ini 10 MiB. Kompres video, lalu pilih ulang." Angka diambil dari file dan pengaturan aktif. |
 | Codec tidak sesuai | "Format video belum sesuai. Ekspor sebagai MP4 H.264 dengan audio AAC, lalu pilih ulang." |
 | Metadata tidak terbaca | "Video belum dapat diperiksa di browser ini. Coba browser lain atau ekspor ulang sebagai MP4 H.264." |
 | Lolos lokal | "Video memenuhi pemeriksaan pada perangkat ini dan siap diunggah." |
@@ -217,18 +224,18 @@ Pada rilis awal, retry video dapat mengulang transfer file tersebut dari awal. J
 
 ### Tahap 1: Validasi frontend dan unggah MP4
 
-Urutan: helper/JSON kebijakan -> validator frontend dan evaluasi parser -> integrasi sebelum upload di kedua komponen -> validasi minimum server/kuota -> tautan tab baru dan dukungan Range -> pembersihan -> UAT dan panduan.
+Urutan: kontrak/validator umum rancangan 15 -> antrean campuran pada area unggah lama -> evaluasi parser dan validator video -> integrasi sebelum upload di kedua komponen serta semua mode pengelola -> validasi minimum server/kuota -> tautan tab baru dan dukungan Range -> pembersihan -> UAT dan panduan. Tidak membuat menu atau halaman unggah baru.
 
 Tidak memerlukan FFmpeg, ffprobe atau antrean pemeriksaan media. Tidak melakukan kompresi/transkode otomatis di ponsel. Versi parser dipilih dan dikunci sesudah pengujian kompatibilitas, lisensi serta konsumsi memori.
 
 ### Tahap 2: Penguatan sesuai kebutuhan
 
-Tambahkan resumable/multipart upload dan object storage untuk file besar/jaringan tidak stabil. Jika durasi/codec harus menjadi aturan yang tidak dapat dilewati melalui request, tambahkan pemeriksaan independen `ffprobe` dengan worker terkontrol, status pemeriksaan terpisah, metadata server, retry dan guard pengajuan. Ini merupakan perubahan cakupan, bukan sesuatu yang sudah dijamin oleh rilis frontend.
+Tambahkan resumable/multipart upload dan object storage untuk file besar/jaringan tidak stabil. Jika codec/resolusi harus menjadi aturan yang tidak dapat dilewati melalui request, tambahkan pemeriksaan independen `ffprobe` dengan worker terkontrol, status pemeriksaan terpisah, metadata server, retry dan guard pengajuan. Ini merupakan perubahan cakupan, bukan sesuatu yang sudah dijamin oleh rilis frontend.
 
 ### Matriks uji minimum
 
 1. File di atas batas ditolak di frontend; inspeksi Network memastikan tidak ada transfer file, termasuk ke temporary upload Livewire.
-2. Durasi tepat batas lolos; melebihi batas, `NaN`, `Infinity`, dimensi nol, timeout dan file rusak menampilkan pesan yang sesuai.
+2. Video pendek maupun panjang lolos bila ukuran dan pemeriksaan lain memenuhi aturan; tidak ada penolakan karena durasi. Durasi tidak terbaca/`NaN`/`Infinity` menjadi null tanpa menolak karena durasinya. Dimensi nol, timeout pemeriksaan dan file tidak sah ditangani sesuai alasan teknisnya.
 3. MP4 H.264/AAC-LC, tanpa audio dan vertikal lolos; HEVC ditolak walaupun browser dapat memutarnya; audio saja atau file yang hanya diganti ekstensi ditolak parser.
 4. MIME browser kosong tidak otomatis menolak file sah; MIME dari browser juga tidak menjadi bukti tunggal kelolosan.
 5. Metadata di awal/akhir, video mendekati 100 MiB, ponsel dengan memori terbatas dan penggunaan berulang tidak membekukan halaman atau meninggalkan object URL.
@@ -239,12 +246,14 @@ Tambahkan resumable/multipart upload dan object storage untuk file besar/jaringa
 10. Video peserta privat; akses peserta lain ditolak; operator dan berkas periode mengikuti izin/visibilitas yang berlaku.
 11. Tombol Buka Video membuka tab baru pada Chrome Android, Safari iPhone dan desktop. Halaman asal tidak berubah, tidak memuat player/iframe dan tidak mulai memutar video. Putar/pause/seek pada tab video serta aksi Unduh diuji; Range menghasilkan 206/416 sesuai permintaan. Akses tidak sah ditolak meskipun URL disalin ke tab baru.
 12. Dokumen lama, unggah campuran, rename, hapus, batch, kirim final, riwayat kebijakan, arsip dan bukti pengajuan tetap bekerja.
+13. Satu input/dropzone lama menerima dokumen, gambar dan video; tidak ada menu/tombol Unggah Video terpisah. Antrean memvalidasi semua file sebelum transfer masing-masing, otomatis mengunggah yang lolos, dan menandai yang gagal tanpa menghapus keberhasilan lain.
+14. Seluruh matriks pola bersama pada rancangan 15 lulus, termasuk reservasi kuota, busy selama pemeriksaan lokal, retry idempoten dan konfirmasi penyimpanan final.
 
 Gate rilis: pengujian frontend dan backend minimum lulus, sampel media nyata lolos pada perangkat target, limit transport/kapasitas terverifikasi, dan panduan diperbarui. Seluruh pengujian di atas masih **rencana**, belum merupakan hasil implementasi video.
 
 ## 13. Keputusan yang masih diperlukan
 
-- Apakah 100 MiB, 10 menit, satu video dan kuota 500 MiB sesuai kebutuhan kampus?
+- Apakah satu video dan kuota 500 MiB sesuai kebutuhan kampus? Ukuran mengikuti pengaturan berkas yang sudah ada dan durasi tidak dibatasi, sesuai keputusan pengguna.
 - Apakah rekaman mengajar panjang, audio wajib, watermark, subtitle atau retensi khusus diperlukan?
 - Apakah pembatasan melalui frontend cukup untuk kebutuhan operasional, atau kelak perlu pembuktian metadata di server?
 - Berapa jumlah peserta serentak dan kapasitas disk/backup yang tersedia?
