@@ -41,6 +41,7 @@ it('updates the number on a pending claim', function () {
 
 it('rejects stale changes and numbers already used by another participant', function () {
     $c = registrationContext();
+    $c['participant']->replicate()->fill(['sk_order' => 2, 'official_participant_id' => '000002'])->save();
     $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
     $input = claimInput($c);
     $input['name'] = 'Peserta Lain';

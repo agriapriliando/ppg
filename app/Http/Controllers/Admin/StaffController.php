@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\RecordAudit;
+use App\Actions\UpdateUserPhone;
 use App\Enums\AccountState;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
@@ -21,6 +22,7 @@ use App\Models\SkImport;
 use App\Models\SkParticipant;
 use App\Models\User;
 use App\Models\WhatsappVerification;
+use App\Support\UserPhoneNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +42,7 @@ class StaffController extends Controller
         $accountSearch = fn ($q) => $q->where('name', 'like', "%{$search}%")
             ->orWhere('login_id', 'like', "%{$search}%")
             ->orWhere('email', 'like', "%{$search}%")
+            ->orWhere('phone_number', 'like', "%{$search}%")
             ->when(ctype_digit($search), fn ($ids) => $ids->orWhere('id', (int) $search));
 
         if ($search !== '') {
@@ -83,16 +86,19 @@ class StaffController extends Controller
             'login_id' => ['required', 'regex:/^[a-z0-9._-]+$/', 'max:64', 'unique:users,login_id'],
             'role' => ['required', Rule::in([UserRole::Operator->value, UserRole::Administrator->value])],
             'password' => ['required', 'string', 'max:255', 'confirmed'],
+            'phone_number' => ['nullable', 'string', 'max:30'],
         ], [
             'required' => ':attribute wajib diisi.',
             'password.confirmed' => 'Konfirmasi kata sandi belum cocok.',
         ]);
 
+        $data['phone_number'] = UserPhoneNumber::normalize($data['phone_number'] ?? null);
         DB::transaction(function () use ($data, $request, $audit): void {
             $user = new User;
             $user->name = $data['name'];
             $user->email = ! empty($data['email']) ? mb_strtolower($data['email']) : null;
             $user->login_id = $data['login_id'];
+            $user->phone_number = $data['phone_number'];
             $user->role = UserRole::from($data['role']);
             $user->setStaffPassword($data['password']);
             $user->account_state = AccountState::Active;
@@ -119,11 +125,15 @@ class StaffController extends Controller
             'login_id' => ['required', 'regex:/^[a-z0-9._-]+$/', 'max:64', Rule::unique('users', 'login_id')->ignore($user->id)],
             'role' => ['required', Rule::in([UserRole::Operator->value, UserRole::Administrator->value])],
             'password' => ['nullable', 'string', 'max:255', 'confirmed'],
+            'phone_number' => ['nullable', 'string', 'max:30'],
         ], [
             'required' => ':attribute wajib diisi.',
             'password.confirmed' => 'Konfirmasi kata sandi belum cocok.',
         ]);
 
+        if (array_key_exists('phone_number', $data)) {
+            $data['phone_number'] = UserPhoneNumber::normalize($data['phone_number']);
+        }
         DB::transaction(function () use ($data, $user, $request, $audit): void {
             $target = User::query()->lockForUpdate()->findOrFail($user->id);
             $newRole = UserRole::from($data['role']);
@@ -147,6 +157,9 @@ class StaffController extends Controller
             $target->email = ! empty($data['email']) ? mb_strtolower($data['email']) : null;
             $target->login_id = $data['login_id'];
             $target->role = $newRole;
+            if (array_key_exists('phone_number', $data)) {
+                $target->phone_number = $data['phone_number'];
+            }
 
             if (isset($data['password'])) {
                 $target->setStaffPassword($data['password']);
@@ -163,6 +176,14 @@ class StaffController extends Controller
         });
 
         return redirect()->route('admin.users')->with('status', 'Data akun pengelola berhasil diperbarui.');
+    }
+
+    public function updatePhone(Request $request, User $user, UpdateUserPhone $update): RedirectResponse
+    {
+        abort_unless(in_array($user->role, [UserRole::Operator, UserRole::Administrator], true), 404);
+        $update->handle($request->user(), $user, $request->only('phone_number'));
+
+        return back()->with('status', 'Nomor HP pengguna berhasil diperbarui.');
     }
 
     public function toggle(Request $request, User $user, RecordAudit $audit): RedirectResponse

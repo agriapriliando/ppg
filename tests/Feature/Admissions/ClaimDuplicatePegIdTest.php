@@ -37,6 +37,7 @@ it('allows the same Peg ID to register for a different admission period', functi
     $c = registrationContext();
     app(SubmitSkClaim::class)->handle(null, claimInput($c));
     $otherPeriod = AdmissionPeriod::factory()->published()->create();
+    $c['participant']->replicate()->fill(['admission_period_id' => $otherPeriod->id])->save();
 
     $this->post(route('public.claim.store'), [
         ...claimInput($c), 'period_id' => $otherPeriod->id, 'request_key' => (string) Str::uuid(),
@@ -77,4 +78,32 @@ it('shows clear field names instead of untranslated validation keys on the publi
         ->assertSee('Nama lengkap wajib diisi.')->assertSee('Periode pendaftaran wajib diisi.')->assertSee('Nomor WhatsApp wajib diisi.')
         ->assertDontSee('validation.required');
     $this->assertDatabaseCount('sk_claims', 0);
+});
+
+it('rejects Peg IDs absent from the active roster of the selected period with a clear message', function (string $scenario) {
+    $c = registrationContext();
+    if ($scenario === 'different period') {
+        $otherPeriod = AdmissionPeriod::factory()->published()->create();
+        $c['participant']->update(['admission_period_id' => $otherPeriod->id]);
+    } elseif ($scenario === 'inactive') {
+        $c['participant']->forceFill(['roster_state' => 'withdrawn'])->save();
+    } else {
+        $c['participant']->update(['official_participant_id' => '000099']);
+    }
+
+    $page = $this->from(route('public.claim'))->followingRedirects()->post(route('public.claim.store'), claimInput($c))->assertOk();
+
+    $page->assertSee('Pendaftaran akun belum dapat dikirim')
+        ->assertSee('Peg ID tidak ditemukan dalam daftar peserta SK aktif pada periode yang dipilih.')
+        ->assertSee('hubungi operator')->assertSee('is-invalid')->assertSee('000001');
+    $this->assertDatabaseCount('sk_claims', 0);
+    $this->assertDatabaseCount('consent_records', 0);
+})->with(['not found', 'different period', 'inactive']);
+
+it('accepts a registered Peg ID and links the claim to the participant', function () {
+    $c = registrationContext();
+
+    $this->post(route('public.claim.store'), [...claimInput($c), 'identifier' => ' 000001 '])->assertSessionHasNoErrors();
+
+    expect(SkClaim::query()->sole()->candidate_sk_participant_id)->toBe($c['participant']->id);
 });

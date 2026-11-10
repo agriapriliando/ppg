@@ -31,6 +31,46 @@ function staffWorkbook(array $rows, ?array $headers = null, string $sheet = 'Pen
     }
 }
 
+it('imports duplicate WhatsApp numbers from text and numeric Excel cells', function () {
+    $admin = User::factory()->administrator()->create(['phone_number' => '6281234567890']);
+    $file = staffWorkbook([
+        ['Pengguna HP Satu', 'hp.satu', null, 'operator', 'password', '+62 812-3456-7890'],
+        ['Pengguna HP Dua', 'hp.dua', null, 'operator', 'password', 6281234567890],
+    ]);
+
+    $preview = $this->actingAs($admin)->post(route('admin.users.import.preview'), ['file' => $file])->assertSessionHasNoErrors()->assertRedirect();
+    $this->get($preview->headers->get('Location'))->assertOk()->assertSee('6281234567890');
+    $token = basename($preview->headers->get('Location'));
+    $this->post(route('admin.users.import.commit', $token), ['confirmed' => 1])->assertSessionHasNoErrors();
+
+    expect(User::query()->where('phone_number', '6281234567890')->count())->toBe(3);
+});
+
+it('still accepts the old five column staff import template without a phone column', function () {
+    $admin = User::factory()->administrator()->create();
+    $file = staffWorkbook([['Pengguna Lama', 'format.lama', null, 'operator', 'password']], array_slice(ImportStaffUsers::HEADERS, 0, 5));
+
+    $preview = $this->actingAs($admin)->post(route('admin.users.import.preview'), ['file' => $file])->assertSessionHasNoErrors()->assertRedirect();
+    $token = basename($preview->headers->get('Location'));
+    $this->post(route('admin.users.import.commit', $token), ['confirmed' => 1])->assertSessionHasNoErrors();
+
+    expect(User::query()->where('login_id', 'format.lama')->sole()->phone_number)->toBeNull();
+});
+
+it('marks invalid or formula phone cells in the import preview and refuses to save them', function (string $phone, string $message) {
+    $admin = User::factory()->administrator()->create();
+    $file = staffWorkbook([['Pengguna Salah HP', 'hp.salah', null, 'operator', 'password', $phone]]);
+
+    $preview = $this->actingAs($admin)->post(route('admin.users.import.preview'), ['file' => $file])->assertRedirect();
+    $this->get($preview->headers->get('Location'))->assertOk()->assertSee($message);
+    $token = basename($preview->headers->get('Location'));
+    $this->post(route('admin.users.import.commit', $token), ['confirmed' => 1])->assertSessionHasErrors('import');
+    $this->assertDatabaseCount('users', 1);
+})->with([
+    'invalid phone' => ['bukan-nomor', 'Masukkan nomor HP WhatsApp yang valid'],
+    'formula' => ['=1+1', 'Kolom no_hp harus berupa teks biasa, tanpa formula.'],
+]);
+
 it('provides an empty Excel template and instructions from the user list', function () {
     $admin = User::factory()->administrator()->create();
     $this->actingAs($admin)->get(route('admin.users'))->assertOk()->assertSee('Impor Excel');
@@ -39,7 +79,7 @@ it('provides an empty Excel template and instructions from the user list', funct
     $file = UploadedFile::fake()->createWithContent('template.xlsx', $response->streamedContent());
     $book = IOFactory::load($file->getPathname());
 
-    expect($book->getSheetByName('Pengguna')->rangeToArray('A1:E1')[0])->toBe(ImportStaffUsers::HEADERS);
+    expect($book->getSheetByName('Pengguna')->rangeToArray('A1:F1')[0])->toBe(ImportStaffUsers::HEADERS);
     expect($book->getSheetByName('Pengguna')->getCell('A2')->getValue())->toBeNull();
     expect($book->getSheetByName('Petunjuk'))->not->toBeNull();
     $book->disconnectWorksheets();

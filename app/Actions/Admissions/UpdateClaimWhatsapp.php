@@ -19,7 +19,7 @@ use Illuminate\Validation\ValidationException;
 
 class UpdateClaimWhatsapp
 {
-    public function __construct(private RecordAudit $audit) {}
+    public function __construct(private RecordAudit $audit, private SynchronizeApplicantPhone $syncPhone) {}
 
     public function handle(User $actor, SkClaim $claim, int $version, string $number): void
     {
@@ -74,7 +74,10 @@ class UpdateClaimWhatsapp
                     ->when($application !== null, fn ($query) => $query->orWhere('workspace_id', $application->workspace_id)))
                     ->where('number', '!=', $number)->whereNull('invalidated_at')->update(['invalidated_at' => now()]);
             }
+            if ($locked->requester !== null && in_array($locked->status, ['pending', 'needs_information', 'approved'], true)) {
+                $this->syncPhone->handle($locked->requester, $number);
+            }
             $this->audit->handle($actor, 'Mengubah nomor permohonan', $locked, ['old_number' => $oldNumber, 'new_number' => $number]);
-        });
+        }, attempts: 3);
     }
 }

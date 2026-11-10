@@ -25,7 +25,7 @@ use Illuminate\Validation\ValidationException;
 
 class RecoverWhatsappAccess
 {
-    public function __construct(private RecordAudit $audit) {}
+    public function __construct(private RecordAudit $audit, private SynchronizeApplicantPhone $syncPhone) {}
 
     /** @param array<string, mixed> $input */
     public function handle(User $actor, SkClaim $claim, array $input): void
@@ -87,7 +87,8 @@ class RecoverWhatsappAccess
             $application->save();
             $lockedClaim->lock_version++;
             $lockedClaim->save();
+            $this->syncPhone->handle($user, $number);
             $this->audit->handle($actor, 'Memulihkan akses melalui penggantian nomor WhatsApp', $application, ['case_id' => $case->id, 'claim_id' => $lockedClaim->id]);
-        });
+        }, attempts: 3);
     }
 }

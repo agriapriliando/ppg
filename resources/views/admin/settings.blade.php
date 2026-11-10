@@ -62,7 +62,7 @@
                                         <option value="{{ $value }}" @selected((int) \App\Support\FormInput::old('claim_peg_id_required', $setting?->value['claim_peg_id_required'] ?? false) === $value)>{{ $label }}</option>
                                     @endforeach
                                 </select>
-                                <div class="form-text">Mengatur kewajiban pengisian Peg ID pada formulir klaim WhatsApp.</div>
+                                <div class="form-text">Jika wajib, peserta mengisi PEG ID dan nomor HP; nama serta periode muncul otomatis dari SK. Jika tidak wajib, formulir menampilkan empat kolom untuk diisi manual.</div>
                                 <x-field-error name="claim_peg_id_required" />
                             </div>
 

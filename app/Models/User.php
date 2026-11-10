@@ -20,6 +20,7 @@ use Illuminate\Support\Str;
  * @property int $id
  * @property string $name
  * @property string|null $email
+ * @property string|null $phone_number
  * @property CarbonInterface|null $email_verified_at
  * @property string|null $password
  * @property string|null $staff_password_copy

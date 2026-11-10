@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Actions\Auth\FillApplicantAccountPhone;
 use App\Enums\AccountState;
 use Closure;
 use Illuminate\Http\Request;
@@ -10,6 +11,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureAccountIsActive
 {
+    public function __construct(private FillApplicantAccountPhone $fillPhone) {}
+
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
@@ -26,6 +29,10 @@ class EnsureAccountIsActive
         if ($user->must_change_password) {
             $user->must_change_password = false;
             $user->save();
+        }
+
+        if (! $request->routeIs('logout')) {
+            $this->fillPhone->handle($user);
         }
 
         return $next($request);

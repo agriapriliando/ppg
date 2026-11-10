@@ -45,6 +45,7 @@ Route::get('/periode/{period}/berkas/{document}/lihat', [PeriodDocumentControlle
 Route::get('/periode/{period}/berkas/{document}/unduh', [PeriodDocumentController::class, 'publicDownload'])->name('public.period-documents.download');
 Route::view('/panduan', 'public.guide')->name('guide');
 Route::get('/klaim-whatsapp', [ClaimsController::class, 'create'])->name('public.claim');
+Route::post('/klaim-whatsapp/cari-peserta', [ClaimsController::class, 'lookup'])->middleware('throttle:30,1')->name('public.claim.lookup');
 Route::post('/klaim-whatsapp', [ClaimsController::class, 'store'])->middleware('throttle:public-claims')->name('public.claim.store');
 Route::redirect('/pemulihan', '/panduan')->name('recovery');
 
@@ -60,6 +61,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
     Route::get('/ruang-kerja', DashboardController::class)->name('dashboard');
     Route::view('/akun', 'portal.account')->name('account');
     Route::put('/akun', [ProfileController::class, 'update'])->name('account.update');
+    Route::put('/akun/nomor-hp', [ProfileController::class, 'updatePhone'])->middleware('throttle:15,1')->name('account.phone.update');
     Route::post('/akun/google', [GoogleController::class, 'link'])->middleware('throttle:5,1')->name('google.link');
     Route::get('/akun/keamanan', [PasswordController::class, 'edit'])->name('password.change');
     Route::put('/akun/keamanan', [PasswordController::class, 'update'])->middleware('throttle:10,1')->name('password.update');
@@ -162,6 +164,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::get('/pengguna/impor/{token}', [StaffImportController::class, 'show'])->whereUuid('token')->name('users.import.show');
         Route::post('/pengguna/impor/{token}', [StaffImportController::class, 'commit'])->whereUuid('token')->middleware('throttle:10,1')->name('users.import.commit');
         Route::put('/pengguna/{user}', [StaffController::class, 'update'])->name('users.update');
+        Route::put('/pengguna/{user}/nomor-hp', [StaffController::class, 'updatePhone'])->name('users.phone.update');
         Route::patch('/pengguna/{user}/status', [StaffController::class, 'toggle'])->name('users.toggle');
         Route::delete('/pengguna/{user}', [StaffController::class, 'destroy'])->name('users.destroy');
         Route::get('/audit', AuditController::class)->name('audit');

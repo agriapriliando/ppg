@@ -6,6 +6,7 @@ use App\Actions\Admissions\ApproveClaim;
 use App\Actions\Admissions\CancelClaimApproval;
 use App\Actions\Admissions\DeleteWhatsappClaimAccount;
 use App\Actions\Admissions\IssueClaimCredentials;
+use App\Actions\Admissions\LookupPublicClaimParticipant;
 use App\Actions\Admissions\SubmitSkClaim;
 use App\Actions\Admissions\UpdateClaimIdentity;
 use App\Actions\Admissions\UpdateClaimLoginId;
@@ -24,6 +25,7 @@ use App\Models\SkClaim;
 use App\Models\SkParticipant;
 use App\Models\User;
 use App\Models\WhatsappVerification;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -50,11 +52,22 @@ class ClaimsController extends Controller
         if ($requester?->role !== UserRole::Applicant) {
             $requester = null;
         }
-        $claim = $submit->handle($requester, $request->only(['period_id', 'name', 'identifier', 'whatsapp_number', 'request_key', 'consent_id', 'consent']));
+        $claim = $submit->handle($requester, $request->only(['period_id', 'name', 'identifier', 'whatsapp_number', 'request_key', 'consent_id', 'consent']), ApplicationSetting::claimPegIdRequired());
 
         return redirect()->route('public.claim')
             ->with('claim_submitted', true)
             ->with('status', 'Pendaftaran akun diterima untuk pemeriksaan. Referensi: '.$claim->public_reference.'. Setelah data diperiksa dan disetujui, operator akan mengirimkan ID login dan kata sandi ke nomor WhatsApp yang Anda daftarkan.');
+    }
+
+    public function lookup(Request $request, LookupPublicClaimParticipant $lookup): JsonResponse
+    {
+        $participants = $lookup->handle($request->only(['identifier', 'whatsapp_number']));
+
+        return response()->json(['participants' => $participants->map(fn (SkParticipant $participant) => [
+            'period_id' => $participant->admission_period_id,
+            'period_name' => $participant->period?->name,
+            'name' => $participant->name_on_sk,
+        ])])->header('Cache-Control', 'no-store, private');
     }
 
     public function own(Request $request): View

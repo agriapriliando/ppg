@@ -21,6 +21,8 @@ class SubmittedRegistrationData
             return ApplicantFields::fromWorkspace($application->workspace);
         }
         $data = json_decode($submission->encrypted_snapshot, true, flags: JSON_THROW_ON_ERROR);
+        // Contact details follow the current workspace; the stored submission remains immutable.
+        $data['whatsapp_number'] = $application->workspace->biodata->whatsapp_number ?? ($data['whatsapp_number'] ?? null);
         $workspace = clone $application->workspace;
         $biodata = $workspace->biodata ? clone $workspace->biodata : new ApplicantBiodata;
         foreach (ApplicantFields::definitions() as $key => $field) {

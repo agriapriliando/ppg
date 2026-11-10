@@ -36,10 +36,10 @@ class StaffImportController extends Controller
                 $sheet = $book->getActiveSheet()->setTitle('Pengguna');
                 $sheet->fromArray(ImportStaffUsers::HEADERS);
                 $sheet->freezePane('A2');
-                $sheet->getStyle('A1:E1')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
-                $sheet->getStyle('A1:E1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF4A154B');
-                $sheet->getStyle('A2:E101')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
-                foreach (['A' => 32, 'B' => 26, 'C' => 35, 'D' => 20, 'E' => 30] as $column => $width) {
+                $sheet->getStyle('A1:F1')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+                $sheet->getStyle('A1:F1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF4A154B');
+                $sheet->getStyle('A2:F101')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
+                foreach (['A' => 32, 'B' => 26, 'C' => 35, 'D' => 20, 'E' => 30, 'F' => 24] as $column => $width) {
                     $sheet->getColumnDimension($column)->setWidth($width);
                 }
                 $guide = $book->createSheet()->setTitle('Petunjuk');
@@ -51,6 +51,8 @@ class StaffImportController extends Controller
                     ['email: opsional; jika diisi harus valid dan belum digunakan.'],
                     ['peran: operator atau administrator. Kosong berarti operator.'],
                     ['kata_sandi: wajib diisi, tanpa batas minimal karakter. Gunakan kata sandi berbeda untuk setiap akun.'],
+                    ['no_hp: nomor HP WhatsApp aktif (opsional). Awalan 08 atau +628 diubah menjadi 628. Nomor yang sama boleh digunakan beberapa akun.'],
+                    ['Jika no_hp kosong, pengguna wajib mengisinya melalui modal setelah login. Template lama dengan lima kolom tetap diterima.'],
                     ['Semua kolom harus berupa teks biasa, tanpa formula.'],
                     ['Impor hanya menambah akun baru. Akun yang sudah ada tidak ditimpa.'],
                     ['Akun aktif dan dapat langsung login setelah impor, seperti penambahan manual.'],

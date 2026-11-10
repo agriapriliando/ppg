@@ -59,6 +59,7 @@
         <footer class="workspace-footer">PPG IAKN Palangka Raya <span>Seluruh jadwal menggunakan WIB (UTC+7)</span></footer>
     </div>
 </div>
+<x-required-phone-modal />
 @livewireScripts
 </body>
 </html>

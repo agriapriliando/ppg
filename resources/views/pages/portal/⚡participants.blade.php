@@ -5,6 +5,7 @@ use App\Enums\UserRole;
 use App\Enums\PeriodState;
 use App\Actions\RecordAudit;
 use App\Actions\Admissions\DeleteSkParticipant;
+use App\Actions\Admissions\SynchronizeApplicantPhone;
 use App\Models\AdmissionPeriod;
 use App\Models\SkParticipant;
 use App\Models\User;
@@ -81,24 +82,28 @@ new #[Title('Daftar Peserta SK')] class extends Component
         $this->resetValidation('phoneNumber');
     }
 
-    public function savePhone(RecordAudit $audit): void
+    public function savePhone(RecordAudit $audit, SynchronizeApplicantPhone $syncPhone): void
     {
         $this->mount();
         abort_unless($this->showPhone && $this->editingPhoneId !== null, 422);
         $this->phoneNumber = trim($this->phoneNumber);
         $this->validate(['phoneNumber' => ParticipantPhone::rules()], [], ['phoneNumber' => 'Nomor HP']);
 
-        DB::transaction(function () use ($audit): void {
+        DB::transaction(function () use ($audit, $syncPhone): void {
             $participant = SkParticipant::findOrFail($this->editingPhoneId);
             $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($participant->admission_period_id);
             $locked = SkParticipant::query()->lockForUpdate()->findOrFail($this->editingPhoneId);
             if ($period->state === PeriodState::Archived || $locked->lock_version !== $this->editingPhoneVersion) {
                 throw ValidationException::withMessages(['phoneNumber' => 'Data berubah atau periode diarsipkan. Tutup dan buka kembali formulir untuk memuat data terbaru.']);
             }
-            $locked->forceFill(['phone_number' => $this->phoneNumber === '' ? null : $this->phoneNumber, 'lock_version' => $locked->lock_version + 1])->save();
+            $number = $syncPhone->participantNumber($locked, $this->phoneNumber, 'phoneNumber');
+            $locked->forceFill(['phone_number' => $number, 'lock_version' => $locked->lock_version + 1])->save();
+            if ($locked->claimedUser !== null && $number !== null) {
+                $syncPhone->handle($locked->claimedUser, $number);
+            }
             $period->increment('lock_version');
             $audit->handle(auth()->user(), 'Memperbarui nomor HP peserta SK', $locked, ['period_id' => $period->id]);
-        });
+        }, attempts: 3);
         $this->closePhone();
         $this->message = 'Nomor HP peserta SK berhasil disimpan.';
     }

@@ -6,6 +6,7 @@ use App\Actions\RecordAudit;
 use App\Enums\AccountState;
 use App\Enums\UserRole;
 use App\Models\User;
+use App\Support\UserPhoneNumber;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
@@ -19,11 +20,11 @@ use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 use ZipArchive;
 
 /**
- * @phpstan-type ImportRow array{row: int, name: string, login_id: string, email: string|null, role: string, password: string, errors: list<string>, encrypted_password?: string|null}
+ * @phpstan-type ImportRow array{row: int, name: string, login_id: string, email: string|null, role: string, password: string, errors: list<string>, phone_number?: string|null, encrypted_password?: string|null}
  */
 class ImportStaffUsers
 {
-    public const HEADERS = ['nama', 'id_login', 'email', 'peran', 'kata_sandi'];
+    public const HEADERS = ['nama', 'id_login', 'email', 'peran', 'kata_sandi', 'no_hp'];
 
     public const MAX_ROWS = 100;
 
@@ -37,7 +38,7 @@ class ImportStaffUsers
         try {
             $info = collect($reader->listWorksheetInfo($file->getPathname()))->firstWhere('worksheetName', 'Pengguna');
             if ($info === null || $info['totalRows'] > self::MAX_ROWS + 1 || $info['totalColumns'] > count(self::HEADERS)) {
-                throw ValidationException::withMessages(['file' => 'Gunakan sheet Pengguna dengan maksimal 100 baris data dan lima kolom sesuai template.']);
+                throw ValidationException::withMessages(['file' => 'Gunakan sheet Pengguna dengan maksimal 100 baris data dan enam kolom sesuai template.']);
             }
             $book = $reader->load($file->getPathname());
         } catch (ReaderException $exception) {
@@ -49,6 +50,9 @@ class ImportStaffUsers
                 throw ValidationException::withMessages(['file' => 'Sheet Pengguna tidak ditemukan.']);
             }
             foreach (self::HEADERS as $index => $header) {
+                if ($header === 'no_hp' && $info['totalColumns'] <= 5) {
+                    continue;
+                }
                 if ($sheet->getCell([$index + 1, 1])->getValue() !== $header) {
                     throw ValidationException::withMessages(['file' => 'Header tidak sesuai. Unduh dan gunakan template terbaru.']);
                 }
@@ -60,6 +64,9 @@ class ImportStaffUsers
                 foreach (self::HEADERS as $index => $header) {
                     $cell = $sheet->getCell([$index + 1, $number]);
                     $value = $cell->getValue();
+                    if ($header === 'no_hp' && (is_int($value) || is_float($value)) && $value >= 0 && $value <= 999999999999999 && floor($value) === (float) $value) {
+                        $value = sprintf('%.0f', $value);
+                    }
                     if ($cell->isFormula() || ($value !== null && ! is_string($value))) {
                         $errors[] = 'Kolom '.$header.' harus berupa teks biasa, tanpa formula.';
                     }
@@ -75,6 +82,7 @@ class ImportStaffUsers
                     'email' => mb_strtolower(trim($values['email'])) ?: null,
                     'role' => mb_strtolower(trim($values['peran'])) ?: UserRole::Operator->value,
                     'password' => $values['kata_sandi'],
+                    'phone_number' => trim($values['no_hp']) ?: null,
                     'errors' => $errors,
                 ];
             }
@@ -118,6 +126,7 @@ class ImportStaffUsers
                     $user->name = $row['name'];
                     $user->login_id = $row['login_id'];
                     $user->email = $row['email'];
+                    $user->phone_number = $row['phone_number'] ?? null;
                     $user->role = UserRole::from($row['role']);
                     $user->password = $row['password'];
                     if (isset($row['encrypted_password'])) {
@@ -155,6 +164,7 @@ class ImportStaffUsers
                 'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')],
                 'role' => ['required', Rule::in(['operator', 'administrator'])],
                 'password' => ['required', 'string', 'max:255'],
+                'phone_number' => ['nullable', 'string', 'max:30'],
             ], [
                 'required' => ':attribute wajib diisi.',
                 'unique' => ':attribute sudah digunakan akun lain.',
@@ -162,8 +172,15 @@ class ImportStaffUsers
                 'login_id.regex' => 'ID login hanya boleh berisi huruf kecil, angka, titik, garis bawah, dan tanda hubung.',
                 'email.email' => 'Format email tidak valid.',
                 'role.in' => 'Peran harus operator atau administrator.',
-            ], ['name' => 'Nama', 'login_id' => 'ID login', 'email' => 'Email', 'role' => 'Peran', 'password' => 'Kata sandi']);
+            ], ['name' => 'Nama', 'login_id' => 'ID login', 'email' => 'Email', 'role' => 'Peran', 'password' => 'Kata sandi', 'phone_number' => 'Nomor HP']);
             $validationErrors = $validator->errors()->all();
+            if (! $validator->errors()->has('phone_number')) {
+                try {
+                    $row['phone_number'] = UserPhoneNumber::normalize($row['phone_number'] ?? null);
+                } catch (ValidationException $exception) {
+                    $validationErrors = [...$validationErrors, ...$exception->validator->errors()->all()];
+                }
+            }
             if (isset($validator->failed()['login_id']['Unique'])) {
                 $owner = User::query()->where('login_id', $row['login_id'])->first(['id', 'name', 'role', 'account_state']);
                 if ($owner !== null) {

@@ -59,6 +59,7 @@ it('keeps exact request retries idempotent without creating extra claims or cons
 
 it('allows combinations that differ by name or WhatsApp number when Peg IDs are also different', function (array $change) {
     $c = registrationContext();
+    $c['participant']->replicate()->fill(['sk_order' => 2, 'official_participant_id' => 'IDENTIFIER-BERBEDA'])->save();
     $input = claimInput($c);
     $this->post(route('public.claim.store'), $input)->assertSessionHasNoErrors();
 
@@ -75,6 +76,7 @@ it('allows the same combination in a different period', function () {
     $input = claimInput($c);
     $this->post(route('public.claim.store'), $input)->assertSessionHasNoErrors();
     $period = AdmissionPeriod::factory()->published()->create();
+    $c['participant']->replicate()->fill(['admission_period_id' => $period->id])->save();
 
     $this->post(route('public.claim.store'), [...$input, 'period_id' => $period->id, 'request_key' => (string) Str::uuid()])->assertSessionHasNoErrors();
 

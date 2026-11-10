@@ -37,14 +37,9 @@ class ApplicantFields
         if (empty($data['whatsapp_number'])) {
             $claim = SkClaim::query()
                 ->where('admission_period_id', $workspace->admission_period_id)
-                ->where(function ($query) use ($workspace): void {
-                    $query->where('requester_user_id', $workspace->user_id)
-                        ->orWhere('review_owner_id', $workspace->user_id);
-                    if ($workspace->application?->sk_participant_id !== null) {
-                        $query->orWhere('candidate_sk_participant_id', $workspace->application->sk_participant_id);
-                    }
-                })
-                ->orderBy('id')
+                ->where('requester_user_id', $workspace->user_id)
+                ->whereIn('status', ['pending', 'needs_information', 'approved'])
+                ->orderByDesc('updated_at')->orderByDesc('id')
                 ->first();
 
             if ($claim !== null && ! empty($claim->whatsapp_number)) {

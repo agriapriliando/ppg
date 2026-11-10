@@ -21,7 +21,7 @@ use Illuminate\Validation\ValidationException;
 
 class ApproveClaim
 {
-    public function __construct(private RecordAudit $audit, private AssignApplicantUsername $assignUsername) {}
+    public function __construct(private RecordAudit $audit, private AssignApplicantUsername $assignUsername, private SynchronizeApplicantPhone $syncPhone) {}
 
     public function handle(User $actor, SkClaim $claim, int $expectedVersion, ?int $candidateId = null): Application
     {
@@ -65,7 +65,9 @@ class ApproveClaim
                 $this->assignUsername->handle($user);
                 $locked->requester()->associate($user);
             }
-            User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $user = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $user->phone_number = ltrim($locked->whatsapp_number, '+');
+            $user->save();
             if (Application::query()->where('user_id', $user->id)->where('admission_period_id', $period->id)
                 ->when($restoring, fn ($query) => $query->where('id', '!=', $retained->id))->exists()) {
                 throw ValidationException::withMessages(['claim' => 'Akun ini sudah mempunyai pendaftaran pada periode yang sama.']);
@@ -87,9 +89,10 @@ class ApproveClaim
                 $number = (int) DB::table('admission_sequences')->where('admission_period_id', $period->id)->value('last_number');
                 $application = Application::create(['user_id' => $user->id, 'admission_period_id' => $period->id, 'sk_participant_id' => $participant->id, 'workspace_id' => $workspace->id, 'application_number' => 'PMB-'.$period->code.'-'.str_pad((string) $number, 4, '0', STR_PAD_LEFT)]);
             }
-            $participant->forceFill(['claimed_user_id' => $user->id, 'lock_version' => $participant->lock_version + 1])->save();
+            $participant->forceFill(['claimed_user_id' => $user->id, 'phone_number' => ltrim($locked->whatsapp_number, '+'), 'lock_version' => $participant->lock_version + 1])->save();
             $locked->status = 'approved';
             $locked->forceFill(['reviewed_by' => $actor->id, 'reviewed_at' => now(), 'lock_version' => $locked->lock_version + 1])->save();
+            $this->syncPhone->handle($user, $locked->whatsapp_number);
             if ($verification !== null && $workspace->biodata?->whatsapp_number === $locked->whatsapp_number) {
                 WhatsappVerification::create(['workspace_id' => $workspace->id, 'number' => $locked->whatsapp_number, 'evidence_summary' => 'Bukti balasan dari pemeriksaan klaim #'.$locked->id, 'verified_by' => $verification->verified_by, 'verified_at' => $verification->verified_at]);
             }
@@ -98,6 +101,6 @@ class ApproveClaim
             $this->audit->handle($actor, 'Menyetujui klaim SK', $claim, ['application_id' => $application->id]);
 
             return $application;
-        });
+        }, attempts: 3);
     }
 }

@@ -11,7 +11,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 it('exports all matching staff accounts as Excel without changing passwords or exposing hashes', function () {
     Storage::fake('local');
     $admin = User::factory()->administrator()->create();
-    $operator = User::factory()->operator()->create(['name' => '=HYPERLINK("https://example.test")', 'login_id' => '00123', 'password' => 'StaffKnownPass.123']);
+    $operator = User::factory()->operator()->create(['name' => '=HYPERLINK("https://example.test")', 'login_id' => '00123', 'password' => 'StaffKnownPass.123', 'phone_number' => '6281234567890']);
     User::factory()->operator()->count(21)->create();
     $applicant = User::factory()->create(['name' => 'Pendaftar Tidak Diekspor']);
     $hash = $operator->fresh()->password;
@@ -29,6 +29,9 @@ it('exports all matching staff accounts as Excel without changing passwords or e
         expect($exported[2])->toBe('00123');
         expect($exported[6])->toBeNull();
         expect($exported[7])->toBe('Tidak tersedia; password lama atau sudah berubah tanpa salinan.');
+        expect($exported[8])->toBe('6281234567890');
+        expect($sheet->getCell('I1')->getValue())->toBe('No HP WhatsApp');
+        expect($sheet->getCell('I2')->getDataType())->toBe(DataType::TYPE_STRING);
         expect(json_encode($rows))->not->toContain($hash)->not->toContain('StaffKnownPass.123');
         expect($sheet->getCell('B2')->getDataType())->toBe(DataType::TYPE_STRING);
     } finally {

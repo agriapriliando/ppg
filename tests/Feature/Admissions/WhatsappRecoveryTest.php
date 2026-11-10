@@ -41,7 +41,8 @@ it('recovers the same account through a new verified number and revokes previous
     $this->actingAs($c['admin'])->get(route('admin.whatsapp-recovery.edit', $c['claim']))->assertOk()->assertSee($c['owner']->login_id);
     $this->post(route('admin.whatsapp-recovery.update', $c['claim']), whatsappRecoveryInput($c))->assertRedirect(route('claims.show', $c['claim']))->assertSessionHasNoErrors();
     expect($c['application']->workspace->fresh()->biodata->whatsapp_number)->toBe('+6281234567899')
-        ->and($c['claim']->fresh()->whatsapp_number)->toBe('+6281234567890')
+        ->and($c['claim']->fresh()->whatsapp_number)->toBe('+6281234567899')
+        ->and($c['owner']->fresh()->phone_number)->toBe('6281234567899')
         ->and($c['owner']->fresh()->password)->toBeNull()->and($c['owner']->fresh()->account_state)->toBe(AccountState::PendingActivation)
         ->and($old->fresh()->revoked_at)->not->toBeNull()->and($c['owner']->fresh()->remember_token)->not->toBe('token-lama');
     $this->assertDatabaseMissing('sessions', ['id' => 'sesi-pemilik-lama']);

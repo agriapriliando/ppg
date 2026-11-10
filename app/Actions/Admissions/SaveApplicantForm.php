@@ -15,16 +15,13 @@ use App\Models\Application;
 use App\Models\ApplicationSubmission;
 use App\Models\ConsentRecord;
 use App\Models\ConsentText;
-use App\Models\CredentialIssuance;
 use App\Models\DocumentPolicyVersion;
 use App\Models\OriginEducation;
 use App\Models\ReferenceDataset;
 use App\Models\ReferenceProdi;
 use App\Models\ReferencePt;
 use App\Models\ReferenceRegion;
-use App\Models\SkClaim;
 use App\Models\User;
-use App\Models\WhatsappVerification;
 use App\Support\ApplicantFields;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -33,7 +30,7 @@ use Illuminate\Validation\ValidationException;
 
 class SaveApplicantForm
 {
-    public function __construct(private RecordAudit $audit, private CaptureAdmissionConfiguration $captureConfiguration) {}
+    public function __construct(private RecordAudit $audit, private CaptureAdmissionConfiguration $captureConfiguration, private SynchronizeApplicantPhone $syncPhone) {}
 
     /** @param array<string,mixed> $input */
     public function handle(User $actor, int $periodId, int $version, array $input, bool $submit): ApplicantWorkspace
@@ -123,9 +120,6 @@ class SaveApplicantForm
             $oldNumber = $biodata->whatsapp_number;
             $newNumber = $data['whatsapp_number'] ?? null;
 
-            if (! empty($oldNumber) && $oldNumber !== $newNumber) {
-                WhatsappVerification::query()->where('workspace_id', $workspace->id)->whereNull('invalidated_at')->update(['invalidated_at' => now()]);
-            }
             $values = [];
             foreach (ApplicantFields::definitions() as $key => $field) {
                 $values[$field['column']] = $data[$key] ?? null;
@@ -137,36 +131,6 @@ class SaveApplicantForm
             $biodata->fill($values)->save();
 
             if (! empty($newNumber) && $newNumber !== $oldNumber) {
-                $claims = SkClaim::query()
-                    ->where('admission_period_id', $periodId)
-                    ->where(function ($query) use ($actor, $application): void {
-                        $query->where('requester_user_id', $actor->id)
-                            ->orWhere('review_owner_id', $actor->id);
-                        if ($application?->sk_participant_id !== null) {
-                            $query->orWhere('candidate_sk_participant_id', $application->sk_participant_id);
-                        }
-                    })
-                    ->lockForUpdate()
-                    ->get();
-
-                foreach ($claims as $claim) {
-                    if ($claim->whatsapp_number !== $newNumber) {
-                        $claim->whatsapp_number = $newNumber;
-                        $claim->lock_version++;
-                        $claim->save();
-
-                        WhatsappVerification::query()
-                            ->where('claim_id', $claim->id)
-                            ->whereNull('invalidated_at')
-                            ->update(['invalidated_at' => now()]);
-                    }
-                }
-
-                CredentialIssuance::query()
-                    ->where('user_id', $actor->id)
-                    ->whereNull('revoked_at')
-                    ->update(['target_number' => $newNumber]);
-
                 $this->audit->handle($actor, 'Memperbarui nomor WhatsApp akun dari formulir', $workspace, [
                     'old_number' => $oldNumber,
                     'new_number' => $newNumber,
@@ -238,7 +202,12 @@ class SaveApplicantForm
                 $this->audit->handle($actor, 'Menyimpan draf formulir', $workspace, ['version' => $workspace->lock_version]);
             }
 
+            if (! empty($newNumber)) {
+                $this->syncPhone->handle($actor, $newNumber);
+                $workspace->refresh();
+            }
+
             return $workspace;
-        });
+        }, attempts: 3);
     }
 }

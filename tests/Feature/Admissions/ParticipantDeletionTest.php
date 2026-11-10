@@ -133,6 +133,7 @@ it('rolls back participant account and file deletion if the account is used in a
         ApplicantWorkspace::create(['user_id' => $c['applicant']->id, 'admission_period_id' => $period->id]);
     } else {
         $input = [...claimInput($c), 'period_id' => $period->id];
+        $c['participant']->replicate()->fill(['admission_period_id' => $period->id])->save();
         $period->forceFill(['state' => 'published'])->save();
         app(SubmitSkClaim::class)->handle($c['applicant'], $input);
     }

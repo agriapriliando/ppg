@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Admissions\SynchronizeApplicantPhone;
 use App\Actions\RecordAudit;
 use App\Enums\AccountState;
 use App\Enums\PeriodState;
@@ -55,7 +56,7 @@ class ParticipantsController extends Controller
         return back()->with('status', 'Kondisi kepesertaan diperbarui. Riwayat pendaftaran tetap disimpan.');
     }
 
-    public function updateSk(Request $request, SkParticipant $participant, RecordAudit $audit): RedirectResponse
+    public function updateSk(Request $request, SkParticipant $participant, RecordAudit $audit, SynchronizeApplicantPhone $syncPhone): RedirectResponse
     {
         $actor = $request->user();
         abort_unless($actor !== null, 403);
@@ -74,7 +75,7 @@ class ParticipantsController extends Controller
             'version' => ['required', 'integer', 'min:0'],
         ]);
 
-        DB::transaction(function () use ($actor, $participant, $data, $audit): void {
+        DB::transaction(function () use ($actor, $participant, $data, $audit, $syncPhone): void {
             $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($participant->admission_period_id);
             $locked = SkParticipant::query()->lockForUpdate()->findOrFail($participant->id);
 
@@ -112,7 +113,7 @@ class ParticipantsController extends Controller
             }
             $changes = array_merge($changes, $origin);
             if (array_key_exists('phone_number', $data)) {
-                $changes['phone_number'] = trim($data['phone_number'] ?? '') ?: null;
+                $changes['phone_number'] = $syncPhone->participantNumber($locked, $data['phone_number'] ?? null);
             }
 
             $locked->forceFill([
@@ -121,10 +122,13 @@ class ParticipantsController extends Controller
                 'lock_version' => $locked->lock_version + 1,
             ])->save();
 
+            if (array_key_exists('phone_number', $changes) && $locked->claimedUser !== null && $changes['phone_number'] !== null) {
+                $syncPhone->handle($locked->claimedUser, $changes['phone_number']);
+            }
             $auditReason = ! empty($data['reason']) ? $data['reason'] : 'Pembaruan data resmi SK peserta';
             $audit->handle($actor, 'Memperbarui data resmi SK peserta', $locked, $changes, $auditReason);
             $period->increment('lock_version');
-        });
+        }, attempts: 3);
 
         return back()->with('status', 'Data resmi kepesertaan bersumber dari SK berhasil diperbarui.');
     }

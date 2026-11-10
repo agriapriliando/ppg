@@ -19,12 +19,24 @@ use Illuminate\Validation\ValidationException;
 
 class SubmitSkClaim
 {
-    public function __construct(private RecordAudit $audit) {}
+    public function __construct(private RecordAudit $audit, private LookupPublicClaimParticipant $lookup, private SynchronizeApplicantPhone $syncPhone) {}
 
     /** @param array<string, mixed> $input */
-    public function handle(?User $requester, array $input): SkClaim
+    public function handle(?User $requester, array $input, bool $useRosterIdentity = false): SkClaim
     {
         abort_if($requester !== null && $requester->role !== UserRole::Applicant, 403);
+        if ($useRosterIdentity) {
+            $participants = $this->lookup->handle($input);
+            $selection = Validator::make($input, ['period_id' => ['nullable', 'integer']], ['period_id.integer' => 'Periode pendaftaran tidak valid. Periksa kembali PEG ID.'])->validate();
+            $participant = isset($selection['period_id'])
+                ? $participants->firstWhere('admission_period_id', (int) $selection['period_id'])
+                : ($participants->count() === 1 ? $participants->first() : null);
+            if ($participant === null) {
+                throw ValidationException::withMessages(['period_id' => 'Pilih periode yang sesuai dari hasil pencarian PEG ID.']);
+            }
+            $input['period_id'] = $participant->admission_period_id;
+            $input['name'] = $participant->name_on_sk;
+        }
         $data = Validator::make($input, [
             'period_id' => ['required', 'integer', 'exists:admission_periods,id'],
             'name' => ['required', 'string', 'max:255'],
@@ -50,8 +62,16 @@ class SubmitSkClaim
         $normalizedName = mb_strtolower(Str::squish($data['name']));
         $identifier = trim($data['identifier'] ?? '');
 
-        return DB::transaction(function () use ($requester, $data, $number, $normalizedName, $identifier): SkClaim {
+        return DB::transaction(function () use ($requester, $data, $number, $normalizedName, $identifier, $useRosterIdentity): SkClaim {
             $period = AdmissionPeriod::query()->whereKey($data['period_id'])->lockForUpdate()->firstOrFail();
+            if ($useRosterIdentity) {
+                $matches = SkParticipant::query()->where('admission_period_id', $period->id)->where('official_participant_id', $identifier)->where('roster_state', 'active')->lockForUpdate()->limit(2)->get();
+                if ($matches->count() !== 1) {
+                    throw ValidationException::withMessages(['identifier' => 'Data PEG ID telah berubah atau tidak dapat dipastikan. Periksa kembali PEG ID atau hubungi operator.']);
+                }
+                $data['name'] = $matches->first()->name_on_sk;
+                $normalizedName = mb_strtolower(Str::squish($data['name']));
+            }
             $existing = SkClaim::query()->where('request_key', $data['request_key'])->first();
             if ($existing !== null) {
                 if ($existing->requester_user_id !== $requester?->id || $existing->admission_period_id !== $period->id || $existing->whatsapp_number !== $number || $existing->submitted_name !== trim($data['name']) || ($existing->submitted_identifier ?? '') !== $identifier) {
@@ -80,6 +100,9 @@ class SubmitSkClaim
                     fn ($query) => $query->where('official_participant_id', $identifier),
                     fn ($query) => $query->where('normalized_name', $normalizedName))
                 ->where('roster_state', 'active')->limit(2)->get();
+            if ($identifier !== '' && $candidates->isEmpty()) {
+                throw ValidationException::withMessages(['identifier' => 'Peg ID tidak ditemukan dalam daftar peserta SK aktif pada periode yang dipilih. Periksa kembali Peg ID dan periode pendaftaran sesuai surat. Jika data sudah benar, hubungi operator untuk pemeriksaan data peserta SK.']);
+            }
             $candidate = $candidates->count() === 1 ? $candidates->first() : null;
             $claim = SkClaim::create([
                 'admission_period_id' => $period->id, 'requester_user_id' => $requester?->id,
@@ -89,9 +112,12 @@ class SubmitSkClaim
                 'public_reference' => (string) Str::uuid(), 'request_key' => $data['request_key'],
             ]);
             ConsentRecord::create(['consent_text_id' => $consent->id, 'user_id' => $requester?->id, 'claim_id' => $claim->id, 'accepted_at' => now()]);
+            if ($requester !== null) {
+                $this->syncPhone->handle($requester, $number);
+            }
             $this->audit->handle($requester, 'Mengajukan klaim SK', $claim);
 
             return $claim;
-        });
+        }, attempts: 3);
     }
 }

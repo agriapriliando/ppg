@@ -9,6 +9,7 @@ use App\Models\AdmissionPeriod;
 use App\Models\ApplicantWorkspace;
 use App\Models\User;
 use App\Support\ApplicantFields;
+use App\Support\WhatsappNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 
 class SaveApplicantDraftPatch
 {
+    public function __construct(private SynchronizeApplicantPhone $syncPhone) {}
+
     /** @param array<string, mixed> $changes */
     public function handle(User $actor, int $periodId, int $version, string $batchId, array $changes): ApplicantWorkspace
     {
@@ -55,9 +58,20 @@ class SaveApplicantDraftPatch
             $workspace->lock_version++;
             $workspace->saved_at = now();
             $workspace->save();
+            if (isset($changes['whatsapp_number']) && is_string($changes['whatsapp_number'])) {
+                try {
+                    $number = WhatsappNumber::normalize($changes['whatsapp_number']);
+                } catch (ValidationException) {
+                    $number = null;
+                }
+                if ($number !== null) {
+                    $this->syncPhone->handle($actor, $number);
+                    $workspace->refresh();
+                }
+            }
             DB::table('applicant_draft_operations')->insert(['workspace_id' => $workspace->id, 'batch_id' => $batchId, 'digest' => $digest, 'result_version' => $workspace->lock_version, 'created_at' => now()]);
 
             return $workspace;
-        });
+        }, attempts: 3);
     }
 }

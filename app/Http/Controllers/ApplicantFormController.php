@@ -41,14 +41,15 @@ class ApplicantFormController extends Controller
                 }
             }
         }
+        if (empty($data['whatsapp_number']) && filled($request->user()?->phone_number)) {
+            $data['whatsapp_number'] = '+'.ltrim($request->user()->phone_number, '+');
+        }
         if (empty($data['whatsapp_number']) && $request->user() !== null) {
             $claim = SkClaim::query()
                 ->where('admission_period_id', $period->id)
-                ->where(function ($query) use ($request): void {
-                    $query->where('requester_user_id', $request->user()->id)
-                        ->orWhere('review_owner_id', $request->user()->id);
-                })
-                ->orderBy('id')
+                ->where('requester_user_id', $request->user()->id)
+                ->whereIn('status', ['pending', 'needs_information', 'approved'])
+                ->orderByDesc('updated_at')->orderByDesc('id')
                 ->first();
 
             if ($claim !== null && ! empty($claim->whatsapp_number)) {

@@ -11,6 +11,7 @@ Tampilan produksi dirancang menggunakan **Bootstrap 5 + Blade + Livewire 4**, me
 | Bahan | Kegunaan |
 | --- | --- |
 | [Rancangan lengkap](rancangan-aplikasi/README.md) | Kebutuhan, alur, layar, skema, arsitektur, integrasi, tahapan kerja, pengujian, dan operasi |
+| [Rancangan unggah video](rancangan-aplikasi/14-unggah-video.md) | Usulan 10 November 2026: validasi frontend sebelum upload, pemeriksaan minimum server, tombol buka video di tab baru dan pengujian; belum diimplementasikan |
 | [Formulir, berkas, dan autosave](rancangan-aplikasi/11-formulir-berkas-dan-autosave.md) | Usulan 5 November 2026: draf otomatis saat mengetik, satu alur biodata–berkas, dan tombol kirim final di halaman berkas |
 | [Rancangan penghapusan periode](rancangan-aplikasi/13-penghapusan-periode-menyeluruh.md) | Khusus administrator dengan konfirmasi kata sandi; inventaris seluruh data/file, pemrosesan bertahap, retry, dan isolasi periode lain |
 | [Implementasi autosave dan kirim bersama](implementasi/formulir-berkas-autosave.md) | Perilaku aktual, migrasi, pengoperasian, hasil pengujian, dan batas QA browser |

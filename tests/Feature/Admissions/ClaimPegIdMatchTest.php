@@ -28,9 +28,10 @@ it('uses normalized name only when PEG ID is empty', function (?string $identifi
     expect($claim->submitted_identifier)->toBeNull();
 })->with([null, '', '   ']);
 
-it('does not fall back to the matching name if a filled PEG ID is unknown', function () {
+it('does not fall back to the matching name when rechecking a legacy claim with an unknown PEG ID', function () {
     $c = registrationContext();
-    $claim = app(SubmitSkClaim::class)->handle(null, [...claimInput($c), 'identifier' => '999999']);
+    $claim = app(SubmitSkClaim::class)->handle(null, claimInput($c));
+    $claim->forceFill(['submitted_identifier' => '999999', 'candidate_sk_participant_id' => null])->save();
 
     expect($claim->candidate_sk_participant_id)->toBeNull();
     Livewire::actingAs($c['admin'])->test('pages::portal.claims')->assertSee('Pencocokan berdasarkan PEG ID')

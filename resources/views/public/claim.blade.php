@@ -62,7 +62,12 @@
                                 </a>
                             </div>
                         @elseif($consent)
-                            <form method="post" action="{{ route('public.claim.store') }}" x-data="{
+                            <form method="post" action="{{ route('public.claim.store') }}"
+                                @if($pegIdRequired)
+                                x-data="publicClaimForm(@js(['identifier' => \App\Support\FormInput::old('identifier'), 'phone' => \App\Support\FormInput::old('whatsapp_number'), 'periodId' => \App\Support\FormInput::old('period_id'), 'lookupUrl' => route('public.claim.lookup'), 'csrf' => csrf_token()]))"
+                                @submit="submit($event)"
+                                @else
+                                x-data="{
                                 showConfirmation: false,
                                 agreed: false,
                                 submitting: false,
@@ -73,11 +78,63 @@
                                     }
                                 }
                             }"
-                                @submit="if (!showConfirmation || !agreed) { $event.preventDefault(); showConfirmation = true; } else { submitting = true; }">
+                                @submit="if (!showConfirmation || !agreed) { $event.preventDefault(); showConfirmation = true; } else { submitting = true; }"
+                                @endif>
                                 @csrf
                                 <input type="hidden" name="request_key"
                                     value="{{ \App\Support\FormInput::old('request_key', $requestKey) }}">
                                 <input type="hidden" name="consent_id" value="{{ $consent->id }}">
+                                @if($pegIdRequired)
+                                    <p class="small text-muted">Isi PEG ID sesuai surat dan nomor HP aktif untuk WhatsApp. Periode dan nama akan muncul otomatis dari daftar peserta SK.</p>
+                                    <div class="mb-3">
+                                        <label for="claim-identifier" class="form-label">PEG ID <span class="text-danger">*</span></label>
+                                        <input id="claim-identifier" name="identifier" type="text" maxlength="100" required
+                                            @class(['form-control', 'is-invalid' => $errors->has('identifier')])
+                                            x-model="identifier" @input="changed()" autocomplete="off" aria-describedby="claim-lookup-status identifier-error">
+                                        <x-field-error name="identifier" />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="claim-whatsapp_number" class="form-label">Nomor HP (WhatsApp aktif) <span class="text-danger">*</span></label>
+                                        <input id="claim-whatsapp_number" name="whatsapp_number" type="tel" inputmode="numeric" autocomplete="tel"
+                                            @class(['form-control', 'is-invalid' => $errors->has('whatsapp_number')])
+                                            x-model="phone" @input="changed()" required maxlength="30" pattern="628[0-9]{7,12}"
+                                            placeholder="Contoh: 6281234567890" aria-describedby="claim-phone-help whatsapp_number-error">
+                                        <div id="claim-phone-help" class="form-text">Awalan 08 atau +628 diubah otomatis menjadi 628.</div>
+                                        <x-field-error name="whatsapp_number" />
+                                    </div>
+                                    <div id="claim-lookup-status" aria-live="polite" :aria-busy="loading">
+                                        <p x-cloak x-show="loading" class="small text-muted" role="status">Memeriksa PEG ID dan periode pendaftaran...</p>
+                                        <div x-cloak x-show="error" class="alert alert-danger" role="alert">
+                                            <p class="mb-2" x-text="error"></p>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" @click="retry()">Coba lagi</button>
+                                        </div>
+                                    </div>
+                                    <div x-cloak x-show="participants.length > 0">
+                                        <div class="mb-3">
+                                            <label for="claim-period" class="form-label">Periode</label>
+                                            <input type="hidden" name="period_id" :value="periodId">
+                                            <template x-if="participants.length === 1">
+                                                <input id="claim-period" class="form-control bg-light" type="text" :value="periodName" readonly>
+                                            </template>
+                                            <template x-if="participants.length > 1">
+                                                <select id="claim-period" class="form-select" x-model="periodId" @change="selectPeriod()" required>
+                                                    <option value="">Pilih periode sesuai surat</option>
+                                                    <template x-for="participant in participants" :key="participant.period_id">
+                                                        <option :value="String(participant.period_id)" x-text="participant.period_name"></option>
+                                                    </template>
+                                                </select>
+                                            </template>
+                                            <p x-show="participants.length > 1" class="form-text">PEG ID ditemukan pada beberapa periode yang dibuka. Pilih periode sesuai surat Anda.</p>
+                                            <x-field-error name="period_id" />
+                                        </div>
+                                        <div class="mb-3" x-show="name">
+                                            <label for="claim-name" class="form-label">Nama persis sesuai SK atau Surat</label>
+                                            <input id="claim-name" type="text" class="form-control bg-light" :value="name" readonly>
+                                            <div class="form-text">Periksa nama yang muncul. Jika tidak sesuai, hubungi operator sebelum mendaftar.</div>
+                                        </div>
+                                    </div>
+                                    <noscript><div class="alert alert-warning">Aktifkan JavaScript pada browser untuk memeriksa PEG ID dan menampilkan data peserta.</div></noscript>
+                                @else
                                 <div class="mb-3">
                                     <label for="claim-period" class="form-label">Periode *</label>
                                     <select id="claim-period" class="form-select" name="period_id" required>
@@ -112,8 +169,9 @@
                                         <x-field-error :name="$key" />
                                     </div>
                                 @endforeach
+                                @endif
                                 <p class="small text-muted">Peg ID yang sama hanya dapat didaftarkan satu kali pada periode yang sama. Kombinasi nama dan nomor WhatsApp yang sama juga tidak dapat didaftarkan ulang.</p>
-                                <button class="btn btn-gold w-100">Daftar Akun</button>
+                                <button class="btn btn-gold w-100" @if($pegIdRequired) :disabled="!ready || submitting" @endif>Daftar Akun</button>
                                 <div x-cloak x-show="showConfirmation" x-trap.inert.noscroll="showConfirmation"
                                     @keydown.escape.window="closeConfirmation()" @click.self="closeConfirmation()"
                                     class="ui-modal-backdrop" role="dialog" aria-modal="true"

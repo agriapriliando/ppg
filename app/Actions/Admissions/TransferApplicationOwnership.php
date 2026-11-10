@@ -28,7 +28,7 @@ use Illuminate\Validation\ValidationException;
 
 class TransferApplicationOwnership
 {
-    public function __construct(private RecordAudit $audit, private AssignApplicantUsername $assignUsername) {}
+    public function __construct(private RecordAudit $audit, private AssignApplicantUsername $assignUsername, private SynchronizeApplicantPhone $syncPhone) {}
 
     /** @param array<string, mixed> $input */
     public function handle(User $actor, Application $application, array $input): void
@@ -97,6 +97,8 @@ class TransferApplicationOwnership
                 $this->assignUsername->handle($target);
                 $claim->requester()->associate($target);
             }
+            $target->phone_number = ltrim($claim->whatsapp_number, '+');
+            $target->save();
             $targetWorkspace ??= ApplicantWorkspace::create(['user_id' => $target->id, 'admission_period_id' => $period->id]);
             ApplicantBiodata::query()->firstOrCreate(['workspace_id' => $targetWorkspace->id], ['full_name' => $claim->submitted_name, 'whatsapp_number' => $claim->whatsapp_number]);
             $case = AdministrativeCase::create(['application_id' => $locked->id, 'claim_id' => $claim->id, 'type' => 'ownership_transfer', 'state' => 'resolved', 'reason' => $data['reason'], 'resolution' => $data['evidence'], 'opened_by' => $actor->id, 'resolved_by' => $actor->id, 'resolved_at' => now()]);
@@ -133,6 +135,7 @@ class TransferApplicationOwnership
             $period->lock_version++;
             $period->save();
             $this->audit->handle($actor, 'Mengoreksi kepemilikan pendaftaran', $locked, ['old_user_id' => $source->id, 'new_user_id' => $target->id, 'case_id' => $case->id, 'ownership_epoch' => $locked->ownership_epoch]);
-        });
+            $this->syncPhone->handle($target, $claim->whatsapp_number);
+        }, attempts: 3);
     }
 }

@@ -19,6 +19,7 @@
             name: '',
             login_id: '',
             email: '',
+            phone_number: '',
             role: 'operator'
         },
         deleteUser: {
@@ -92,6 +93,7 @@
                     <thead>
                         <tr>
                             <th>Pengguna</th>
+                            <th>Nomor HP WhatsApp</th>
                             <th>Peran</th>
                             <th>Status Akses</th>
                             <th class="text-end">Aksi</th>
@@ -115,6 +117,17 @@
                                             </small>
                                         </div>
                                     </div>
+                                </td>
+                                <td style="min-width: 220px;">
+                                    <form method="post" action="{{ route('admin.users.phone.update', $user) }}" class="d-flex gap-1">
+                                        @csrf @method('put')
+                                        <input type="hidden" name="phone_user_id" value="{{ $user->id }}">
+                                        <label class="visually-hidden" for="staff-phone-{{ $user->id }}">Nomor HP WhatsApp aktif {{ $user->name }}</label>
+                                        <input id="staff-phone-{{ $user->id }}" name="phone_number" type="tel" autocomplete="off" class="form-control form-control-sm" maxlength="30"
+                                            value="{{ old('phone_user_id') == $user->id ? old('phone_number', $user->phone_number) : $user->phone_number }}" placeholder="Belum diisi">
+                                        <button class="btn btn-sm btn-outline-purple" aria-label="Simpan nomor HP {{ $user->name }}" title="Simpan nomor HP"><i class="bi bi-check-lg" aria-hidden="true"></i></button>
+                                    </form>
+                                    <small class="text-muted">Nomor HP WhatsApp aktif</small>
                                 </td>
                                 <td>
                                     @if($user->role === App\Enums\UserRole::Administrator)
@@ -156,6 +169,7 @@
                                                     name: '{{ addslashes($user->name) }}',
                                                     login_id: '{{ addslashes($user->login_id) }}',
                                                     email: '{{ addslashes($user->email ?? '') }}',
+                                                    phone_number: @js($user->phone_number ?? ''),
                                                     role: '{{ $user->role->value }}'
                                                 })"
                                             >
@@ -215,7 +229,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="text-center py-4 text-muted">
+                                <td colspan="5" class="text-center py-4 text-muted">
                                     <i class="bi bi-people fs-2 d-block mb-2 text-muted"></i>
                                     Tidak ada data pengguna pengelola yang sesuai dengan filter.
                                 </td>
@@ -342,6 +356,11 @@
                             <label for="create-email" class="form-label fw-semibold">Alamat Email (Opsional)</label>
                             <input id="create-email" name="email" type="email" class="form-control" maxlength="255" placeholder="nama@iaknpky.ac.id">
                         </div>
+                        <div class="mb-3">
+                            <label for="create-phone" class="form-label fw-semibold">Nomor HP (Opsional)</label>
+                            <input id="create-phone" name="phone_number" type="tel" class="form-control" maxlength="30" placeholder="Contoh: 081234567890">
+                            <div class="form-text">Nomor HP WhatsApp aktif. Jika kosong, pengguna wajib mengisinya setelah login.</div>
+                        </div>
 
                         <div class="row g-3 mb-2">
                             <div class="col-md-6">
@@ -437,6 +456,11 @@
                         <div class="mb-3">
                             <label for="edit-email" class="form-label fw-semibold">Alamat Email (Opsional)</label>
                             <input id="edit-email" name="email" type="email" class="form-control" maxlength="255" x-model="editUser.email">
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit-phone" class="form-label fw-semibold">Nomor HP (Opsional)</label>
+                            <input id="edit-phone" name="phone_number" type="tel" class="form-control" maxlength="30" x-model="editUser.phone_number">
+                            <div class="form-text">Nomor HP WhatsApp aktif. Nomor yang sama boleh digunakan beberapa pengguna.</div>
                         </div>
 
                         <div class="p-3 rounded-3 border bg-light mb-2">
