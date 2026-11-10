@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AccountState;
 use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
 use App\Models\ApplicantDocument;
@@ -13,7 +14,9 @@ use App\Models\PortalQuickLink;
 use App\Models\SkClaim;
 use App\Models\SkParticipant;
 use App\Models\User;
+use App\Support\UserPhoneNumber;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -36,6 +39,8 @@ class DashboardController extends Controller
         $workspaces = collect();
         $claims = collect();
         $ownApplications = collect();
+        $operatorContact = null;
+        $operatorContactMessage = 'Operator belum ditugaskan.';
 
         if ($user->role === UserRole::Applicant) {
             $workspaces = ApplicantWorkspace::query()
@@ -51,6 +56,25 @@ class DashboardController extends Controller
                 ->with(['period', 'responses'])
                 ->orderByDesc('id')
                 ->get();
+
+            $contactPeriodId = $periodId ?? $ownApplications->first()->admission_period_id ?? $periods->first()?->id;
+            $participant = SkParticipant::query()->where('claimed_user_id', $user->id)
+                ->when($contactPeriodId !== null, fn ($query) => $query->where('admission_period_id', $contactPeriodId))
+                ->with('assignedOperator')->orderByDesc('id')->first();
+            $operator = $participant?->assignedOperator;
+            if ($operator !== null) {
+                $operatorContactMessage = 'Kontak operator belum tersedia. Hubungi pengelola.';
+                if ($operator->role === UserRole::Operator && $operator->account_state === AccountState::Active) {
+                    try {
+                        $phone = UserPhoneNumber::normalize($operator->phone_number);
+                    } catch (ValidationException) {
+                        $phone = null;
+                    }
+                    if ($phone !== null) {
+                        $operatorContact = ['name' => $operator->name, 'url' => 'https://wa.me/'.$phone.'?text='.rawurlencode('Shalom, Izin bertanya Bapak/Ibu Operator :')];
+                    }
+                }
+            }
         }
 
         return view('portal.dashboard', [
@@ -66,6 +90,8 @@ class DashboardController extends Controller
             'workspaces' => $workspaces,
             'claims' => $claims,
             'quickLinks' => PortalQuickLink::query()->visibleOn('dashboard')->orderBy('sort_order')->orderBy('id')->get(),
+            'operatorContact' => $operatorContact,
+            'operatorContactMessage' => $operatorContactMessage,
         ]);
     }
 }

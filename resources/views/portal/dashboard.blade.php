@@ -1,5 +1,20 @@
 <x-layouts::app title="Beranda {{ auth()->user()->role->label() }}">
     <x-dashboard-announcement :settings="$settings" />
+    @if(auth()->user()->role === App\Enums\UserRole::Applicant)
+        <div class="operator-contact" aria-label="Hubungi operator yang ditugaskan">
+            @if($operatorContact)
+                <a href="{{ $operatorContact['url'] }}" target="_blank" rel="noopener noreferrer" class="operator-contact-button"
+                    title="Tanya {{ $operatorContact['name'] }} melalui WhatsApp" aria-label="Tanya Operator {{ $operatorContact['name'] }} melalui WhatsApp (tab baru)">
+                    <i class="bi bi-whatsapp" aria-hidden="true"></i><span>Tanya Operator</span>
+                </a>
+            @else
+                <button type="button" class="operator-contact-button" disabled aria-describedby="operator-contact-unavailable">
+                    <i class="bi bi-whatsapp" aria-hidden="true"></i><span>Tanya Operator</span>
+                </button>
+                <small id="operator-contact-unavailable" class="operator-contact-note">{{ $operatorContactMessage }}</small>
+            @endif
+        </div>
+    @endif
     @php
         $activeApplication = $ownApplications->first();
         $activePeriod = $activeApplication?->period ?? $periods->first();
@@ -416,5 +431,8 @@
                 </section>
             </div>
         </div>
+    @endif
+    @if(auth()->user()->role === App\Enums\UserRole::Applicant)
+        <div class="operator-contact-space" aria-hidden="true"></div>
     @endif
 </x-layouts::app>
