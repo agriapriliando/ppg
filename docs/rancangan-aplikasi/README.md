@@ -24,8 +24,11 @@ Tujuan aplikasi adalah menangani peserta yang telah ditetapkan dalam SK: mempero
 | 13 | [Penghapusan periode menyeluruh](13-penghapusan-periode-menyeluruh.md) | Rancangan 6 November 2026: konfirmasi kata sandi administrator, seluruh data/file periode, freeze, manifest, retry, audit, dan perlindungan data periode lain |
 | 14 | [Unggah dan pemutaran video](14-unggah-video.md) | Usulan 10 November 2026: validasi frontend, batas per periode, pemeriksaan minimum server, tombol buka video di tab baru dan penerimaan |
 | 15 | [Validasi frontend seluruh unggahan](15-validasi-frontend-unggahan.md) | Rancangan 10 November 2026: dokumen/gambar/video pada area unggah lama, validasi sebelum transfer, antrean campuran, kuota, retry dan pengujian |
+| 16 | [Impor ulang SK berdasarkan ID](16-impor-ulang-sk-berdasarkan-id.md) | Rancangan 10 November 2026: pembaruan berdasarkan periode + id_peserta_sk, diff, penundaan konflik, perlindungan data terikat dan commit |
 
 ## Cara menggunakan
+
+Rancangan impor ulang terbaru: **[16 — Impor ulang SK berdasarkan ID](16-impor-ulang-sk-berdasarkan-id.md)** mengganti kunci pembaruan nomor SK/urut dengan periode + `id_peserta_sk`. Implementasi lokal tersedia; baca [perilaku aktual dan langkah rilis](../implementasi/impor-ulang-sk-id.md). Perlindungan klaim dan penugasan tetap berlaku.
 
 Rancangan terbaru: **[15 — Validasi frontend seluruh unggahan](15-validasi-frontend-unggahan.md)** menjadi pola bersama semua format dan peran pada area Unggah Berkas yang sudah ada. **[14 — Unggah dan pemutaran video](14-unggah-video.md)** melengkapi pemeriksaan media dan akses tab baru. Keduanya masih rancangan; tidak menambah menu unggah video terpisah.
 

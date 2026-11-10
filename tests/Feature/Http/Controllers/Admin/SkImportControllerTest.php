@@ -114,7 +114,7 @@ it('detects phone changes on reimport and protects claimed participant records',
 it('includes origin lookup in the latest template and imports it without clearing it on legacy reimport', function () {
     Storage::fake('local');
     $c = registrationContext();
-    $template = $this->actingAs($c['admin'])->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v5.xlsx');
+    $template = $this->actingAs($c['admin'])->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v6.xlsx');
     Storage::disk('local')->put('origin-template.xlsx', $template->streamedContent());
     $book = IOFactory::load(Storage::disk('local')->path('origin-template.xlsx'));
     expect($book->getSheetByName('Peserta_SK')->rangeToArray('A1:I1')[0])->toBe(ValidateSkImport::HEADERS);
@@ -324,7 +324,7 @@ it('saves valid rows while deferring invalid rows with their Excel row numbers',
     Storage::fake('local');
     $admin = User::factory()->{$role}()->create();
     $period = AdmissionPeriod::factory()->create();
-    $file = skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Valid'], ['SK-UJI', '2026-10-01', $period->code, 2, '']]);
+    $file = skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Valid', '000001'], ['SK-UJI', '2026-10-01', $period->code, 2, '', '000002']]);
     $this->actingAs($admin)->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => $file])->assertRedirect();
     $import = SkImport::query()->sole();
     expect($import->state)->toBe('invalid');
@@ -345,8 +345,8 @@ it('saves valid rows while deferring invalid rows with their Excel row numbers',
     expect($period->fresh()->lock_version)->toBe($version);
 
     $this->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([
-        ['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Valid'],
-        ['SK-UJI', '2026-10-01', $period->code, 2, 'Peserta Diperbaiki'],
+        ['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Valid', '000001'],
+        ['SK-UJI', '2026-10-01', $period->code, 2, 'Peserta Diperbaiki', '000002'],
     ])])->assertRedirect();
     $corrected = SkImport::query()->latest('id')->first();
     expect($corrected->counts['identical'])->toBe(1)->and($corrected->counts['new'])->toBe(1);
@@ -361,7 +361,7 @@ it('skips conflicts while committing independent valid rows and keeps a filterab
     $participant->forceFill(['claimed_user_id' => $c['applicant']->id])->save();
     $rows = [[$participant->sk_number, $participant->sk_date->format('Y-m-d'), $c['period']->code, $participant->sk_order, 'Perubahan Terikat Klaim', $participant->official_participant_id]];
     foreach (range(1, 51) as $order) {
-        $rows[] = ['SK-PARTIAL', '2026-11-06', $c['period']->code, $order, 'Peserta Valid '.$order];
+        $rows[] = ['SK-PARTIAL', '2026-11-06', $c['period']->code, $order, 'Peserta Valid '.$order, 'VALID-'.str_pad((string) $order, 4, '0', STR_PAD_LEFT)];
     }
     $rows[] = ['SK-PARTIAL', '2026-11-06', $c['period']->code, 52, ''];
     $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook($rows)])->assertRedirect();
@@ -417,7 +417,7 @@ it('blocks a stale preview after the period dataset changes', function () {
     Storage::fake('local');
     $admin = User::factory()->administrator()->create();
     $period = AdmissionPeriod::factory()->create();
-    $this->actingAs($admin)->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Uji']])])->assertRedirect();
+    $this->actingAs($admin)->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Uji', '000001']])])->assertRedirect();
     $import = SkImport::query()->sole();
     $period->lock_version++;
     $period->save();
@@ -429,8 +429,8 @@ it('provides a real downloadable Excel template and a usable import preview page
     Storage::fake('local');
     $admin = User::factory()->administrator()->create();
     $period = AdmissionPeriod::factory()->create();
-    $this->actingAs($admin)->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v5.xlsx');
-    $this->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Uji']])])->assertRedirect();
+    $this->actingAs($admin)->get(route('admin.imports.template'))->assertOk()->assertDownload('template-peserta-sk-v6.xlsx');
+    $this->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Uji', '000001']])])->assertRedirect();
     $this->get(route('admin.imports.show', SkImport::query()->sole()))->assertOk()->assertSee('Peserta Uji')->assertSee('Pratinjau siap dikonfirmasi');
 });
 
@@ -448,7 +448,7 @@ it('reports an invalid workbook structure without exposing an internal server er
     Storage::fake('local');
     $admin = User::factory()->administrator()->create();
     $period = AdmissionPeriod::factory()->create();
-    $this->actingAs($admin)->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Uji']], ['header_tidak_sesuai'])])->assertRedirect();
+    $this->actingAs($admin)->post(route('admin.imports.store'), ['period_id' => $period->id, 'file' => skWorkbook([['SK-UJI', '2026-10-01', $period->code, 1, 'Peserta Uji', '000001']], ['header_tidak_sesuai'])])->assertRedirect();
     $import = SkImport::query()->sole();
     expect($import->state)->toBe('failed');
     $this->get(route('admin.imports.show', $import))->assertOk()->assertSee('Header kolom A harus nomor_sk.');

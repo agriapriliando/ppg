@@ -34,7 +34,7 @@ class SkImportController extends Controller
 
     public function store(Request $request, RecordAudit $audit): RedirectResponse
     {
-        $data = $request->validate(['period_id' => ['required', 'integer', 'exists:admission_periods,id'], 'file' => ['required', 'file', 'mimes:xlsx', 'extensions:xlsx', 'max:'.config('pmb.import_max_kilobytes')]]);
+        $data = $request->validate(['import_mode' => ['sometimes', 'required', Rule::in(['upsert', 'update_only'])], 'period_id' => ['required', 'integer', 'exists:admission_periods,id'], 'file' => ['required', 'file', 'mimes:xlsx', 'extensions:xlsx', 'max:'.config('pmb.import_max_kilobytes')]]);
         $period = AdmissionPeriod::query()->whereKey($request->integer('period_id'))->firstOrFail();
         abort_if($period->state === PeriodState::Archived, 422);
         $file = $request->file('file');
@@ -43,7 +43,7 @@ class SkImportController extends Controller
         abort_unless(is_string($path), 503, 'Berkas tidak dapat disimpan.');
         $hash = hash_file('sha256', Storage::disk('local')->path($path));
         abort_unless(is_string($hash), 503);
-        $import = SkImport::create(['admission_period_id' => $period->id, 'uploaded_by' => $request->user()?->id, 'original_filename' => mb_substr($file->getClientOriginalName(), 0, 255), 'private_path' => $path, 'file_sha256' => $hash]);
+        $import = SkImport::create(['import_mode' => $data['import_mode'] ?? 'upsert', 'admission_period_id' => $period->id, 'uploaded_by' => $request->user()?->id, 'original_filename' => mb_substr($file->getClientOriginalName(), 0, 255), 'private_path' => $path, 'file_sha256' => $hash]);
         $audit->handle($request->user(), 'Mengunggah daftar SK', $import);
         ValidateSkImportJob::dispatch($import->id)->afterCommit();
 
@@ -93,7 +93,7 @@ class SkImportController extends Controller
             $book = new Spreadsheet;
             $sheet = $book->getActiveSheet();
             $sheet->setTitle('Kesalahan_SK');
-            $sheet->fromArray(['Baris Excel', 'Nomor SK', 'Nomor urut', 'Nama sesuai SK', 'Peg ID', 'Kode Kota/Kabupaten Asal', 'Provinsi Asal', 'Hasil', 'Catatan perbaikan', 'Nomor HP']);
+            $sheet->fromArray(['Baris Excel', 'Nomor SK', 'Nomor urut', 'Nama sesuai SK', 'id_peserta_sk', 'Kode Kota/Kabupaten Asal', 'Provinsi Asal', 'Hasil', 'Catatan perbaikan', 'Nomor HP']);
             $index = 2;
             foreach ($import->rows()->whereIn('result', ['error', 'conflict'])->orderBy('row_number')->lazyById(100) as $row) {
                 $values = [(string) $row->row_number, $row->normalized_payload['sk_number'] ?? '', (string) ($row->normalized_payload['sk_order'] ?? ''), $row->normalized_payload['name_on_sk'] ?? '', $row->normalized_payload['official_participant_id'] ?? '', $row->normalized_payload['origin_city_code'] ?? '', $row->normalized_payload['origin_province_name'] ?? '', $row->result === 'conflict' ? 'Konflik' : 'Kesalahan', implode("\n", $row->errorMessages()), $row->normalized_payload['phone_number'] ?? ''];
@@ -136,12 +136,12 @@ class SkImportController extends Controller
             $guide = $book->createSheet();
             $guide->setTitle('Panduan');
             $guide->fromArray([
-                ['Template SK versi 5'],
+                ['Template SK versi 6'],
                 ['Kolom I: nomor_hp opsional. Awalan 08 dan +628 otomatis dikonversi ke 628. Isian lain tetap disimpan dan dapat diperbaiki kemudian. Simpan sebagai teks agar angka tetap utuh.'],
                 ['Nomor HP kosong atau template lama mempertahankan nomor HP peserta yang sudah tersimpan. Untuk menghapus nomor, gunakan halaman Peserta SK.'],
                 ['Kolom A–D wajib. Periode seluruh baris mengikuti pilihan Periode tujuan pada formulir unggah.'],
                 ['Tanggal SK: YYYY-MM-DD. Nomor urut harus bilangan bulat positif.'],
-                ['Peg ID harus teks agar nol awal utuh. Nama bukan kunci unik.'],
+                ['id_peserta_sk (Peg ID) wajib teks agar nol awal utuh. Kunci pencocokan adalah periode + id_peserta_sk; nomor SK/urut dapat diperbarui pada peserta yang sama.'],
                 ['Kolom F: id_operator opsional. Isi ID login operator (contoh operator.satu), bukan email atau nomor urut.'],
                 ['Semua akun Operator aktif dapat digunakan pada seluruh periode tanpa pendaftaran per periode. ID login dapat dilihat pada halaman Kelola Pengguna.'],
                 ['Jika id_operator kosong, peserta baru belum ditugaskan; penugasan peserta lama tetap dipertahankan.'],
@@ -152,7 +152,11 @@ class SkImportController extends Controller
                 ['Template lama atau kolom asal kosong tetap didukung dan mempertahankan asal peserta yang sudah tersimpan.'],
                 ['Jangan gunakan formula, macro, atau tautan eksternal.'],
                 ['Satu berkas memuat satu periode, maksimal 5.000 baris.'],
-                ['Periksa seluruh hasil validasi sebelum mengonfirmasi impor.'],
+                ['Untuk file yang diperbarui, gunakan mode Perbarui saja. ID tidak ditemukan akan ditunda, bukan membuat peserta baru.'],
+                ['Gunakan Tambah dan perbarui untuk impor awal atau file campuran peserta baru dan pembaruan.'],
+                ['Sel opsional kosong mempertahankan nomor HP, penugasan, asal, dan catatan internal yang tersimpan.'],
+                ['Peserta terikat klaim atau transfer operator ditandai konflik. Gunakan pemeriksaan administratif/menu penugasan.'],
+                ['Periksa seluruh hasil validasi dan nilai lama-baru sebelum mengonfirmasi impor.'],
                 ['Baris valid dapat disimpan meskipun ada baris error atau konflik. Baris bermasalah ditunda; perbaiki dan unggah ulang.'],
             ]);
             $guide->getColumnDimension('A')->setWidth(110);
@@ -179,6 +183,6 @@ class SkImportController extends Controller
             $regions->setAutoFilter('A1:C'.max(1, $row - 1));
             (new Xlsx($book))->save('php://output');
             $book->disconnectWorksheets();
-        }, 'template-peserta-sk-v5.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Cache-Control' => 'private, no-store']);
+        }, 'template-peserta-sk-v6.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Cache-Control' => 'private, no-store']);
     }
 }

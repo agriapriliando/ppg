@@ -31,6 +31,16 @@
                                 </select>
                                 <div class="form-text">Semua peserta dalam Excel akan masuk ke periode yang dipilih. Template terbaru tidak memerlukan kolom periode.</div>
                             </div>
+                            <div class="mb-3">
+                                <label for="import-mode" class="form-label">Jenis impor *</label>
+                                <select id="import-mode" name="import_mode" class="form-select" required>
+                                    <option value="update_only" @selected(\App\Support\FormInput::old('import_mode', 'update_only') === 'update_only')>Perbarui saja</option>
+                                    <option value="upsert" @selected(\App\Support\FormInput::old('import_mode', 'update_only') === 'upsert')>Tambah dan perbarui</option>
+                                </select>
+                                <div class="form-text">Untuk unggah ulang, pilih Perbarui saja. Peserta dicocokkan berdasarkan periode dan id_peserta_sk (Peg ID), bukan nomor SK atau nomor urut. Pilih Tambah dan perbarui untuk memasukkan peserta baru.</div>
+                                <x-field-error name="import_mode" />
+                            </div>
+                            <div class="alert alert-info small">Kolom <code>id_peserta_sk</code> wajib diisi sebagai teks agar nol awal tetap utuh. Isian opsional kosong mempertahankan data lama. Perubahan peserta terikat klaim diperiksa melalui jalur administratif.</div>
                             <label class="upload-zone" for="sk-file">
                                 <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
                                 <strong>Pilih berkas Excel SK</strong>

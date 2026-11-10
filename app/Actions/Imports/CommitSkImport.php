@@ -11,6 +11,7 @@ use App\Models\SkImport;
 use App\Models\SkParticipant;
 use App\Models\User;
 use App\Support\ParticipantOrigin;
+use App\Support\SkImportIdentity;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -27,7 +28,7 @@ class CommitSkImport
             if ($locked->state === 'committed') {
                 return;
             }
-            if (! in_array($locked->state, ['ready', 'invalid'], true) || $locked->staging_purged_at !== null || ! hash_equals($locked->preview_hash ?? '', $previewHash) || $locked->expires_at === null || $locked->expires_at->isPast() || $period->lock_version !== $locked->dataset_version) {
+            if ($locked->matching_version !== SkImport::MATCHING_VERSION || ! in_array($locked->state, ['ready', 'invalid'], true) || $locked->staging_purged_at !== null || ! hash_equals($locked->preview_hash ?? '', $previewHash) || $locked->expires_at === null || $locked->expires_at->isPast() || $period->lock_version !== $locked->dataset_version) {
                 throw ValidationException::withMessages(['import' => 'Pratinjau belum valid atau data telah berubah. Unggah ulang untuk pemeriksaan terbaru.']);
             }
             if ($period->state === PeriodState::Archived) {
@@ -41,12 +42,26 @@ class CommitSkImport
             $operatorIds = $rows->where('result', '!=', 'identical')->pluck('normalized_payload.assigned_operator_id')->filter()->unique()->sort()->values();
             // Lock in ID order so imports in different periods cannot race staff changes.
             $operators = User::query()->whereIn('id', $operatorIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $targets = SkParticipant::query()->where('admission_period_id', $period->id)->whereIn('id', $rows->pluck('target_participant_id')->filter())->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $origins = [];
             foreach ($rows as $row) {
+                $data = $row->normalized_payload;
+                $participant = $row->target_participant_id === null ? null : $targets->get($row->target_participant_id);
+                if ($row->target_participant_id !== null && ($participant === null || $participant->lock_version !== $row->target_version || ! hash_equals($row->target_digest ?? '', SkImportIdentity::digest($participant)) || $participant->official_participant_id !== $data['official_participant_id'])) {
+                    throw ValidationException::withMessages(['import' => 'Data peserta berubah sejak pratinjau. Unggah ulang untuk pemeriksaan terbaru.']);
+                }
+                if ($participant === null) {
+                    if ($locked->import_mode !== 'upsert' || $row->result !== 'new' || ($data['official_participant_id'] === null || $data['official_participant_id'] === '') || SkParticipant::query()->where('admission_period_id', $period->id)->where('official_participant_id', $data['official_participant_id'])->exists()) {
+                        throw ValidationException::withMessages(['import' => 'ID peserta pada pratinjau tidak lagi sesuai. Unggah ulang untuk pemeriksaan terbaru.']);
+                    }
+                    $participant = new SkParticipant;
+                }
                 if ($row->result === 'identical') {
                     continue;
                 }
-                $data = $row->normalized_payload;
+                if (SkParticipant::query()->where('admission_period_id', $period->id)->where('sk_number', $data['sk_number'])->where('sk_order', $data['sk_order'])->when($participant->exists, fn ($query) => $query->where('id', '!=', $participant->id))->exists()) {
+                    throw ValidationException::withMessages(['import' => 'Nomor SK dan nomor urut tujuan telah digunakan peserta lain. Unggah ulang untuk pemeriksaan terbaru.']);
+                }
                 if (! empty($data['origin_city_code'])) {
                     if (! is_string($data['origin_city_code']) || ! isset($data['origin_reference_dataset_id']) || ! is_int($data['origin_reference_dataset_id'])) {
                         throw ValidationException::withMessages(['import' => 'Data asal pada pratinjau tidak lengkap. Unggah ulang untuk validasi terbaru.']);
@@ -59,7 +74,6 @@ class CommitSkImport
                         }
                     }
                 }
-                $participant = SkParticipant::query()->firstOrNew(['admission_period_id' => $period->id, 'sk_number' => $data['sk_number'], 'sk_order' => $data['sk_order']]);
                 if ($participant->exists && $participant->claimed_user_id !== null) {
                     throw ValidationException::withMessages(['import' => 'Peserta sudah terikat klaim. Perubahan harus diperiksa secara administratif.']);
                 }
@@ -72,15 +86,23 @@ class CommitSkImport
                     throw ValidationException::withMessages(['import' => 'Operator pada pratinjau tidak lagi aktif. Unggah ulang untuk validasi terbaru.']);
                 }
                 $oldOperator = $participant->assigned_operator_id;
+                if ($oldOperator !== null && $oldOperator !== $data['assigned_operator_id']) {
+                    throw ValidationException::withMessages(['import' => 'Penugasan peserta berubah sejak pratinjau. Gunakan menu penugasan.']);
+                }
                 $participant->fill($data);
                 $participant->fill(['last_import_id' => $locked->id]);
                 if ($participant->exists) {
                     $participant->lock_version++;
                 }
                 $participant->save();
+                $this->audit->handle($actor, $row->result === 'new' ? 'Menambahkan peserta dari impor SK' : 'Memperbarui peserta dari impor SK', $participant, ['import_id' => $locked->id, 'period_id' => $period->id, 'import_mode' => $locked->import_mode, 'changed_fields' => implode(', ', array_keys($row->changes ?? []))]);
                 if ($oldOperator !== $participant->assigned_operator_id) {
                     DB::table('assignment_events')->insert(['sk_participant_id' => $participant->id, 'old_operator_id' => $oldOperator, 'new_operator_id' => $participant->assigned_operator_id, 'actor_id' => $actor->id, 'mode' => 'explicit', 'reason' => 'Penugasan eksplisit dari impor SK', 'created_at' => now()]);
                 }
+            }
+            $changedNumbers = $rows->whereIn('result', ['new', 'change'])->pluck('normalized_payload.sk_number')->unique();
+            if (SkParticipant::query()->where('admission_period_id', $period->id)->whereIn('sk_number', $changedNumbers)->select('sk_number')->groupBy('sk_number')->havingRaw('COUNT(DISTINCT sk_date) > 1')->exists()) {
+                throw ValidationException::withMessages(['import' => 'Tanggal peserta pada nomor SK yang sama berubah atau tidak konsisten. Unggah ulang untuk pemeriksaan terbaru.']);
             }
             $locked->state = 'committed';
             $locked->committed_at = now();

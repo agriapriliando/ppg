@@ -4,11 +4,15 @@
         $problemCount = ($counts['error'] ?? 0) + ($counts['conflict'] ?? 0);
         $validCount = ($counts['new'] ?? 0) + ($counts['change'] ?? 0) + ($counts['identical'] ?? 0);
         $committed = $import->state === 'committed';
-        $canCommit = in_array($import->state, ['ready', 'invalid'], true) && $validCount > 0 && !$import->staging_purged_at;
+        $canCommit = $import->matching_version === \App\Models\SkImport::MATCHING_VERSION && in_array($import->state, ['ready', 'invalid'], true) && $validCount > 0 && !$import->staging_purged_at;
     @endphp
     <section class="workspace-card">
         <div class="panel-heading"><h2>{{ $import->original_filename }}</h2><p>{{ $import->period->name }} · Kode periode {{ $import->period->code }}</p></div>
         <div class="panel-body">
+            <p><strong>Jenis impor:</strong> {{ $import->modeLabel() }}. <strong>Pencocokan:</strong> {{ $import->matching_version === \App\Models\SkImport::MATCHING_VERSION ? 'Periode + ID peserta SK (Peg ID)' : 'Algoritme lama' }}.</p>
+            @if(!$committed && $import->matching_version !== \App\Models\SkImport::MATCHING_VERSION && in_array($import->state, ['ready', 'invalid'], true))
+                <div class="alert alert-warning">Pratinjau ini menggunakan aturan pencocokan lama. Unggah ulang berkas untuk pemeriksaan berdasarkan ID peserta SK.</div>
+            @endif
             @if(in_array($import->state, ['uploaded', 'validating']))
                 <div class="notice-box info"><i class="bi bi-hourglass-split" aria-hidden="true"></i><div><strong>Berkas sedang menunggu hasil validasi.</strong><p class="mb-0">Muat ulang halaman untuk melihat hasil terbaru.</p></div></div>
                 <a class="btn btn-outline-purple" href="{{ route('admin.imports.show', $import) }}">Perbarui Hasil</a>
@@ -46,7 +50,7 @@
                                 @php($hasProblem = in_array($row->result, ['error', 'conflict']))
                                 <tr @class(['table-danger' => $row->result === 'error', 'table-warning' => $row->result === 'conflict'])>
                                     <td class="fw-semibold">{{ $row->row_number }}</td>
-                                    <td>{{ $row->normalized_payload['name_on_sk'] }}<small class="d-block text-muted">{{ $row->normalized_payload['sk_number'] }} · urut {{ $row->normalized_payload['sk_order'] }}</small></td>
+                                    <td>{{ $row->normalized_payload['name_on_sk'] }}<small class="d-block text-muted">ID peserta SK: {{ $row->normalized_payload['official_participant_id'] ?? 'Belum diisi' }}</small><small class="d-block text-muted">{{ $row->normalized_payload['sk_number'] }} · urut {{ $row->normalized_payload['sk_order'] }}</small></td>
                                     <td>{{ $row->normalized_payload['phone_number'] ?? 'Belum diisi' }}</td>
                                     <td>{{ $row->normalized_payload['origin_city_name'] ?? $row->normalized_payload['origin_city_code'] ?? 'Belum diisi' }}</td>
                                     <td>{{ $row->normalized_payload['origin_province_name'] ?? 'Belum diisi' }}</td>
@@ -57,7 +61,12 @@
                                             <span class="badge {{ $committed ? 'text-bg-success' : 'text-bg-light border' }}">{{ $committed && $row->result !== 'identical' ? 'Tersimpan' : (['new' => 'Baru', 'identical' => 'Identik', 'change' => 'Perubahan'][$row->result] ?? $row->result) }}</span>
                                         @endif
                                     </td>
-                                    <td>@foreach($row->errorMessages() as $error)<div class="small text-danger">{{ $error }}</div>@endforeach</td>
+                                    <td>
+                                        @foreach($row->errorMessages() as $error)<div class="small text-danger">{{ $error }}</div>@endforeach
+                                        @foreach($row->changes ?? [] as $field => $change)
+                                            <div class="small text-break"><strong>{{ ['sk_number'=>'Nomor SK', 'sk_order'=>'Nomor urut', 'sk_date'=>'Tanggal SK', 'name_on_sk'=>'Nama sesuai SK', 'phone_number'=>'Nomor HP', 'assigned_operator_id'=>'ID operator', 'internal_note'=>'Catatan internal', 'origin_city_code'=>'Kode kota/kabupaten', 'origin_city_name'=>'Kota/kabupaten', 'origin_province_code'=>'Kode provinsi', 'origin_province_name'=>'Provinsi', 'origin_reference_dataset_id'=>'Versi referensi asal'][$field] ?? $field }}:</strong> {{ $change['old'] ?? 'Kosong' }} → {{ $change['new'] ?? 'Kosong' }}</div>
+                                        @endforeach
+                                    </td>
                                 </tr>
                             @empty
                                 <tr><td colspan="7" class="text-center text-muted py-4">{{ $rowFilter === 'problems' ? 'Tidak ada baris bermasalah.' : 'Belum ada rincian baris.' }}</td></tr>

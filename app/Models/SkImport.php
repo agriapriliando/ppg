@@ -16,14 +16,21 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property CarbonImmutable|null $committed_at
  * @property CarbonImmutable|null $staging_purged_at
  */
-#[Fillable(['admission_period_id', 'uploaded_by', 'original_filename', 'private_path', 'file_sha256', 'state'])]
+#[Fillable(['admission_period_id', 'uploaded_by', 'original_filename', 'private_path', 'file_sha256', 'state', 'import_mode'])]
 class SkImport extends Model
 {
     use SoftDeletes;
 
+    public const MATCHING_VERSION = 2;
+
+    public function modeLabel(): string
+    {
+        return $this->import_mode === 'update_only' ? 'Perbarui saja' : 'Tambah dan perbarui';
+    }
+
     protected function casts(): array
     {
-        return ['counts' => 'array', 'validated_at' => 'immutable_datetime', 'committed_at' => 'immutable_datetime', 'expires_at' => 'immutable_datetime', 'staging_purged_at' => 'immutable_datetime'];
+        return ['matching_version' => 'integer', 'counts' => 'array', 'validated_at' => 'immutable_datetime', 'committed_at' => 'immutable_datetime', 'expires_at' => 'immutable_datetime', 'staging_purged_at' => 'immutable_datetime'];
     }
 
     /** @return BelongsTo<AdmissionPeriod, $this> */

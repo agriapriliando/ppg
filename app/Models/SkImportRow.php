@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * @property array<string, scalar|null> $normalized_payload
  * @property list<string> $errors
+ * @property array<string, array{old: scalar|null, new: scalar|null}>|null $changes
  */
 #[Fillable(['sk_import_id', 'row_number', 'normalized_payload', 'result', 'errors'])]
 class SkImportRow extends Model
@@ -24,6 +25,6 @@ class SkImportRow extends Model
 
     protected function casts(): array
     {
-        return ['normalized_payload' => 'array', 'errors' => 'array'];
+        return ['normalized_payload' => 'array', 'errors' => 'array', 'changes' => 'array', 'target_participant_id' => 'integer', 'target_version' => 'integer'];
     }
 }

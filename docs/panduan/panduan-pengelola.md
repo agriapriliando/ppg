@@ -170,35 +170,29 @@ Tautan cepat ini tampil di halaman depan website dan di dashboard Ruang Kerja:
 
 Menu **Impor SK** (`/admin/impor`) digunakan untuk memasukkan database peserta resmi dari berkas Excel.
 
-### 7.1 Menyiapkan Berkas Excel
-1. Klik tombol **Unduh Template SK** (`/admin/template-sk`).
-2. Buka berkas `.xlsx`. Data wajib ditaruh pada sheet bernama **`Peserta_SK`**.
-3. Struktur kolom template:
+## Penggunaan
 
-| Kolom | Header Kolom | Tipe Data | Wajib | Keterangan |
-| :---: | --- | --- | :---: | --- |
-| **A** | `nomor_sk` | Teks | **Ya** | Nomor SK penetapan resmi |
-| **B** | `tanggal_sk` | Tanggal (`YYYY-MM-DD`) | **Ya** | Tanggal terbit SK |
-| **C** | `periode` | Teks | **Ya** | Kode periode tujuan (misal: `2026PPG1`) |
-| **D** | `nomor_urut_sk` | Angka Bulat | **Ya** | Nomor urut peserta pada SK |
-| **E** | `nama_sesuai_sk` | Teks | **Ya** | Nama lengkap persis sesuai SK |
-| **F** | `id_peserta_sk` | Teks | Opsional | Format teks agar nol awal tidak hilang |
-| **G** | `operator_email` | Email | Opsional | Email operator yang langsung ditugaskan |
-| **H** | `catatan_internal` | Teks | Opsional | Catatan khusus panitia |
+1. Buka `/admin/impor` sebagai administrator/operator. Pilih periode tujuan yang benar.
+2. Untuk file yang diperbarui, gunakan **Perbarui saja** (pilihan awal antarmuka). ID yang tidak ditemukan akan ditandai error, bukan ditambahkan. Untuk impor awal/file campuran, pilih **Tambah dan perbarui**.
+3. Gunakan template versi 6. Kolom A–E wajib: nomor SK, tanggal, nomor urut, nama, dan `id_peserta_sk`. Simpan ID sebagai teks agar nol awal utuh. Template lama tetap dibaca bila header/data ID tersedia, tetapi ID kosong tidak lagi boleh dicocokkan memakai nomor SK/urut.
+4. Unggah file dan periksa pratinjau. Kunci pembaruan adalah **periode + id_peserta_sk**; ID Excel ini merupakan Peg ID resmi, bukan nomor primary key internal database.
+5. Periksa nama/ID serta nilai lama → baru pada setiap baris perubahan. Nomor SK/urut dapat diperbarui pada peserta yang sama selama tidak berbenturan dengan peserta lain.
+6. Konfirmasikan baris valid. Baris error/konflik tetap ditunda, dapat difilter dan diunduh untuk perbaikan. Unggah ulang file yang diperbaiki pada periode yang sama.
 
-### 7.2 Prosedur Impor (4 Tahap Aman):
-```
-[1. Unggah File] ➔ [2. Validasi Antrean] ➔ [3. Pratinjau Analisis Data] ➔ [4. Konfirmasi Eksekusi]
-```
-1. Pilih **Periode Tujuan** dan pilih berkas Excel `.xlsx` (maksimal 5 MB / 5.000 baris).
-2. Klik **Unggah Berkas SK**.
-3. Sistem antrean (*background worker*) akan memvalidasi data dan menampilkan ringkasan pratinjau:
-   - **Baru**: Peserta baru yang belum ada di database.
-   - **Identik**: Data yang persis sama dan sudah tercatat sebelumnya.
-   - **Perubahan**: Peserta terdaftar yang mengalami pembaruan catatan/operator.
-   - **Konflik / Kesalahan**: Baris yang memiliki format tanggal salah, kode periode tidak cocok, atau duplikasi nomor urut.
-4. Periksa tabel pratinjau. Jika ada kesalahan, perbaiki berkas Excel dan unggah ulang.
-5. Jika data telah valid, klik tombol hijau **Konfirmasi & Terapkan Impor**. Data resmi peserta SK kini aktif di sistem.
+Permintaan lama yang tidak mengirim parameter jenis impor menggunakan Tambah dan perbarui untuk kompatibilitas; antarmuka baru selalu mengirim pilihan secara eksplisit. Jenis impor tersimpan pada riwayat dan menjadi bagian hash pratinjau.
+
+## Perlindungan data
+
+- Semua kemunculan ID duplikat dan kunci nomor SK/urut duplikat ditunda; tidak hanya baris kedua. Kesetaraan ID mengikuti collation database, tanpa mengubah nilai resmi/nol awal.
+- Sel opsional kosong mempertahankan nomor HP, operator, asal dan catatan internal. Penghapusan nilai dilakukan lewat editor yang berwenang.
+- Perubahan pada peserta terikat klaim tetap menjadi konflik administratif. Transfer operator yang sudah ditugaskan dilakukan melalui menu penugasan. Impor tidak menimpa akun, biodata, berkas atau snapshot pengajuan.
+- ID sama pada periode lain tidak diperbarui. Peserta yang tidak ada dalam file terbaru tidak dihapus. ID salah/tidak ditemukan tidak memakai nomor SK/urut atau nama sebagai pencocokan cadangan.
+- Peserta identik tidak diubah; konfirmasi import yang sama idempoten. Pembaruan mempertahankan primary key peserta dan menaikkan versi target.
+- Perubahan target setelah pratinjau diperiksa menggunakan ID internal, versi dan digest data. Jika berubah/dihapus/terikat klaim, transaksi dibatalkan dan pengelola diminta mengunggah ulang. Tidak berpindah ke target baru atau menyimpan sebagian perubahan dalam transaksi yang gagal.
+- Nomor SK/urut tujuan tidak boleh berbenturan. Pertukaran urutan antar dua peserta ditunda untuk pemeriksaan administratif. Tanggal dalam satu nomor SK harus tetap konsisten, termasuk peserta yang tidak ikut diubah.
+
+
+Rincian implementasi dan langkah rilis: [Impor ulang SK berdasarkan ID](../implementasi/impor-ulang-sk-id.md).
 
 ---
 

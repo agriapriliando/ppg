@@ -4,6 +4,8 @@ Tanggal pembaruan: **18 Oktober 2026**. Status: **alur inti MVP dibangun dan lul
 
 ## Yang sudah dapat digunakan
 
+Impor SK: [impor ulang berdasarkan periode + ID peserta SK, mode pembaruan, diff dan perlindungan konflik](impor-ulang-sk-id.md).
+
 Pengelolaan periode: [unggah beberapa berkas per periode, lihat/unduh, ubah nama, dan hapus](berkas-periode.md).
 
 Informasi peserta: [Informasi SK pribadi dan visibilitas berkas periode di ruang kerja serta homepage](informasi-sk-dan-berkas-publik.md).

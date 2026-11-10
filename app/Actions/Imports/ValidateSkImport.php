@@ -5,8 +5,8 @@ namespace App\Actions\Imports;
 use App\Enums\AccountState;
 use App\Enums\UserRole;
 use App\Exceptions\InvalidSkImportWorkbook;
+use App\Models\AdmissionPeriod;
 use App\Models\SkImport;
-use App\Models\SkParticipant;
 use App\Models\User;
 use App\Support\ParticipantOrigin;
 use App\Support\ParticipantPhone;
@@ -62,16 +62,12 @@ class ValidateSkImport
             }
             foreach ($headers as $index => $header) {
                 $value = trim((string) $sheet->getCell([$index + 1, 1])->getValue());
-                if (($index < ($legacy ? 5 : 4) || $value !== '') && $value !== $header) {
+                if (($index < ($legacy ? 6 : 5) || $value !== '') && $value !== $header) {
                     throw new InvalidSkImportWorkbook('Header kolom '.Coordinate::stringFromColumnIndex($index + 1).' harus '.$header.'. Unduh dan gunakan template terbaru.');
                 }
             }
             $period = $import->period;
-            $counts = ['new' => 0, 'identical' => 0, 'change' => 0, 'conflict' => 0, 'error' => 0];
             $rows = [];
-            $keys = [];
-            $identifiers = [];
-            $skDates = [];
             // Request-local memoization; commit still rechecks current eligibility.
             $operators = [];
             $operatorEligibility = [];
@@ -115,13 +111,13 @@ class ValidateSkImport
                     'periode' => ['required', 'in:'.$period->code],
                     'nomor_urut_sk' => ['required', 'integer', 'min:1', 'max:2147483647'],
                     'nama_sesuai_sk' => ['required', 'string', 'max:255'],
-                    'id_peserta_sk' => ['nullable', 'string', 'max:100'],
+                    'id_peserta_sk' => ['required', 'string', 'max:100'],
                     'nomor_hp' => ParticipantPhone::rules(),
                     'operator_email' => ['nullable', 'email', 'max:255'],
                     'id_operator' => ['nullable', 'regex:/^[a-z0-9._-]+$/', 'max:64'],
                     'catatan_internal' => ['nullable', 'string', 'max:1000'],
                     'kode_kota_kabupaten_asal' => ['nullable', 'string', 'max:64'],
-                ], ['required' => ':attribute wajib diisi.', 'periode.in' => 'Kode periode tidak sesuai periode tujuan.', 'id_operator.regex' => 'Isi ID login operator, bukan email atau nama operator.', 'id_operator.max' => 'ID operator maksimal 64 karakter.', 'nomor_hp.max' => 'Isian nomor HP maksimal 100 karakter.']);
+                ], ['id_peserta_sk.required' => 'ID peserta SK wajib diisi untuk mencocokkan peserta.', 'required' => ':attribute wajib diisi.', 'periode.in' => 'Kode periode tidak sesuai periode tujuan.', 'id_operator.regex' => 'Isi ID login operator, bukan email atau nama operator.', 'id_operator.max' => 'ID operator maksimal 64 karakter.', 'nomor_hp.max' => 'Isian nomor HP maksimal 100 karakter.']);
                 $errors = array_merge($errors, $validator->errors()->all());
                 $operator = null;
                 $operatorIdentifier = mb_strtolower($values[$usesEmail ? 'operator_email' : 'id_operator']);
@@ -154,63 +150,23 @@ class ValidateSkImport
                     'sk_number' => mb_strtoupper($values['nomor_sk']),
                     'sk_date' => $values['tanggal_sk'],
                     'sk_order' => (int) $values['nomor_urut_sk'],
-                    'official_participant_id' => $values['id_peserta_sk'] ?: null,
+                    'official_participant_id' => $values['id_peserta_sk'] === '' ? null : $values['id_peserta_sk'],
                     'name_on_sk' => $values['nama_sesuai_sk'],
-                    'phone_number' => $values['nomor_hp'] ?: null,
+                    'phone_number' => $values['nomor_hp'] === '' ? null : $values['nomor_hp'],
                     'normalized_name' => mb_strtolower(Str::squish($values['nama_sesuai_sk'])),
                     'assigned_operator_id' => $operator?->id,
-                    'internal_note' => $values['catatan_internal'] ?: null,
+                    'internal_note' => $values['catatan_internal'] === '' ? null : $values['catatan_internal'],
                 ];
-                $key = $payload['sk_number'].'|'.$payload['sk_order'];
-                if (isset($keys[$key])) {
-                    $errors[] = 'Kombinasi nomor SK dan nomor urut berulang dalam berkas.';
-                }
-                $keys[$key] = true;
-                if ($payload['official_participant_id'] !== null) {
-                    if (isset($identifiers[$payload['official_participant_id']])) {
-                        $errors[] = 'Peg ID berulang dalam berkas.';
-                    }
-                    $identifiers[$payload['official_participant_id']] = true;
-                }
-                if (isset($skDates[$payload['sk_number']]) && $skDates[$payload['sk_number']] !== $payload['sk_date']) {
-                    $errors[] = 'Nomor SK yang sama memiliki tanggal berbeda.';
-                }
-                $skDates[$payload['sk_number']] = $payload['sk_date'];
-                $existing = SkParticipant::query()->where('admission_period_id', $period->id)->where('sk_number', $payload['sk_number'])->where('sk_order', $payload['sk_order'])->first();
-                $result = 'new';
-                if ($payload['official_participant_id'] !== null && SkParticipant::query()->where('admission_period_id', $period->id)->where('official_participant_id', $payload['official_participant_id'])->when($existing !== null, fn ($query) => $query->where('id', '!=', $existing->id))->exists()) {
-                    $errors[] = 'Peg ID sudah digunakan pada baris SK lain.';
-                }
-                if ($existing !== null) {
-                    // Older templates and empty origin cells preserve stored origin details.
-                    if ($originCode === '') {
-                        foreach (ParticipantOrigin::FIELDS as $field) {
-                            $payload[$field] = $existing->getAttribute($field);
-                        }
-                    }
-                    // An omitted operator preserves the current assignment on reimport.
-                    $payload['assigned_operator_id'] ??= $existing->assigned_operator_id;
-                    $payload['phone_number'] ??= $existing->phone_number;
-                    $changed = $existing->sk_date->format('Y-m-d') !== $payload['sk_date'];
-                    foreach (['name_on_sk', 'official_participant_id', 'phone_number', 'internal_note', 'assigned_operator_id', ...ParticipantOrigin::FIELDS] as $field) {
-                        $changed = $changed || $existing->getAttribute($field) !== $payload[$field];
-                    }
-                    $result = $changed ? 'change' : 'identical';
-                    if ($changed && ($existing->claimed_user_id !== null || ($existing->assigned_operator_id !== null && $existing->assigned_operator_id !== $payload['assigned_operator_id']))) {
-                        $result = 'conflict';
-                        $errors[] = 'Data terikat klaim atau perubahan penugasan; gunakan pemeriksaan administratif.';
-                    }
-                }
-                if ($errors !== [] && $result !== 'conflict') {
-                    $result = 'error';
-                }
-                $counts[$result]++;
-                $rows[] = ['sk_import_id' => $import->id, 'row_number' => $row, 'normalized_payload' => $payload, 'result' => $result, 'errors' => $errors];
+                $rows[] = ['sk_import_id' => $import->id, 'row_number' => $row, 'normalized_payload' => $payload,
+                    'match_identifier' => $values['id_peserta_sk'] !== '' && mb_strlen($values['id_peserta_sk']) <= 100 ? $values['id_peserta_sk'] : null,
+                    'match_sk_number' => $validator->errors()->has('nomor_sk') ? null : $payload['sk_number'], 'match_sk_order' => $validator->errors()->has('nomor_urut_sk') ? null : $payload['sk_order'],
+                    'result' => $errors === [] ? 'new' : 'error', 'errors' => $errors];
             }
             if ($rows === []) {
                 throw new InvalidSkImportWorkbook('Berkas tidak berisi peserta yang dapat diperiksa.');
             }
-            DB::transaction(function () use ($import, $rows, $counts, $period): void {
+            DB::transaction(function () use ($import, $rows, $period): void {
+                $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($period->id);
                 $locked = SkImport::query()->lockForUpdate()->findOrFail($import->id);
                 if ($locked->state === 'committed') {
                     return;
@@ -224,10 +180,12 @@ class ValidateSkImport
                         'errors' => json_encode($row['errors'], JSON_THROW_ON_ERROR),
                     ], $chunk));
                 }
+                $counts = app(MatchSkImportRows::class)->handle($locked);
+                $locked->matching_version = SkImport::MATCHING_VERSION;
                 $locked->counts = $counts;
                 $locked->dataset_version = $period->lock_version;
                 $locked->state = $counts['error'] + $counts['conflict'] > 0 ? 'invalid' : 'ready';
-                $locked->preview_hash = hash('sha256', json_encode([$locked->file_sha256, $period->lock_version, $rows], JSON_THROW_ON_ERROR));
+                $locked->preview_hash = hash('sha256', json_encode([$locked->file_sha256, $locked->import_mode, SkImport::MATCHING_VERSION, $period->lock_version, $locked->rows()->orderBy('row_number')->get()->toArray()], JSON_THROW_ON_ERROR));
                 $locked->validated_at = now();
                 $locked->expires_at = now()->addDay();
                 $locked->safe_summary = 'Validasi selesai. Seluruh baris diperiksa sebelum konfirmasi.';

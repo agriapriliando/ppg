@@ -1,5 +1,7 @@
 # 06 — Impor, referensi, dan integrasi
 
+**Pembaruan rancangan 10 November 2026:** untuk impor ulang dan pembaruan peserta SK, gunakan [rancangan 16](16-impor-ulang-sk-berdasarkan-id.md). Dokumen tersebut menetapkan periode + `id_peserta_sk` sebagai kunci pembaruan, ID wajib pada mode baru, serta penyimpanan baris valid dengan penundaan error/konflik. Ketentuan pencocokan berdasarkan nomor SK/urut dan pembatalan seluruh file karena error staging di bawah ini merupakan baseline lama, bukan acuan perubahan terbaru. Indeks unik nomor SK/urut tetap dipertahankan sebagai pemeriksaan benturan.
+
 ## 1. Kontrak template Excel SK
 
 Template unduhan produksi berupa `.xlsx` versi `1`, sheet `Peserta_SK` dan `Panduan`, header pada baris 1. Tidak ada sel gabungan, macro, password workbook, formula, atau tautan eksternal. Setiap file boleh memuat beberapa SK, tetapi semuanya harus berada pada **satu periode tujuan** yang dipilih admin. Tanggal SK milik setiap SK; jangan hanya menyimpan satu tanggal pada header impor bila ada beberapa SK.
