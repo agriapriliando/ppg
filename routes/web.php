@@ -36,10 +36,13 @@ use App\Http\Controllers\PeriodDocumentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicPortalController;
 use App\Http\Controllers\ReferenceLookupController;
+use App\Http\Controllers\SeoController;
 use App\Http\Controllers\StaffDocumentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', PublicPortalController::class)->name('home');
+Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
+Route::get('/robots.txt', [SeoController::class, 'robots'])->name('robots');
 Route::get('/periode/{period}/berkas', [PeriodDocumentController::class, 'index'])->name('public.period-documents.index');
 Route::get('/periode/{period}/berkas/{document}/lihat', [PeriodDocumentController::class, 'publicPreview'])->name('public.period-documents.preview');
 Route::get('/periode/{period}/berkas/{document}/unduh', [PeriodDocumentController::class, 'publicDownload'])->name('public.period-documents.download');

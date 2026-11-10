@@ -1,4 +1,4 @@
-<x-layouts::public 
+<x-layouts::public :interactive="false"
     title="Panduan Pendaftaran Mahasiswa Baru · PMB PPG IAKN Palangka Raya"
     description="Panduan lengkap alur pendaftaran peserta PPG Dalam Jabatan Bimas Kristen IAKN Palangka Raya: pendaftaran akun, verifikasi WhatsApp, login, dan unggah berkas persyaratan."
 >

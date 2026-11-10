@@ -10,6 +10,7 @@ Tampilan produksi dirancang menggunakan **Bootstrap 5 + Blade + Livewire 4**, me
 
 | Bahan | Kegunaan |
 | --- | --- |
+| [SEO portal publik](seo.md) | Metadata, canonical, sitemap, pengaturan indeks per lingkungan, dan pemeriksaan setelah rilis |
 | [Rancangan lengkap](rancangan-aplikasi/README.md) | Kebutuhan, alur, layar, skema, arsitektur, integrasi, tahapan kerja, pengujian, dan operasi |
 | [Rancangan unggah video](rancangan-aplikasi/14-unggah-video.md) | Usulan 10 November 2026: validasi frontend sebelum upload, pemeriksaan minimum server, tombol buka video di tab baru dan pengujian; belum diimplementasikan |
 | [Formulir, berkas, dan autosave](rancangan-aplikasi/11-formulir-berkas-dan-autosave.md) | Usulan 5 November 2026: draf otomatis saat mengetik, satu alur biodata–berkas, dan tombol kirim final di halaman berkas |

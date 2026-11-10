@@ -2,9 +2,10 @@
     'title' => 'PMB PPG IAKN Palangka Raya · Penerimaan Mahasiswa Baru',
     'description' => 'Portal resmi Penerimaan Mahasiswa Baru (PMB) Pendidikan Profesi Guru (PPG) Dalam Jabatan Bimas Kristen Institut Agama Kristen Negeri (IAKN) Palangka Raya.',
     'keywords' => 'PPG IAKN Palangka Raya, PMB PPG, PPG Bimas Kristen, Pendaftaran PPG, Guru Agama Kristen, IAKN Palangka Raya, Sertifikasi Guru',
-    'image' => asset('assets/' . rawurlencode('ppg iaknpky seo.jpg')),
+    'image' => \App\Support\Seo::url('assets/' . rawurlencode('ppg iaknpky seo.jpg')),
     'type' => 'website',
-    'canonical' => url()->current(),
+    'canonical' => \App\Support\Seo::url(request()->path() === '/' ? '' : request()->path()),
+    'interactive' => true,
 ])
 <!DOCTYPE html>
 <html lang="id">
@@ -20,7 +21,7 @@
     <meta name="description" content="{{ $description }}">
     <meta name="keywords" content="{{ $keywords }}">
     <meta name="author" content="IAKN Palangka Raya">
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="robots" content="{{ \App\Support\Seo::robots(request()) }}">
     <link rel="canonical" href="{{ $canonical }}">
 
     <!-- Open Graph / Facebook / WhatsApp -->
@@ -52,25 +53,25 @@
         chr(64) . 'graph' => [
             [
                 chr(64) . 'type' => 'EducationalOrganization',
-                chr(64) . 'id' => url('/') . '#organization',
+                chr(64) . 'id' => \App\Support\Seo::url() . '#organization',
                 'name' => 'PPG IAKN Palangka Raya',
                 'alternateName' => 'Pendidikan Profesi Guru Institut Agama Kristen Negeri Palangka Raya',
-                'url' => url('/'),
+                'url' => \App\Support\Seo::url(),
                 'logo' => [
                     chr(64) . 'type' => 'ImageObject',
-                    'url' => asset('favicon_io_new/android-chrome-512x512.png'),
+                    'url' => \App\Support\Seo::url('favicon_io_new/android-chrome-512x512.png'),
                 ],
                 'image' => $image,
                 'description' => 'Program Pendidikan Profesi Guru (PPG) Dalam Jabatan Bimas Kristen pada Institut Agama Kristen Negeri (IAKN) Palangka Raya.',
             ],
             [
                 chr(64) . 'type' => 'WebSite',
-                chr(64) . 'id' => url('/') . '#website',
-                'url' => url('/'),
+                chr(64) . 'id' => \App\Support\Seo::url() . '#website',
+                'url' => \App\Support\Seo::url(),
                 'name' => 'PMB PPG IAKN Palangka Raya',
                 'description' => $description,
                 'publisher' => [
-                    chr(64) . 'id' => url('/') . '#organization',
+                    chr(64) . 'id' => \App\Support\Seo::url() . '#organization',
                 ],
                 'inLanguage' => 'id-ID',
             ],
@@ -81,7 +82,7 @@
                 'name' => $title,
                 'description' => $description,
                 'isPartOf' => [
-                    chr(64) . 'id' => url('/') . '#website',
+                    chr(64) . 'id' => \App\Support\Seo::url() . '#website',
                 ],
                 'primaryImageOfPage' => [
                     chr(64) . 'type' => 'ImageObject',
@@ -100,7 +101,7 @@
     <link rel="shortcut icon" href="{{ asset('favicon_io_new/favicon.ico') }}">
     <link rel="manifest" href="{{ asset('favicon_io_new/site.webmanifest') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @livewireStyles
+    @if($interactive) @livewireStyles @endif
 </head>
 <body>
 <a href="#main-content" class="skip-link btn btn-gold">Lewati ke konten</a>
@@ -119,6 +120,6 @@
 </nav>
 <main id="main-content">{{ $slot }}</main>
 <footer class="py-4 text-center text-muted border-top"><div class="container"><strong>PPG IAKN Palangka Raya</strong><div class="small mt-1">Penerimaan berdasarkan SK resmi · Tanggal dan jadwal menggunakan WIB</div></div></footer>
-@livewireScripts
+@if($interactive) @livewireScripts @endif
 </body>
 </html>
