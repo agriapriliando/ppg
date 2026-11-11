@@ -12,6 +12,7 @@ Tampilan produksi dirancang menggunakan **Bootstrap 5 + Blade + Livewire 4**, me
 | --- | --- |
 | [SEO portal publik](seo.md) | Metadata, canonical, sitemap, pengaturan indeks per lingkungan, dan pemeriksaan setelah rilis |
 | [Rancangan lengkap](rancangan-aplikasi/README.md) | Kebutuhan, alur, layar, skema, arsitektur, integrasi, tahapan kerja, pengujian, dan operasi |
+| [Filter status peserta SK](rancangan-aplikasi/17-filter-status-peserta-sk.md) | Rancangan filter akun dan antrean yang konsisten dengan ekspor Excel; belum diimplementasikan |
 | [Impor ulang SK berdasarkan ID](implementasi/impor-ulang-sk-id.md) | Implementasi lokal: update Excel menggunakan periode + id_peserta_sk, dua jenis impor, diff dan perlindungan data terikat; [acuan rancangan](rancangan-aplikasi/16-impor-ulang-sk-berdasarkan-id.md) |
 | [Validasi frontend dan video](implementasi/validasi-frontend-dan-video.md) | Implementasi lokal: area unggah lama, pemeriksaan sebelum transfer, antrean, kuota, retry dan video di tab baru; acuan [rancangan 14](rancangan-aplikasi/14-unggah-video.md) dan [15](rancangan-aplikasi/15-validasi-frontend-unggahan.md) |
 | [Formulir, berkas, dan autosave](rancangan-aplikasi/11-formulir-berkas-dan-autosave.md) | Usulan 5 November 2026: draf otomatis saat mengetik, satu alur biodata–berkas, dan tombol kirim final di halaman berkas |

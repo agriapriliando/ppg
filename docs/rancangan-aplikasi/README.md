@@ -25,6 +25,7 @@ Tujuan aplikasi adalah menangani peserta yang telah ditetapkan dalam SK: mempero
 | 14 | [Unggah dan pemutaran video](14-unggah-video.md) | Usulan 10 November 2026: validasi frontend, batas per periode, pemeriksaan minimum server, tombol buka video di tab baru dan penerimaan |
 | 15 | [Validasi frontend seluruh unggahan](15-validasi-frontend-unggahan.md) | Rancangan 10 November 2026: dokumen/gambar/video pada area unggah lama, validasi sebelum transfer, antrean campuran, kuota, retry dan pengujian |
 | 16 | [Impor ulang SK berdasarkan ID](16-impor-ulang-sk-berdasarkan-id.md) | Rancangan 10 November 2026: pembaruan berdasarkan periode + id_peserta_sk, diff, penundaan konflik, perlindungan data terikat dan commit |
+| 17 | [Filter status peserta SK](17-filter-status-peserta-sk.md) | Rancangan filter status akun dan antrean, konsistensi daftar dan ekspor Excel, serta pengujian |
 
 ## Cara menggunakan
 

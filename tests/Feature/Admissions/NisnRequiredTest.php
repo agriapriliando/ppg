@@ -34,7 +34,7 @@ it('allows an empty NISN in a draft but blocks final confirmation and provides a
         ->call('openConfirmation')->assertHasErrors('nisn')->assertSet('showConfirmation', false);
     $this->get(route('applicant.form.edit', $c['period']))->assertOk()
         ->assertDontSee('NISN (jika tersedia)')
-        ->assertSee('NISN (Nomor Induk Sekolah Nasional)')
+        ->assertSee('NISN (Nomor Induk Siswa Nasional)')
         ->assertSeeInOrder(['id="form-nisn"', 'required aria-required="true"', 'Lihat di Ijazah S1 atau SMA.', 'href="https://nisn.data.kemendikdasmen.go.id/"', 'Cek di Kemendikdasmen'], false);
 
     expect($application->fresh()->status)->toBe(ApplicationStatus::Draft);
