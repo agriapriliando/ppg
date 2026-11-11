@@ -56,6 +56,8 @@ class DocumentManager extends Component
 
     public ?string $errorMessage = null;
 
+    public string $documentSearch = '';
+
     #[Locked]
     public ?string $uploadBatchId = null;
 
@@ -167,12 +169,19 @@ class DocumentManager extends Component
         $totalBytesUsed = (int) $documents->sum('byte_size');
         $quotaBytes = $policy->workspace_quota_bytes;
         $remainingBytes = $quotaBytes !== null ? max(0, $quotaBytes - $totalBytesUsed) : null;
+        $search = mb_strtolower(trim($this->documentSearch));
+        $hasDocuments = $documents->isNotEmpty();
+        if ($search !== '') {
+            $documents = $documents->filter(fn (ApplicantDocument $document): bool => Str::contains(mb_strtolower($document->file_name), $search)
+                || Str::contains(mb_strtolower($document->original_name), $search));
+        }
 
         return view('livewire.documents.document-manager', [
             'workspace' => $workspace,
             'period' => $period,
             'policy' => $policy,
             'documents' => $documents,
+            'hasDocuments' => $hasDocuments,
             'canModify' => $canModify,
             'canUpload' => $canUpload,
             'isArchived' => $isArchived,

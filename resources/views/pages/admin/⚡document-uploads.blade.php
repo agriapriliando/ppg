@@ -191,7 +191,6 @@ new #[Title('Daftar Unggahan')] class extends Component
                                 <th>Nama Berkas</th>
                                 <th>Periode</th>
                                 <th>Ukuran</th>
-                                <th>Waktu</th>
                                 <th>Pengunggah</th>
                                 <th class="text-end pe-4">Aksi</th>
                             </tr>
@@ -216,7 +215,7 @@ new #[Title('Daftar Unggahan')] class extends Component
                                             <i class="bi {{ $doc->iconClass() }} fs-5"></i>
                                             <div>
                                                 <span class="fw-semibold text-dark">{{ $doc->display_name }}</span><span class="text-muted">.{{ $doc->extension }}</span>
-                                                <small class="text-muted d-block" style="font-size: 0.72rem;">Asli: {{ $doc->original_name }}</small>
+                                                <small class="text-muted d-block" style="font-size: 0.72rem;">Diunggah {{ $doc->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</small>
                                             </div>
                                         </div>
                                     </td>
@@ -225,10 +224,6 @@ new #[Title('Daftar Unggahan')] class extends Component
                                     </td>
                                     <td>
                                         <span class="small fw-semibold">{{ $doc->formattedSize() }}</span>
-                                    </td>
-                                    <td>
-                                        <div class="small">{{ $doc->created_at->timezone('Asia/Jakarta')->format('d/m/Y') }}</div>
-                                        <small class="text-muted">{{ $doc->created_at->timezone('Asia/Jakarta')->format('H:i') }} WIB</small>
                                     </td>
                                     <td>
                                         @if ($doc->uploaded_by === $doc->owner_user_id)

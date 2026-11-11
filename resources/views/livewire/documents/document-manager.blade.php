@@ -42,15 +42,27 @@
         <div class="alert alert-info">Berkas pada pendaftaran terkirim dikunci selama pemeriksaan. Pengubahan dibuka saat perbaikan.</div>
     @endif
     @if (filled($policy->general_instructions))
-        <section class="workspace-card mb-4 border-start border-4 border-warning" aria-label="Panduan unggah berkas">
-            <div class="panel-heading bg-warning-subtle">
-                <div>
+        <section class="workspace-card mb-4 border-start border-4 border-warning" aria-label="Panduan unggah berkas" x-data="{ guideOpen: false }">
+            <div class="panel-heading bg-warning-subtle d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 p-sm-4">
+                <div class="flex-grow-1">
                     <h2 class="h5 mb-1"><i class="bi bi-info-circle-fill text-purple me-2" aria-hidden="true"></i>Panduan Unggah Berkas</h2>
-                    <p class="text-dark mb-0">Baca petunjuk berikut sebelum memilih dan mengunggah file.</p>
+                    <p class="text-dark mt-2 mb-0 lh-base">Baca petunjuk berikut sebelum memilih dan mengunggah file.</p>
                 </div>
+                <button type="button" class="btn btn-sm btn-outline-purple px-3 py-2 flex-shrink-0" @click="guideOpen = true" aria-haspopup="dialog" :aria-expanded="guideOpen.toString()" aria-controls="upload-guide-{{ $workspaceId }}">
+                    <i class="bi bi-book me-1" aria-hidden="true"></i>Buka Panduan
+                </button>
             </div>
-            <div class="panel-body">
-                <div class="text-dark" style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;font-size:0.95rem">{{ $policy->general_instructions }}</div>
+            <div id="upload-guide-{{ $workspaceId }}" x-cloak x-show="guideOpen" x-trap.inert.noscroll="guideOpen" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="upload-guide-title-{{ $workspaceId }}" @keydown.escape.window="guideOpen = false" @click.self="guideOpen = false">
+                <div class="ui-modal">
+                    <div class="ui-modal-header">
+                        <h2 id="upload-guide-title-{{ $workspaceId }}">Panduan Unggah Berkas</h2>
+                        <button type="button" class="btn-close" @click="guideOpen = false" aria-label="Tutup panduan"></button>
+                    </div>
+                    <div class="ui-modal-body">
+                        <div class="text-dark" style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;font-size:0.95rem">{{ $policy->general_instructions }}</div>
+                    </div>
+                    <div class="p-3 border-top text-end"><button type="button" class="btn btn-purple" @click="guideOpen = false">Tutup</button></div>
+                </div>
             </div>
         </section>
     @endif
@@ -69,13 +81,29 @@
                     <p class="text-muted small mb-0">Seluruh dokumen yang tersimpan pada ruang kerja periode ini.</p>
                 </div>
             </div>
+            <div class="mt-3 mb-3" style="max-width: 420px">
+                <label for="document-search-{{ $workspaceId }}" class="form-label small fw-semibold">Cari dokumen</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+                    <input id="document-search-{{ $workspaceId }}" type="search" class="form-control" wire:model.live.debounce.300ms="documentSearch" maxlength="255" placeholder="Cari nama berkas" autocomplete="off">
+                    @if (trim($documentSearch) !== '')
+                        <button type="button" class="btn btn-outline-secondary" wire:click="$set('documentSearch', '')">Hapus pencarian</button>
+                    @endif
+                </div>
+                <small class="text-muted" wire:loading.delay wire:target="documentSearch">Mencari dokumen...</small>
+            </div>
         </div>
         <div class="panel-body p-0">
             @if ($documents->isEmpty())
                 <div class="text-center py-5">
                     <i class="bi bi-folder2-open display-4 text-muted mb-2 d-block"></i>
-                    <h3 class="h6 text-muted mb-1">Belum ada berkas yang diunggah</h3>
-                    <p class="small text-muted mb-0">Silakan gunakan form unggah di atas untuk melengkapi berkas pendaftaran Anda.</p>
+                    @if ($hasDocuments && trim($documentSearch) !== '')
+                        <h3 class="h6 text-muted mb-1">Tidak ada dokumen yang cocok</h3>
+                        <p class="small text-muted mb-0">Coba kata kunci lain atau hapus pencarian.</p>
+                    @else
+                        <h3 class="h6 text-muted mb-1">Belum ada berkas yang diunggah</h3>
+                        <p class="small text-muted mb-0">Silakan gunakan form unggah di atas untuk melengkapi berkas pendaftaran Anda.</p>
+                    @endif
                 </div>
             @else
                 <div class="table-responsive">
@@ -84,20 +112,20 @@
                             <tr>
                                 <th scope="col" class="ps-4">Nama Berkas</th>
                                 <th scope="col">Ukuran / Format</th>
-                                <th scope="col">Waktu Unggah</th>
                                 <th scope="col">Pengunggah</th>
                                 <th scope="col" class="text-end pe-4">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($documents as $doc)
-                                <tr wire:key="doc-row-{{ $doc->id }}">
+                                <tr wire:key="doc-row-{{ $doc->id }}" data-document-row>
                                     <td class="ps-4">
                                         <div class="d-flex align-items-center gap-2">
                                             <i class="bi {{ $doc->iconClass() }} fs-5 flex-shrink-0"></i>
                                             <div class="d-flex align-items-center gap-1">
                                                 <div>
-                                                <span class="fw-semibold text-dark">{{ $doc->display_name }}</span><span class="text-muted">.{{ $doc->extension }}</span>
+                                                    <span class="fw-semibold text-dark">{{ $doc->display_name }}</span><span class="text-muted">.{{ $doc->extension }}</span>
+                                                    <small class="d-block text-muted">Diunggah {{ $doc->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</small>
                                                 </div>
                                                 <button type="button" class="btn btn-link text-purple p-2 flex-shrink-0"
                                                     style="min-width:44px;min-height:44px"
@@ -118,10 +146,6 @@
                                     <td>
                                         <div class="small fw-semibold text-dark">{{ $doc->formattedSize() }}</div>
                                         <small class="text-muted text-uppercase" style="font-size: 0.72rem;">{{ $doc->extension }}</small>
-                                    </td>
-                                    <td>
-                                        <div class="small">{{ $doc->created_at->timezone('Asia/Jakarta')->format('d/m/Y') }}</div>
-                                        <small class="text-muted">{{ $doc->created_at->timezone('Asia/Jakarta')->format('H:i') }} WIB</small>
                                     </td>
                                     <td>
                                         @if ($doc->uploaded_by === $currentUser->id)
@@ -150,7 +174,7 @@
                                                 </button>
                                                 <button type="button" class="doc-btn doc-btn-delete"
                                                     wire:click="confirmDelete('{{ $doc->id }}')" title="Hapus permanen">
-                                                    <i class="bi bi-trash3"></i><span>Hapus / Lepas</span>
+                                                    <i class="bi bi-trash3"></i><span>Hapus</span>
                                                 </button>
                                             @endif
                                         </div>
@@ -226,7 +250,7 @@
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-danger shadow">
                     <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title h6 fw-bold mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Hapus / Lepas Berkas</h5>
+                        <h5 class="modal-title h6 fw-bold mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Hapus Berkas</h5>
                         <button type="button" class="btn-close btn-close-white" wire:click="cancelDelete" aria-label="Tutup"></button>
                     </div>
                     <div class="modal-body">
@@ -241,7 +265,7 @@
                     <div class="modal-footer border-top">
                         <button type="button" class="btn btn-light border" wire:click="cancelDelete">Batal</button>
                         <button type="button" class="btn btn-danger px-4" wire:click="executeDelete">
-                            <i class="bi bi-trash3-fill me-1"></i>Hapus / Lepas Berkas
+                            <i class="bi bi-trash3-fill me-1"></i>Hapus Permanen
                         </button>
                     </div>
                 </div>

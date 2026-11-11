@@ -65,6 +65,10 @@ try {
         await evaluate(`Livewire.find(Array.from(document.getElementsByTagName('*')).find(el=>el.hasAttribute('wire:id')).getAttribute('wire:id')).manageDocuments(${context.period_id})`);
     }
     await evaluate(`new Promise((resolve,reject)=>{let n=0;const poll=()=>{const el=document.querySelector('[data-file-upload-queue]');if(el&&window.Alpine&&Alpine.$data(el).add)resolve(true);else if(++n>200)reject(new Error('Upload UI did not initialize: '+location.pathname));else setTimeout(poll,100)};poll()})`);
+    if (workflow !== 'period') {
+        const guide = await evaluate(`new Promise(resolve => { const button = document.querySelector('[aria-controls="upload-guide-${context.workspace_id}"]'); const modal = document.getElementById(button.getAttribute('aria-controls')); const hiddenInitially = getComputedStyle(modal).display === 'none'; button.click(); setTimeout(() => { const dialog = modal.querySelector('.ui-modal'); const rect = dialog.getBoundingClientRect(); const visible = getComputedStyle(modal).display !== 'none'; const fits = rect.width <= innerWidth && rect.height <= innerHeight; const scrollable = dialog.scrollHeight > dialog.clientHeight; modal.querySelector('.btn-close').click(); setTimeout(() => resolve({hiddenInitially, visible, fits, scrollable, closed: getComputedStyle(modal).display === 'none'}), 100); }, 100); })`);
+        assert.deepEqual(guide, { hiddenInitially: true, visible: true, fits: true, scrollable: true, closed: true });
+    }
     await call('DOM.enable', {}, sessionId);
     const { root: domRoot } = await call('DOM.getDocument', {}, sessionId);
     const { nodeId } = await call('DOM.querySelector', { nodeId: domRoot.nodeId, selector: '[data-file-upload-queue] input[type=file]' }, sessionId);
@@ -77,6 +81,10 @@ try {
     const links = await evaluate(`Array.from(document.querySelectorAll('a')).filter(a=>a.textContent.includes('Buka Video')).map(a=>({target:a.target,rel:a.rel,href:a.href}))`);
     assert.ok(links.length > 0); assert.equal(links[0].target, '_blank');
     assert.ok(links[0].rel.includes('noopener'));
+    if (workflow !== 'period') {
+        const search = await evaluate(`new Promise((resolve,reject) => { const input=document.getElementById('document-search-${context.workspace_id}'); const update=value=>{input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));}; const wait=(condition,next)=>{let n=0;const poll=()=>{if(condition())next();else if(++n>100)reject(new Error('Search update timed out'));else setTimeout(poll,100)};poll();}; update('HEVC'); wait(()=>{const rows=document.querySelectorAll('[data-document-row]');return rows.length===1&&rows[0].textContent.includes('hevc');},()=>{update('tidak ditemukan');wait(()=>document.body.textContent.includes('Tidak ada dokumen yang cocok'),()=>{const empty=true;const clear=Array.from(document.querySelectorAll('button')).find(button=>button.textContent.trim()==='Hapus pencarian');clear.click();wait(()=>document.querySelectorAll('[data-document-row]').length===4,()=>resolve({empty,reset:input.value==='',overflow:document.documentElement.scrollWidth>innerWidth}));});}); })`);
+        assert.deepEqual(search, { empty: true, reset: true, overflow: false });
+    }
     await evaluate(`document.querySelector('[data-file-upload-queue]').scrollIntoView({block:'start'});true`);
     const screenshot = await call('Page.captureScreenshot', { format: 'png' }, sessionId);
     const artifacts = join(project, 'storage/framework/testing');

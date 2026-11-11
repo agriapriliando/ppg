@@ -69,7 +69,7 @@ $tag = 'UPLOAD-QA-'.Str::lower(Str::random(12));
     };
     $user = $factory->create(['name' => 'QA Unggah Berkas', 'email' => strtolower($tag).'@example.invalid', 'phone_number' => '6281234567890']);
     $period = AdmissionPeriod::factory()->published()->create(['code' => $tag, 'name' => 'QA Validasi Unggahan', 'is_public' => false]);
-    DocumentPolicyVersion::create(['admission_period_id' => $period->id, 'version' => 1, 'allowed_extensions' => ['pdf', 'mp4', 'mov', 'webm'], 'max_file_size_bytes' => 100 * 1024, 'workspace_quota_bytes' => 1024 * 1024, 'max_video_files' => 3]);
+    DocumentPolicyVersion::create(['admission_period_id' => $period->id, 'version' => 1, 'allowed_extensions' => ['pdf', 'mp4', 'mov', 'webm'], 'max_file_size_bytes' => 100 * 1024, 'workspace_quota_bytes' => 1024 * 1024, 'max_video_files' => 3, 'general_instructions' => str_repeat("Panduan pengujian unggah berkas.\n", 30)]);
     $owner = $workflow === 'applicant' ? $user : User::factory()->create(['email' => strtolower($tag).'-owner@example.invalid', 'phone_number' => '6281234567891']);
     $workspace = ApplicantWorkspace::create(['user_id' => $owner->id, 'admission_period_id' => $period->id]);
 
