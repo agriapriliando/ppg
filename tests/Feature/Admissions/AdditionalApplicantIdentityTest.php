@@ -27,7 +27,7 @@ it('requires Peg ID before submitting while allowing an empty draft', function (
     $this->assertDatabaseCount('application_submissions', 0);
 
     $this->get(route('applicant.form.edit', $c['period']))->assertOk()
-        ->assertSee('Nomor Peg ID wajib diisi sebelum mengirim pendaftaran.');
+        ->assertSee('Nomor Peg ID ada di surat pemanggilan.');
     Livewire::test(SubmitRegistration::class, ['workspaceId' => $application->workspace_id])
         ->call('openConfirmation')->assertSet('showConfirmation', false)->assertHasErrors('peg_id');
 });
