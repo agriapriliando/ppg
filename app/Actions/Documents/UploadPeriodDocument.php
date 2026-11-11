@@ -8,6 +8,7 @@ use App\Models\DocumentPolicyVersion;
 use App\Models\PeriodDocument;
 use App\Models\User;
 use App\Policies\PeriodDocumentPolicy;
+use App\Support\DocumentUploadRules;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -20,12 +21,17 @@ class UploadPeriodDocument
 {
     public function __construct(private PeriodDocumentPolicy $access, private RecordAudit $audit) {}
 
-    public function handle(User $actor, AdmissionPeriod $period, UploadedFile $file, string $requestKey): PeriodDocument
+    /** @param array<string, mixed> $clientMetadata */
+    public function handle(User $actor, AdmissionPeriod $period, UploadedFile $file, string $requestKey, ?int $expectedPolicyId = null, array $clientMetadata = []): PeriodDocument
     {
         abort_unless($this->access->upload($actor, $period), 403);
         Validator::make(['file' => $file, 'request_key' => $requestKey], ['file' => ['required', 'file'], 'request_key' => ['required', 'string', 'max:100']])->validate();
         $existing = PeriodDocument::query()->where('admission_period_id', $period->id)->where('uploaded_by', $actor->id)->where('request_key', $requestKey)->first();
         if ($existing !== null) {
+            if (! $existing->isAvailable()) {
+                throw ValidationException::withMessages(['upload' => 'Berkas dari unggahan ini sudah dihapus. Pilih ulang berkas untuk unggahan baru.']);
+            }
+
             return $existing;
         }
         $id = (string) Str::uuid();
@@ -34,24 +40,20 @@ class UploadPeriodDocument
         $size = (int) $file->getSize();
         $path = null;
         try {
-            return DB::transaction(function () use ($actor, $period, $file, $requestKey, $id, $extension, $mime, $size, &$path): PeriodDocument {
+            return DB::transaction(function () use ($actor, $period, $file, $requestKey, $id, $extension, $mime, $size, &$path, $expectedPolicyId, $clientMetadata): PeriodDocument {
                 $locked = AdmissionPeriod::query()->lockForUpdate()->findOrFail($period->id);
                 abort_unless($this->access->upload($actor, $locked), 403);
                 $existing = PeriodDocument::query()->where('admission_period_id', $locked->id)->where('uploaded_by', $actor->id)->where('request_key', $requestKey)->first();
                 if ($existing !== null) {
+                    if (! $existing->isAvailable()) {
+                        throw ValidationException::withMessages(['upload' => 'Berkas dari unggahan ini sudah dihapus. Pilih ulang berkas untuk unggahan baru.']);
+                    }
+
                     return $existing;
                 }
                 $policy = DocumentPolicyVersion::resolveForPeriod($locked);
-                if ($size < 1 || $size > $policy->max_file_size_bytes) {
-                    throw ValidationException::withMessages(['file' => 'File kosong atau melebihi batas '.$policy->formattedMaxFileSize().'.']);
-                }
-                if (! in_array($extension, $policy->allowedExtensions(), true) || ! in_array($mime, $policy->allowedMimeTypes(), true)) {
-                    throw ValidationException::withMessages(['file' => 'Format atau isi file tidak sesuai aturan berkas periode. Gunakan '.$policy->allowedExtensionLabels().'.']);
-                }
-                // Validate MIME against the selected extension as well as the overall allowlist.
-                if (! in_array($mime, config('document_policy.supported_types.'.$extension.'.mime_types', []), true)) {
-                    throw ValidationException::withMessages(['file' => 'Isi file tidak cocok dengan ekstensinya.']);
-                }
+                DocumentUploadRules::validate($policy, $extension, $mime, $size, $expectedPolicyId);
+                $metadata = DocumentUploadRules::isVideo($extension) ? DocumentUploadRules::metadata($clientMetadata, $policy->id) : null;
                 $path = Storage::disk('local')->putFileAs('period-documents/'.$locked->id, $file, $id.'.'.$extension);
                 if (! is_string($path)) {
                     throw new \RuntimeException('Berkas belum dapat disimpan. Coba unggah kembali.');
@@ -62,7 +64,7 @@ class UploadPeriodDocument
                 $document->fill(['admission_period_id' => $locked->id, 'uploaded_by' => $actor->id,
                     'original_name' => mb_substr($file->getClientOriginalName(), 0, 255), 'display_name' => $base ?: 'dokumen',
                     'extension' => $extension, 'mime_type' => $mime, 'byte_size' => $size, 'disk' => 'local',
-                    'object_key' => $path, 'status' => PeriodDocument::STATUS_AVAILABLE, 'lock_version' => 0, 'request_key' => $requestKey]);
+                    'object_key' => $path, 'status' => PeriodDocument::STATUS_AVAILABLE, 'lock_version' => 0, 'request_key' => $requestKey, 'client_media_metadata' => $metadata, 'sha256' => hash_file('sha256', $file->getRealPath()) ?: null]);
                 $document->save();
                 $this->audit->handle($actor, 'Mengunggah berkas periode', $document, ['period_id' => $locked->id]);
 

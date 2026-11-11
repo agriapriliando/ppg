@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\RecordAudit;
 use App\Models\AdmissionPeriod;
 use App\Models\PeriodDocument;
+use App\Support\DocumentByteRanges;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -50,7 +51,10 @@ class PeriodDocumentController extends Controller
         $disk = Storage::disk($document->disk);
         abort_unless($disk->exists($document->object_key), 404);
         abort_if($preview && ! $document->isPreviewable(), 415, 'Format ini hanya dapat diunduh.');
-        $this->audit->handle(auth()->user(), $preview ? 'Melihat berkas informasi periode' : 'Mengunduh berkas informasi periode', $document, ['public' => $public, 'period_id' => $period->id]);
+        if (! $document->isVideo() || ! request()->headers->has('Range') || str_starts_with((string) request()->header('Range'), 'bytes=0-')) {
+            $this->audit->handle(auth()->user(), $preview ? 'Melihat berkas informasi periode' : 'Mengunduh berkas informasi periode', $document, ['public' => $public, 'period_id' => $period->id]);
+        }
+        DocumentByteRanges::guard($disk->path($document->object_key), $document->isVideo());
         $headers = ['X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store'];
 
         return $preview ? response()->file($disk->path($document->object_key), ['Content-Type' => $document->mime_type, ...$headers])

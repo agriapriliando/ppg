@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\ApplicantDocument;
 use App\Models\ApplicantWorkspace;
+use App\Support\DocumentByteRanges;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
@@ -44,6 +45,7 @@ class AdminWorkspaceDocumentController extends Controller
         abort_unless($disk->exists($document->object_key), 404);
 
         $path = $disk->path($document->object_key);
+        DocumentByteRanges::guard($path, $document->isVideo());
 
         return response()->file($path, [
             'Content-Type' => $document->mime_type,
@@ -63,6 +65,7 @@ class AdminWorkspaceDocumentController extends Controller
         abort_unless($disk->exists($document->object_key), 404);
 
         $path = $disk->path($document->object_key);
+        DocumentByteRanges::guard($path, $document->isVideo());
 
         return response()->download($path, $document->sanitized_download_name, [
             'X-Content-Type-Options' => 'nosniff',

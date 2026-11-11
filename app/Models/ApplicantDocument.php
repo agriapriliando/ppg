@@ -45,6 +45,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'lock_version',
     'request_key',
     'sha256',
+    'client_media_metadata',
     'detached_at',
 ])]
 class ApplicantDocument extends Model
@@ -59,7 +60,7 @@ class ApplicantDocument extends Model
     protected function casts(): array
     {
         return [
-            'byte_size' => 'integer',
+            'client_media_metadata' => 'array', 'byte_size' => 'integer',
             'lock_version' => 'integer',
         ];
     }

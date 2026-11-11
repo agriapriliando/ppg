@@ -4,6 +4,8 @@ Tanggal pembaruan: **18 Oktober 2026**. Status: **alur inti MVP dibangun dan lul
 
 ## Yang sudah dapat digunakan
 
+Unggah berkas: [validasi frontend bersama, video MP4, antrean serial dan akses video di tab baru](validasi-frontend-dan-video.md).
+
 Impor SK: [impor ulang berdasarkan periode + ID peserta SK, mode pembaruan, diff dan perlindungan konflik](impor-ulang-sk-id.md).
 
 Pengelolaan periode: [unggah beberapa berkas per periode, lihat/unduh, ubah nama, dan hapus](berkas-periode.md).

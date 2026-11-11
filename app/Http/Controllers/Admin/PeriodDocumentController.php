@@ -6,6 +6,7 @@ use App\Actions\RecordAudit;
 use App\Http\Controllers\Controller;
 use App\Models\AdmissionPeriod;
 use App\Models\PeriodDocument;
+use App\Support\DocumentByteRanges;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -16,7 +17,10 @@ class PeriodDocumentController extends Controller
     {
         $this->authorizeFile($period, $document);
         abort_unless($document->isPreviewable(), 415, 'Format ini hanya dapat diunduh.');
-        $audit->handle(auth()->user(), 'Melihat berkas periode', $document);
+        if (! $document->isVideo() || ! request()->headers->has('Range') || str_starts_with((string) request()->header('Range'), 'bytes=0-')) {
+            $audit->handle(auth()->user(), 'Melihat berkas periode', $document);
+        }
+        DocumentByteRanges::guard(Storage::disk($document->disk)->path($document->object_key), $document->isVideo());
 
         return response()->file(Storage::disk($document->disk)->path($document->object_key), [
             'Content-Type' => $document->mime_type, 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store',

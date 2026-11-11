@@ -92,7 +92,7 @@
                                         value="{{ old('max_file_size_mb', round($currentPolicy->max_file_size_bytes / (1024 * 1024), 1)) }}">
                                     <span class="input-group-text">MB</span>
                                 </div>
-                                <div class="form-text small">Berlaku sama bagi pendaftar dan petugas/pengelola.</div>
+                                <div class="form-text small">Berlaku untuk semua format, termasuk video, bagi pendaftar dan pengelola. Durasi video tidak dibatasi.</div>
                             </div>
                             <div class="col-md-6">
                                 <label for="workspace_quota_mb" class="form-label small fw-semibold">Kapasitas Total Workspace per Periode (Opsional)</label>
@@ -103,7 +103,12 @@
                                         placeholder="Kosongkan jika tanpa batas kuota">
                                     <span class="input-group-text">MB</span>
                                 </div>
-                                <div class="form-text small">Jika dikosongkan, kuota tidak dibatasi oleh aplikasi.</div>
+                                <div class="form-text small">Wajib diisi jika video diizinkan. Jika video tidak aktif dan dikosongkan, kuota tidak dibatasi oleh aplikasi.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="max-video-files" class="form-label small fw-semibold">Maksimal video per workspace peserta (jika video diizinkan)</label>
+                                <input id="max-video-files" type="number" min="1" max="30" name="max_video_files" class="form-control" value="{{ old('max_video_files', $currentPolicy->max_video_files ?? 1) }}">
+                                <div class="form-text">1–30 video MP4, MOV, atau WebM secara keseluruhan. Berlaku untuk berkas peserta; berkas informasi periode tidak memakai batas jumlah ini.</div>
                             </div>
                         </div>
 

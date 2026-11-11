@@ -126,8 +126,8 @@
                                             </a>
                                             @if ($doc->isPreviewable())
                                                 <a href="{{ route('admin.workspaces.documents.preview', ['workspace' => $doc->workspace_id, 'document' => $doc->id]) }}"
-                                                    target="_blank" class="doc-btn doc-btn-preview" title="Lihat di tab baru">
-                                                    <i class="bi bi-eye"></i><span>Lihat</span>
+                                                    target="_blank" rel="noopener noreferrer" class="doc-btn doc-btn-preview" title="{{ $doc->isVideo() ? 'Buka Video (tab baru)' : 'Lihat di tab baru' }}">
+                                                    <i class="bi bi-eye"></i><span>{{ $doc->isVideo() ? 'Buka Video' : 'Lihat' }}</span>
                                                 </a>
                                             @endif
                                             <a href="{{ route('admin.workspaces.documents.download', ['workspace' => $doc->workspace_id, 'document' => $doc->id]) }}"

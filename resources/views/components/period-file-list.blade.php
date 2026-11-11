@@ -8,7 +8,7 @@
                     <div style="overflow-wrap:anywhere"><h3 class="h6 fw-bold mb-1">{{ $document->file_name }}</h3><p class="small text-muted mb-0">{{ strtoupper($document->extension) }} · {{ $document->formattedSize() }}</p></div>
                 </div>
                 <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
-                    @if($document->isPreviewable())<a class="btn btn-outline-purple" href="{{ route($audience.'.period-documents.preview', [$period,$document]) }}" target="_blank" rel="noopener"><i class="bi bi-eye me-1" aria-hidden="true"></i>Lihat</a>@endif
+                    @if($document->isPreviewable())<a class="btn btn-outline-purple" href="{{ route($audience.'.period-documents.preview', [$period,$document]) }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-eye me-1" aria-hidden="true"></i>{{ $document->isVideo() ? 'Buka Video' : 'Lihat' }}</a>@endif
                     <a class="btn btn-purple" href="{{ route($audience.'.period-documents.download', [$period,$document]) }}"><i class="bi bi-download me-1" aria-hidden="true"></i>Unduh</a>
                 </div>
             </div>

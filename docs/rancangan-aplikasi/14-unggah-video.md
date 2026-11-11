@@ -1,6 +1,8 @@
 # Rancangan dukungan unggah dan pemutaran video
 
-Tanggal: **10 November 2026**, zona waktu **Asia/Jakarta**. Status: **usulan fitur, belum diimplementasikan**.
+> **Perubahan terbaru:** pemeriksaan codec, resolusi, durasi, dan metadata pada rancangan awal di bawah tidak lagi diberlakukan. MP4, MOV, dan WebM didukung sesuai aturan periode. Rancangan awal dipertahankan sebagai riwayat; lihat [implementasi yang berlaku](../implementasi/validasi-frontend-dan-video.md).
+
+Tanggal rancangan: **10 November 2026**, zona waktu **Asia/Jakarta**. Status: **implementasi lokal tersedia, diperbarui 11 November 2026**. Lihat [perilaku aktual, pengujian dan langkah rilis](../implementasi/validasi-frontend-dan-video.md). Matriks/gate di bawah tetap acuan penerimaan; bukan klaim deployment atau UAT production selesai.
 
 Halaman pengaturan: `/admin/aturan-berkas?period_id={id}`. Rancangan meliputi video peserta, berkas informasi periode dan pemutaran oleh pengguna yang berhak. Dokumen ini tidak mengaktifkan video atau mengubah konfigurasi produksi.
 
@@ -33,7 +35,7 @@ Nilai berikut adalah usulan untuk uji kapasitas, bukan ketentuan kampus atau kon
 | Ukuran video | Mengikuti `max_file_size_bytes` pada aturan berkas periode | Batas yang sama untuk semua format; frontend dan server memakai nilai yang sama |
 | Durasi | Tidak dibatasi | Metadata durasi hanya informasi opsional, bukan syarat kelolosan |
 | Resolusi | Anjuran 720p; sisi panjang maksimal 1920 dan sisi pendek maksimal 1080 piksel | Mendukung orientasi horizontal dan vertikal |
-| Jumlah video peserta | 1/workspace/periode; dapat diatur 1-5 | Server menghitung ulang untuk menangani upload bersamaan |
+| Jumlah video peserta | 1/workspace/periode; dapat diatur 1-30 | Server menghitung ulang untuk menangani upload bersamaan |
 | Kuota workspace | Disarankan 500 MiB dan wajib terbatas jika video aktif | Mencakup dokumen dan video |
 | Batas PDF/gambar | Mengikuti `max_file_size_bytes` yang sama | Mengubah pengaturan ukuran berkas berlaku pada seluruh format |
 | Melihat video | Tombol **Buka Video** menuju tab baru | Halaman utama hanya menampilkan tautan/tombol dan informasi file |
@@ -174,20 +176,20 @@ Semua menu yang menampilkan file video menyediakan tombol/tautan **Buka Video**.
 
 ## 9. Usulan perubahan data dan kode
 
-Semua nama baru berikut adalah **usulan implementasi**, belum tersedia sebagai fitur.
+Tabel berikut merangkum rancangan yang sudah diterapkan lokal. Detail kontrak dan hasil pengujian tersedia pada [catatan implementasi](../implementasi/validasi-frontend-dan-video.md).
 
 | Sasaran | Perubahan |
 | --- | --- |
 | `document_policy_versions` | Ukuran tetap memakai `max_file_size_bytes` yang sudah ada; hanya usulan `max_video_files` untuk jumlah, tanpa `max_video_size_bytes` atau `max_video_duration_seconds`; profil dimensi/codec dari konfigurasi server; aktivasi tetap melalui `allowed_extensions` |
 | Helper kebijakan | Ekspor satu batas ukuran berkas bersama dan JSON aturan aktif; versi lama tanpa MP4 tetap menonaktifkan video |
-| Metadata video tersimpan | `client_duration_seconds`, `client_width`, `client_height`, `client_video_codec`, `client_audio_codec`, `client_validator_version` dan `client_policy_version_id`, nullable pada kedua model file |
+| Metadata video tersimpan | JSON nullable `client_media_metadata` pada kedua model file berisi durasi, dimensi, codec, versi validator dan ID kebijakan dari klien |
 | Identitas metadata | Terikat pada UUID/kunci upload yang sama dan hash file final dari server; metadata ditandai berasal dari browser |
 | `VideoFileValidator` | Modul tambahan pada validator umum rancangan 15, untuk parser, metadata native, timeout, pembatalan dan pembersihan sumber lokal |
 | Komponen upload yang sudah ada | Satu input/dropzone campuran; validator umum lalu validator video harus selesai sebelum upload Livewire/temporary upload, bukan setelah `wire:model` otomatis mengirim file |
 | Tombol video | Komponen tautan Buka Video dengan tab baru; route file privat tetap memeriksa akses |
 | `ffprobe`/job media | Tidak dibutuhkan pada rilis frontend ini; opsi penguatan terpisah bila kelak diperlukan |
 
-Usulan tipe metadata: durasi nullable `double` hanya untuk informasi, dimensi `unsignedInteger`, codec/versi string terbatas. Durasi yang tidak tersedia/tidak finite disimpan null dan tidak menolak file; tidak ada batas durasi bisnis. Ukuran file aktual dan hash tetap berasal dari server. Jangan membuat field bernama `verified_duration` untuk nilai yang hanya dilaporkan browser. Metadata lokal tidak digunakan untuk mengubah status kelulusan atau mengganti bukti revisi pengajuan.
+Metadata JSON divalidasi menurut tipe: durasi nullable numerik hanya untuk informasi, dimensi integer positif, codec/versi string terbatas. Durasi yang tidak tersedia/tidak finite disimpan null dan tidak menolak file; tidak ada batas durasi bisnis. Ukuran file aktual dan hash tetap berasal dari server. Jangan membuat field bernama `verified_duration` untuk nilai yang hanya dilaporkan browser. Metadata lokal tidak digunakan untuk mengubah status kelulusan atau mengganti bukti revisi pengajuan.
 
 Berkas sasaran:
 
@@ -249,7 +251,7 @@ Tambahkan resumable/multipart upload dan object storage untuk file besar/jaringa
 13. Satu input/dropzone lama menerima dokumen, gambar dan video; tidak ada menu/tombol Unggah Video terpisah. Antrean memvalidasi semua file sebelum transfer masing-masing, otomatis mengunggah yang lolos, dan menandai yang gagal tanpa menghapus keberhasilan lain.
 14. Seluruh matriks pola bersama pada rancangan 15 lulus, termasuk reservasi kuota, busy selama pemeriksaan lokal, retry idempoten dan konfirmasi penyimpanan final.
 
-Gate rilis: pengujian frontend dan backend minimum lulus, sampel media nyata lolos pada perangkat target, limit transport/kapasitas terverifikasi, dan panduan diperbarui. Seluruh pengujian di atas masih **rencana**, belum merupakan hasil implementasi video.
+Gate rilis: pengujian frontend dan backend minimum lulus, sampel media nyata lolos pada perangkat target, limit transport/kapasitas terverifikasi, dan panduan diperbarui. Matriks ini tetap acuan penerimaan; [catatan implementasi](../implementasi/validasi-frontend-dan-video.md) membedakan hasil tes lokal yang sudah lulus dari UAT perangkat dan infrastruktur yang masih diperlukan.
 
 ## 13. Keputusan yang masih diperlukan
 

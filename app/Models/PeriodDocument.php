@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read string $file_name
  * @property-read string $sanitized_download_name
  */
-#[Fillable(['admission_period_id', 'uploaded_by', 'original_name', 'display_name', 'extension', 'mime_type', 'byte_size', 'disk', 'object_key', 'status', 'lock_version', 'request_key'])]
+#[Fillable(['admission_period_id', 'uploaded_by', 'original_name', 'display_name', 'extension', 'mime_type', 'byte_size', 'disk', 'object_key', 'status', 'lock_version', 'request_key', 'client_media_metadata', 'sha256'])]
 class PeriodDocument extends Model
 {
     use HasDocumentFileDetails;
@@ -42,7 +42,7 @@ class PeriodDocument extends Model
 
     protected function casts(): array
     {
-        return ['byte_size' => 'integer', 'lock_version' => 'integer'];
+        return ['client_media_metadata' => 'array', 'byte_size' => 'integer', 'lock_version' => 'integer'];
     }
 
     /** @return BelongsTo<AdmissionPeriod, $this> */

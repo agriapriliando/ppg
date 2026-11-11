@@ -1,6 +1,8 @@
 # Rancangan validasi frontend untuk seluruh unggahan
 
-Tanggal: **10 November 2026**, zona waktu **Asia/Jakarta**. Status: **rancangan perubahan, belum diimplementasikan**.
+> **Perubahan terbaru:** bagian pemeriksaan codec, resolusi dan metadata video di bawah merupakan rancangan lama. Pemeriksaan aktif dan format yang didukung dijelaskan dalam [catatan implementasi](../implementasi/validasi-frontend-dan-video.md).
+
+Tanggal rancangan: **10 November 2026**, zona waktu **Asia/Jakarta**. Status: **implementasi lokal tersedia, diperbarui 11 November 2026**. Lihat [perilaku aktual, pengujian dan langkah rilis](../implementasi/validasi-frontend-dan-video.md). Matriks/gate di bawah tetap acuan penerimaan; UAT perangkat dan production dibedakan dari pengujian lokal.
 
 Dokumen ini menjadi acuan pola bersama unggah dokumen, gambar, dan video. Rincian pemeriksaan media mengikuti [rancangan video](14-unggah-video.md). Tidak ada perubahan aplikasi, migrasi, menu, atau konfigurasi production dari penulisan dokumen ini.
 
@@ -24,13 +26,13 @@ Dokumen ini menjadi acuan pola bersama unggah dokumen, gambar, dan video. Rincia
 | Pengelola pada workspace pendaftar | `DocumentManager`, mode `admin` | Pola yang sama; tidak melewati aturan karena peran pengelola |
 | Pengelola berkas informasi periode | `PeriodDocumentManager` | Validator yang sama; kuota/jumlah video workspace peserta tidak diterapkan pada berkas periode |
 
-Saat ini kedua view memakai `accept` dan langsung memanggil `$uploadMultiple` setelah persiapan batch. Belum ada pemeriksaan `File.size`, ekstensi, kuota pilihan campuran, atau metadata video sebelum transfer. Pemeriksaan utama berlangsung pada komponen/action server. Video belum tersedia dalam `config/document_policy.php`.
+Pada telaah awal, kedua view memakai `accept` dan langsung memanggil `$uploadMultiple` setelah persiapan batch, tanpa pemeriksaan ukuran, ekstensi, kapasitas pilihan campuran atau metadata video sebelum transfer. Implementasi lokal sekarang menambahkan validator dan antrean bersama sebelum temporary upload, serta dukungan MP4 pada konfigurasi kebijakan.
 
 Berkas peserta tetap privat, sedangkan informasi periode mengikuti visibilitas yang sudah berlaku. Rancangan ini tidak menambah kewenangan atau mengubah akses file lama.
 
 ## 3. Kontrak aturan bersama
 
-Server menghasilkan satu payload aturan dari versi kebijakan yang berlaku, untuk kedua komponen. Nama berikut adalah usulan kontrak, bukan field aplikasi yang sudah ada:
+Server menghasilkan satu payload aturan dari versi kebijakan yang berlaku, untuk kedua komponen. Berikut struktur konseptual rancangan. Implementasi `DocumentUploadRules::contract()` mengirim batas bersama dan kapasitas tersisa langsung pada payload, tanpa objek `context`, `file_types` atau `workspace`; pasangan MIME diperiksa di server, dan codec diperiksa validator video.
 
 ```text
 policy_version_id, validator_contract_version
@@ -162,4 +164,4 @@ Matriks minimum:
 11. UI diuji pada Chrome Android, Safari iPhone dan desktop: pesan terbaca, keyboard/fokus aksesibel, progress tidak membekukan halaman.
 12. Pemeriksaan frontend memakai tes JavaScript/fixture file nyata, serta uji browser dengan intersepsi Network; tes PHP saja tidak membuktikan pencegahan transfer di browser. Backend tetap diuji melalui request/action yang sudah ada. Alat tes browser dipilih saat implementasi; tidak memasang dependensi pada tahap rancangan.
 
-Gate selesai: pola sama pada semua jalur, tidak ada transfer file yang ditolak lokal, tidak ada menu baru, validasi backend tidak berkurang, dan bukti uji frontend/backend serta UAT tersedia. Semua poin di atas masih **rencana pengujian**, bukan hasil fitur yang sudah dibangun.
+Gate selesai: pola sama pada semua jalur, tidak ada transfer file yang ditolak lokal, tidak ada menu baru, validasi backend tidak berkurang, dan bukti uji frontend/backend serta UAT tersedia. Hasil tes lokal dan batas UAT yang masih diperlukan dicatat pada [catatan implementasi](../implementasi/validasi-frontend-dan-video.md); matriks ini tetap menjadi acuan penerimaan.

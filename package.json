@@ -4,7 +4,10 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "test:uploads": "node --test tests/JavaScript/file-upload.test.js",
+        "test:uploads:browser": "node tests/JavaScript/browser-upload-smoke.mjs",
+        "test:uploads:livewire": "node tests/JavaScript/livewire-upload-browser.mjs"
     },
     "dependencies": {
         "bootstrap": "5.3.3",

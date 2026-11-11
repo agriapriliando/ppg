@@ -6,11 +6,13 @@ use App\Actions\Documents\DeleteApplicantDocument;
 use App\Actions\Documents\RenameApplicantDocument;
 use App\Actions\Documents\UploadApplicantDocument;
 use App\Enums\PeriodState;
+use App\Livewire\Documents\Concerns\ValidatesFrontendUploads;
 use App\Models\AdmissionPeriod;
 use App\Models\ApplicantDocument;
 use App\Models\ApplicantWorkspace;
 use App\Models\DocumentPolicyVersion;
 use App\Policies\ApplicantDocumentPolicy;
+use App\Support\DocumentUploadRules;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +28,7 @@ use Throwable;
 
 class DocumentManager extends Component
 {
+    use ValidatesFrontendUploads;
     use WithFileUploads;
 
     #[Locked]
@@ -133,6 +136,7 @@ class DocumentManager extends Component
         abort_unless($user !== null, 401);
 
         $workspace = ApplicantWorkspace::findOrFail($this->workspaceId);
+        abort_unless($workspace->admission_period_id === $this->periodId, 403);
         abort_unless(app(ApplicantDocumentPolicy::class)->canAccessWorkspace($user, $workspace, false), 403);
     }
 
@@ -177,6 +181,7 @@ class DocumentManager extends Component
             'quotaBytes' => $quotaBytes,
             'remainingBytes' => $remainingBytes,
             'currentUser' => $user,
+            'uploadRules' => DocumentUploadRules::contract($policy, $workspace),
         ]);
     }
 

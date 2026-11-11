@@ -67,6 +67,7 @@ class DocumentPolicyController extends Controller
             'max_file_size_bytes',
             'workspace_quota_bytes',
             'general_instructions',
+            'max_video_files',
         ]);
 
         if ($request->filled('max_file_size_mb')) {

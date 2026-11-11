@@ -30,7 +30,7 @@ Tujuan aplikasi adalah menangani peserta yang telah ditetapkan dalam SK: mempero
 
 Rancangan impor ulang terbaru: **[16 — Impor ulang SK berdasarkan ID](16-impor-ulang-sk-berdasarkan-id.md)** mengganti kunci pembaruan nomor SK/urut dengan periode + `id_peserta_sk`. Implementasi lokal tersedia; baca [perilaku aktual dan langkah rilis](../implementasi/impor-ulang-sk-id.md). Perlindungan klaim dan penugasan tetap berlaku.
 
-Rancangan terbaru: **[15 — Validasi frontend seluruh unggahan](15-validasi-frontend-unggahan.md)** menjadi pola bersama semua format dan peran pada area Unggah Berkas yang sudah ada. **[14 — Unggah dan pemutaran video](14-unggah-video.md)** melengkapi pemeriksaan media dan akses tab baru. Keduanya masih rancangan; tidak menambah menu unggah video terpisah.
+Rancangan unggah: **[15 — Validasi frontend seluruh unggahan](15-validasi-frontend-unggahan.md)** menjadi pola bersama semua format/peran pada area Unggah Berkas yang sudah ada. **[14 — Unggah dan pemutaran video](14-unggah-video.md)** melengkapi pemeriksaan media dan akses tab baru. Implementasi lokal tersedia; lihat [perilaku aktual, pengujian dan langkah rilis](../implementasi/validasi-frontend-dan-video.md). Tidak menambah menu unggah video terpisah.
 
 Perluasan terbaru: **[11 — Formulir, berkas, dan autosave](11-formulir-berkas-dan-autosave.md)**, usulan 5 November 2026 untuk menggabungkan perjalanan pengisian dan unggah, menyimpan draf otomatis, serta memindahkan pengiriman final ke halaman berkas. Dokumen ini juga mengusulkan perubahan eksplisit atas aturan pengubahan berkas setelah kirim pada rancangan 10.
 

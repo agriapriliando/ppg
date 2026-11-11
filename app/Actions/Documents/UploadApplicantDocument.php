@@ -10,6 +10,7 @@ use App\Models\ApplicantWorkspace;
 use App\Models\DocumentPolicyVersion;
 use App\Models\User;
 use App\Policies\ApplicantDocumentPolicy;
+use App\Support\DocumentUploadRules;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -25,12 +26,15 @@ class UploadApplicantDocument
         private ApplicantDocumentPolicy $policy,
     ) {}
 
+    /** @param array<string, mixed> $clientMetadata */
     public function handle(
         User $actor,
         ApplicantWorkspace $workspace,
         UploadedFile|TemporaryUploadedFile $file,
         string $requestKey,
         ?string $batchId = null,
+        ?int $expectedPolicyId = null,
+        array $clientMetadata = [],
     ): ApplicantDocument {
         abort_unless($this->policy->upload($actor, $workspace), 403);
 
@@ -42,6 +46,10 @@ class UploadApplicantDocument
             ->first();
 
         if ($existing instanceof ApplicantDocument) {
+            if (! $existing->isAvailable() || $existing->detached_at !== null) {
+                throw ValidationException::withMessages(['upload' => 'Berkas dari unggahan ini sudah dihapus atau dipisahkan. Pilih ulang berkas untuk unggahan baru.']);
+            }
+
             return $existing;
         }
 
@@ -69,15 +77,10 @@ class UploadApplicantDocument
         $sha256 = hash_file('sha256', $file->getRealPath());
 
         try {
-            $stored = Storage::disk($disk)->putFileAs("applicant-documents/{$workspace->id}", $file, "{$documentUuid}.{$extension}");
-            if (! $stored) {
-                throw new \RuntimeException('Gagal menyimpan berkas ke penyimpanan server.');
-            }
-            $storedSuccessfully = true;
-
             return DB::transaction(function () use (
                 $actor,
                 $workspace,
+                $file,
                 $requestKey,
                 $clientOriginalName,
                 $extension,
@@ -89,6 +92,8 @@ class UploadApplicantDocument
                 &$storedSuccessfully,
                 $sha256,
                 $batchId,
+                $expectedPolicyId,
+                $clientMetadata,
             ): ApplicantDocument {
                 $period = AdmissionPeriod::query()->lockForUpdate()->findOrFail($workspace->admission_period_id);
                 $lockedWorkspace = ApplicantWorkspace::query()->lockForUpdate()->findOrFail($workspace->id);
@@ -98,6 +103,9 @@ class UploadApplicantDocument
                 }
                 $existing = ApplicantDocument::query()->where('workspace_id', $workspace->id)->where('uploaded_by', $actor->id)->where('request_key', $requestKey)->first();
                 if ($existing !== null) {
+                    if (! $existing->isAvailable() || $existing->detached_at !== null) {
+                        throw ValidationException::withMessages(['upload' => 'Berkas dari unggahan ini sudah dihapus atau dipisahkan. Pilih ulang berkas untuk unggahan baru.']);
+                    }
                     Storage::disk($disk)->delete($objectKey);
                     $storedSuccessfully = false;
 
@@ -112,32 +120,17 @@ class UploadApplicantDocument
 
                 $policyVersion = DocumentPolicyVersion::resolveForPeriod($period);
 
-                // Validate max size
-                if ($fileSize > $policyVersion->max_file_size_bytes) {
-                    throw ValidationException::withMessages([
-                        'upload' => "Ukuran file '{$clientOriginalName}' ({$policyVersion->formattedMaxFileSize()}) melebihi batas maksimal {$policyVersion->formattedMaxFileSize()}.",
-                    ]);
-                }
-
-                // Validate extension
-                if (! in_array($extension, $policyVersion->allowedExtensions(), true)) {
-                    throw ValidationException::withMessages([
-                        'upload' => "Format file '.{$extension}' tidak diizinkan. Format yang didukung: {$policyVersion->allowedExtensionLabels()}.",
-                    ]);
-                }
-
-                // Validate MIME type
-                if (! in_array($mimeType, $policyVersion->allowedMimeTypes(), true)) {
-                    throw ValidationException::withMessages([
-                        'upload' => "Tipe konten berkas '{$mimeType}' tidak valid untuk format .{$extension}.",
-                    ]);
+                DocumentUploadRules::validate($policyVersion, $extension, $mimeType, $fileSize, $expectedPolicyId);
+                $mediaMetadata = DocumentUploadRules::isVideo($extension) ? DocumentUploadRules::metadata($clientMetadata, $policyVersion->id) : null;
+                if (DocumentUploadRules::isVideo($extension) && ApplicantDocument::query()->where('workspace_id', $lockedWorkspace->id)->whereIn('status', [ApplicantDocument::STATUS_AVAILABLE, ApplicantDocument::STATUS_DELETING])->whereIn('extension', config('document_policy.video_extensions', []))->count() >= ($policyVersion->max_video_files ?? 1)) {
+                    throw ValidationException::withMessages(['upload' => 'Batas jumlah video pada workspace ini sudah tercapai.']);
                 }
 
                 // Validate workspace total quota if set
                 if ($policyVersion->workspace_quota_bytes !== null) {
                     $currentTotalBytes = (int) ApplicantDocument::query()
                         ->where('workspace_id', $lockedWorkspace->id)
-                        ->where('status', ApplicantDocument::STATUS_AVAILABLE)
+                        ->whereIn('status', [ApplicantDocument::STATUS_AVAILABLE, ApplicantDocument::STATUS_DELETING])
                         ->sum('byte_size');
 
                     if ($currentTotalBytes + $fileSize > $policyVersion->workspace_quota_bytes) {
@@ -146,6 +139,12 @@ class UploadApplicantDocument
                         ]);
                     }
                 }
+
+                $stored = Storage::disk($disk)->putFileAs("applicant-documents/{$workspace->id}", $file, "{$documentUuid}.{$extension}");
+                if (! $stored) {
+                    throw new \RuntimeException('Gagal menyimpan berkas ke penyimpanan server.');
+                }
+                $storedSuccessfully = true;
 
                 // Sanitize base display name
                 $baseName = pathinfo($clientOriginalName, PATHINFO_FILENAME);
@@ -173,6 +172,7 @@ class UploadApplicantDocument
                     'lock_version' => 0,
                     'request_key' => $requestKey,
                     'sha256' => $sha256 ?: null,
+                    'client_media_metadata' => $mediaMetadata,
                 ]);
 
                 $lockedWorkspace->documents_version++;

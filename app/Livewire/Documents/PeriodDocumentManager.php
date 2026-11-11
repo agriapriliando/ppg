@@ -6,11 +6,13 @@ use App\Actions\Documents\DeletePeriodDocument;
 use App\Actions\Documents\RenamePeriodDocument;
 use App\Actions\Documents\UploadPeriodDocument;
 use App\Enums\PeriodState;
+use App\Livewire\Documents\Concerns\ValidatesFrontendUploads;
 use App\Models\AdmissionPeriod;
 use App\Models\DocumentPolicyVersion;
 use App\Models\PeriodDocument;
 use App\Models\User;
 use App\Policies\PeriodDocumentPolicy;
+use App\Support\DocumentUploadRules;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -23,6 +25,7 @@ use Throwable;
 
 class PeriodDocumentManager extends Component
 {
+    use ValidatesFrontendUploads;
     use WithFileUploads;
 
     #[Locked]
@@ -181,6 +184,7 @@ class PeriodDocumentManager extends Component
 
         return view('livewire.documents.period-document-manager', [
             'period' => $period, 'policy' => DocumentPolicyVersion::resolveForPeriod($period),
+            'uploadRules' => DocumentUploadRules::contract(DocumentPolicyVersion::resolveForPeriod($period)),
             'canModify' => $period->state !== PeriodState::Archived,
             'documents' => $period->periodDocuments()->with('uploader')->orderByDesc('created_at')->orderByDesc('id')->get(),
         ]);

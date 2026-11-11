@@ -27,6 +27,12 @@ trait HasDocumentFileDetails
         return in_array($this->mime_type, $previewable, true);
     }
 
+    public function isVideo(): bool
+    {
+        return in_array($this->extension, config('document_policy.video_extensions', []), true)
+            && in_array($this->mime_type, config('document_policy.supported_types.'.$this->extension.'.mime_types', []), true);
+    }
+
     public function isAvailable(): bool
     {
         return $this->status === self::STATUS_AVAILABLE;
@@ -52,6 +58,7 @@ trait HasDocumentFileDetails
         $ext = strtolower($this->extension);
 
         return match ($ext) {
+            'mp4', 'mov', 'webm' => 'bi-file-earmark-play text-purple',
             'pdf' => 'bi-file-earmark-pdf text-danger',
             'jpg', 'jpeg', 'png', 'webp', 'gif' => 'bi-file-earmark-image text-primary',
             'doc', 'docx' => 'bi-file-earmark-word text-info',

@@ -57,115 +57,7 @@
 
     <!-- Upload Section -->
     @if ($canUpload)
-        <section class="workspace-card mb-4"
-            x-data="{
-                isDragOver: false,
-                isUploading: false,
-                uploadProgress: 0,
-                async startUpload(files) {
-                    if (!files?.length || this.isUploading) return;
-                    this.isUploading = true;
-                    this.$dispatch('registration-uploading', { busy: true });
-                    try {
-                        await this.$wire.beginUploadBatch();
-                        this.$wire.$uploadMultiple('uploadedFiles', [...files],
-                            () => { this.isUploading = false; this.uploadProgress = 100; this.$dispatch('registration-uploading', { busy: false }); this.$dispatch('registration-documents-changed'); },
-                            () => { this.isUploading = false; this.$dispatch('registration-uploading', { busy: false }); },
-                            event => { this.uploadProgress = event.detail.progress; });
-                    } catch (error) {
-                        this.isUploading = false;
-                        this.$dispatch('registration-uploading', { busy: false });
-                    }
-                },
-                handleDrop(event) {
-                    const files = event.dataTransfer?.files;
-                    this.isDragOver = false;
-                    if (!files?.length) return;
-                    this.$refs.fileInput.files = files;
-                    this.$refs.fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            }"
-            x-on:livewire-upload-start="isUploading = true; uploadProgress = 0"
-            x-on:livewire-upload-progress="uploadProgress = $event.detail.progress"
-            x-on:livewire-upload-finish="isUploading = false; uploadProgress = 100"
-            x-on:livewire-upload-error="isUploading = false">
-            <div class="panel-heading">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 w-100">
-                    <div>
-                        <h2 class="h5 mb-1"><i class="bi bi-cloud-arrow-up text-purple me-2"></i>Unggah Berkas</h2>
-                        <p class="text-muted small mb-0">Seret atau pilih satu atau beberapa berkas sekaligus dari perangkat Anda.</p>
-                    </div>
-                    <span class="badge text-bg-light border text-secondary px-3 py-2">
-                        Total Berkas: <strong class="text-purple">{{ $documents->count() }}</strong>
-                    </span>
-                </div>
-            </div>
-            <div class="panel-body">
-                <div class="p-2 border rounded-3 bg-light mb-3">
-                    <div class="small text-muted mb-1">
-                        <strong>Ketentuan Berkas:</strong> Format didukung: <span class="fw-semibold text-dark">{{ $policy->allowedExtensionLabels() }}</span>
-                    </div>
-                    <div class="small text-muted">
-                        Maksimal <strong class="text-dark">{{ $policy->formattedMaxFileSize() }}</strong> per berkas
-                        @if ($quotaBytes !== null)
-                            · Kuota Total: <strong>{{ $policy->formattedWorkspaceQuota() }}</strong>
-                            (Tersisa: <strong class="text-purple">{{ round($remainingBytes / (1024 * 1024), 1) }} MB</strong>)
-                        @else
-                            · Kapasitas total tidak dibatasi aplikasi
-                        @endif
-                    </div>
-                </div>
-
-                <!-- Dropzone Area -->
-                <div class="border border-2 border-dashed rounded-3 p-4 text-center cursor-pointer mb-3 position-relative transition-all"
-                    style="border-color: #c4b5fd !important; background-color: #faf5ff;"
-                    x-bind:class="{ 'border-primary bg-white shadow-sm': isDragOver, 'opacity-50': isUploading }"
-                    x-on:click="if (!isUploading) $refs.fileInput.click()"
-                    x-on:dragover.prevent="if (!isUploading) isDragOver = true"
-                    x-on:dragleave.prevent="isDragOver = false"
-                    x-on:drop.prevent="if (!isUploading) handleDrop($event)">
-                    <i class="bi bi-cloud-arrow-up-fill text-purple display-5 d-block mb-2"></i>
-                    <p class="fw-semibold mb-1 text-dark fs-6">Klik untuk memilih berkas atau seret ke sini</p>
-                    <p class="text-purple small mb-1 fw-medium">
-                        <i class="bi bi-lightning-charge-fill text-warning me-1"></i>Berkas yang dipilih atau di-drop akan langsung terunggah otomatis
-                    </p>
-                    <p class="text-muted small mb-0" style="font-size: 0.75rem;">
-                        Format yang didukung: {{ $policy->allowedExtensionLabels() }} · Maks {{ $policy->formattedMaxFileSize() }} per berkas
-                    </p>
-                </div>
-
-                <input type="file" id="fileInput" x-ref="fileInput" class="d-none" multiple @change="startUpload($event.target.files)"
-                    accept="{{ collect($policy->allowedExtensions())->map(fn($ext) => '.' . $ext)->implode(',') }}"
-                    x-bind:disabled="isUploading">
-
-                @error('uploadedFiles')
-                    <div class="alert alert-danger py-2 small mb-3">{{ $message }}</div>
-                @enderror
-                @error('uploadedFiles.*')
-                    <div class="alert alert-danger py-2 small mb-3">{{ $message }}</div>
-                @enderror
-
-                <!-- Progress Bar -->
-                <div x-cloak x-show="isUploading" class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center small text-muted mb-1">
-                        <span>Mengirim berkas ke server...</span>
-                        <span class="fw-bold text-purple" x-text="`${uploadProgress}%`"></span>
-                    </div>
-                    <div class="progress" style="height: 10px; border-radius: 999px;">
-                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-purple"
-                            role="progressbar" x-bind:style="`width: ${uploadProgress}%`"></div>
-                    </div>
-                </div>
-
-                <!-- Indikator Proses Penyimpanan Livewire -->
-                <div wire:loading wire:target="uploadedFiles" class="alert alert-light border border-purple-subtle py-2 small mb-3">
-                    <div class="d-flex align-items-center gap-2 text-purple">
-                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                        <span class="fw-medium">Memproses dan menyimpan berkas ke workspace Anda...</span>
-                    </div>
-                </div>
-            </div>
-        </section>
+        <x-file-upload-queue :rules="$uploadRules" />
     @endif
 
     <!-- Daftar Berkas Tersimpan -->
@@ -244,8 +136,8 @@
                                     <td class="text-end pe-4">
                                         <div class="doc-actions-group" role="group" aria-label="Aksi berkas {{ $doc->file_name }}">
                                             @if ($doc->isPreviewable())
-                                                <a href="{{ $this->previewUrl($doc) }}" target="_blank" class="doc-btn doc-btn-preview" title="Lihat di tab baru">
-                                                    <i class="bi bi-eye"></i><span>Lihat</span>
+                                                <a href="{{ $this->previewUrl($doc) }}" target="_blank" rel="noopener noreferrer" class="doc-btn doc-btn-preview" title="{{ $doc->isVideo() ? 'Buka Video (tab baru)' : 'Lihat di tab baru' }}">
+                                                    <i class="bi bi-eye"></i><span>{{ $doc->isVideo() ? 'Buka Video' : 'Lihat' }}</span>
                                                 </a>
                                             @endif
                                             <a href="{{ $this->downloadUrl($doc) }}" class="doc-btn doc-btn-download" title="Unduh berkas">

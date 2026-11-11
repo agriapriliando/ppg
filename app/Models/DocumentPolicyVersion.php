@@ -23,6 +23,7 @@ use LogicException;
     'version',
     'allowed_extensions',
     'max_file_size_bytes',
+    'max_video_files',
     'workspace_quota_bytes',
     'general_instructions',
     'created_by',
@@ -47,6 +48,7 @@ class DocumentPolicyVersion extends Model
             'max_file_size_bytes' => 'integer',
             'workspace_quota_bytes' => 'integer',
             'version' => 'integer',
+            'max_video_files' => 'integer',
         ];
     }
 

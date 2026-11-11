@@ -164,8 +164,8 @@
                                     <td class="text-end pe-4">
                                         <div class="doc-actions-group" role="group" aria-label="Aksi berkas {{ $doc->file_name }}">
                                             @if($doc->isPreviewable())
-                                                <a href="{{ route('admin.workspaces.documents.preview', ['workspace' => $doc->workspace_id, 'document' => $doc->id]) }}" target="_blank" class="doc-btn doc-btn-preview" title="Lihat di tab baru">
-                                                    <i class="bi bi-eye"></i><span>Lihat</span>
+                                                <a href="{{ route('admin.workspaces.documents.preview', ['workspace' => $doc->workspace_id, 'document' => $doc->id]) }}" target="_blank" rel="noopener noreferrer" class="doc-btn doc-btn-preview" title="{{ $doc->isVideo() ? 'Buka Video (tab baru)' : 'Lihat di tab baru' }}">
+                                                    <i class="bi bi-eye"></i><span>{{ $doc->isVideo() ? 'Buka Video' : 'Lihat' }}</span>
                                                 </a>
                                             @endif
                                             <a href="{{ route('admin.workspaces.documents.download', ['workspace' => $doc->workspace_id, 'document' => $doc->id]) }}" class="doc-btn doc-btn-download" title="Unduh berkas">

@@ -12,44 +12,7 @@
             @if(!$canModify)
                 <div class="alert alert-secondary">Periode diarsipkan. Berkas dapat dilihat dan diunduh.</div>
             @else
-                <div class="mb-4" x-data="{
-                    busy:false, progress:0, drag:false, uploadError:'',
-                    async start(files) {
-                        if (!files?.length || this.busy) return;
-                        this.busy=true;this.progress=0;this.uploadError='';
-                        try {
-                            await this.$wire.beginUpload();
-                            this.$wire.$uploadMultiple('uploadedFiles', [...files],
-                                () => {this.busy=false;this.$refs.files.value='';},
-                                () => {this.busy=false;this.$refs.files.value='';this.uploadError='Unggahan belum selesai. Pilih ulang file dan coba kembali.';},
-                                event => {this.progress=event.detail.progress;});
-                        } catch(error) {this.busy=false;this.$refs.files.value='';this.uploadError='Unggahan belum dapat dimulai. Muat ulang atau pilih berkas kembali.';}
-                    }
-                }">
-                    <div class="border rounded-3 bg-light p-3 mb-3 small">
-                        <strong>Ketentuan berkas periode</strong>
-                        <div>Format: {{ $policy->allowedExtensionLabels() }}. Maksimal {{ $policy->formattedMaxFileSize() }} per file.</div>
-                        <div class="text-muted">Unggah beberapa file sekaligus, atau tambahkan file lain kemudian. Gunakan nama yang mudah dikenali, misalnya Panduan Pendaftaran atau Jadwal Seleksi.</div>
-                    </div>
-                    <button type="button" class="btn btn-outline-purple w-100 p-4 border-2 rounded-3 text-center"
-                        :class="{'bg-warning-subtle':drag}" :disabled="busy"
-                        @click="$refs.files.click()" @dragover.prevent="drag=true" @dragleave.prevent="drag=false"
-                        @drop.prevent="drag=false;start($event.dataTransfer.files)">
-                        <i class="bi bi-cloud-arrow-up fs-2 d-block mb-2" aria-hidden="true"></i>
-                        <strong>Pilih atau seret berkas periode ke sini</strong>
-                        <span class="d-block small mt-1">Bisa lebih dari satu file. Unggahan dimulai otomatis.</span>
-                    </button>
-                    <input type="file" x-ref="files" multiple class="d-none" :disabled="busy"
-                        accept="{{ collect($policy->allowedExtensions())->map(fn($ext) => '.'.$ext)->implode(',') }}"
-                        @change="start($event.target.files)">
-                    <div x-cloak x-show="busy" class="mt-3" role="status">
-                        <div class="d-flex justify-content-between small mb-1"><span>Mengunggah dan menyimpan berkas...</span><span x-text="progress+'%'"></span></div>
-                        <div class="progress" style="height:8px"><div class="progress-bar bg-purple" :style="'width:'+progress+'%'"></div></div>
-                    </div>
-                    <div x-cloak x-show="uploadError" x-text="uploadError" class="alert alert-danger mt-3" role="alert"></div>
-                    <div wire:loading wire:target="uploadedFiles" class="small text-purple mt-2">Memproses berkas di server...</div>
-                    <x-field-error name="uploadedFiles" />
-                </div>
+                <x-file-upload-queue :rules="$uploadRules" />
             @endif
             <h3 class="h6 fw-bold">Berkas yang Telah Diunggah <span class="badge text-bg-light border">{{ $documents->count() }}</span></h3>
             @forelse($documents as $doc)
@@ -67,7 +30,7 @@
                         </div>
                         <div class="d-flex flex-wrap gap-2 align-items-center flex-shrink-0">
                             @if($doc->isAvailable())
-                                @if($doc->isPreviewable())<a class="btn btn-sm btn-outline-purple" href="{{ route('admin.period-documents.preview', [$period,$doc]) }}" target="_blank" rel="noopener"><i class="bi bi-eye me-1" aria-hidden="true"></i>Lihat</a>@endif
+                                @if($doc->isPreviewable())<a class="btn btn-sm btn-outline-purple" href="{{ route('admin.period-documents.preview', [$period,$doc]) }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-eye me-1" aria-hidden="true"></i>{{ $doc->isVideo() ? 'Buka Video' : 'Lihat' }}</a>@endif
                                 <a class="btn btn-sm btn-outline-purple" href="{{ route('admin.period-documents.download', [$period,$doc]) }}"><i class="bi bi-download me-1" aria-hidden="true"></i>Unduh</a>
                                 @if($canModify)<button type="button" class="btn btn-sm btn-outline-secondary" wire:click="openRename('{{ $doc->id }}')">Ubah Nama</button>@endif
                             @endif

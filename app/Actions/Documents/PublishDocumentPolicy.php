@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Models\AdmissionPeriod;
 use App\Models\DocumentPolicyVersion;
 use App\Models\User;
+use App\Support\DocumentUploadRules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -30,12 +31,28 @@ class PublishDocumentPolicy
             'max_file_size_bytes' => ['required', 'integer', 'min:1024', 'max:'.(100 * 1024 * 1024)],
             'workspace_quota_bytes' => ['nullable', 'integer', 'min:1024', 'max:'.(1024 * 1024 * 1024 * 10)],
             'general_instructions' => ['nullable', 'string', 'max:10000'],
+            'max_video_files' => ['nullable', 'integer', 'min:1', 'max:30'],
         ], [
             'allowed_extensions.required' => 'Pilih minimal satu format file yang diperbolehkan.',
             'allowed_extensions.*.in' => 'Salah satu format file yang dipilih tidak didukung aplikasi.',
             'max_file_size_bytes.required' => 'Batas ukuran file maksimal wajib diisi.',
             'general_instructions.max' => 'Petunjuk umum maksimal 10.000 karakter.',
+            'max_video_files.integer' => 'Jumlah video harus berupa angka bulat.',
+            'max_video_files.min' => 'Jumlah video minimal 1 per workspace.',
+            'max_video_files.max' => 'Jumlah video maksimal 30 per workspace.',
         ])->validate();
+
+        $validated['workspace_quota_bytes'] ??= null;
+        $hasVideo = false;
+        foreach ($validated['allowed_extensions'] as $extension) {
+            if (is_string($extension) && DocumentUploadRules::isVideo($extension)) {
+                $hasVideo = true;
+                break;
+            }
+        }
+        if ($hasVideo && $validated['workspace_quota_bytes'] === null) {
+            throw ValidationException::withMessages(['workspace_quota_bytes' => 'Isi kapasitas total workspace saat format video diizinkan.']);
+        }
 
         if (
             $validated['workspace_quota_bytes'] !== null
@@ -46,7 +63,7 @@ class PublishDocumentPolicy
             ]);
         }
 
-        return DB::transaction(function () use ($actor, $period, $validated): DocumentPolicyVersion {
+        return DB::transaction(function () use ($actor, $period, $validated, $hasVideo): DocumentPolicyVersion {
             $lockedPeriod = AdmissionPeriod::query()->lockForUpdate()->findOrFail($period->id);
 
             $currentMaxVersion = (int) DocumentPolicyVersion::query()
@@ -62,6 +79,7 @@ class PublishDocumentPolicy
                 'max_file_size_bytes' => (int) $validated['max_file_size_bytes'],
                 'workspace_quota_bytes' => $validated['workspace_quota_bytes'] !== null ? (int) $validated['workspace_quota_bytes'] : null,
                 'general_instructions' => trim((string) ($validated['general_instructions'] ?? '')) ?: null,
+                'max_video_files' => $hasVideo ? ($validated['max_video_files'] ?? 1) : null,
                 'created_by' => $actor->id,
             ]);
 

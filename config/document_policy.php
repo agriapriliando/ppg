@@ -2,6 +2,18 @@
 
 return [
     'supported_types' => [
+        'mp4' => [
+            'label' => 'Video MP4',
+            'mime_types' => ['video/mp4'],
+        ],
+        'mov' => [
+            'label' => 'Video MOV',
+            'mime_types' => ['video/quicktime'],
+        ],
+        'webm' => [
+            'label' => 'Video WebM',
+            'mime_types' => ['video/webm'],
+        ],
         'pdf' => [
             'label' => 'PDF',
             'mime_types' => ['application/pdf'],
@@ -41,12 +53,17 @@ return [
     ],
 
     'previewable_mimes' => [
+        'video/mp4',
+        'video/quicktime',
+        'video/webm',
         'application/pdf',
         'image/jpeg',
         'image/png',
         'image/webp',
         'image/gif',
     ],
+
+    'video_extensions' => ['mp4', 'mov', 'webm'],
 
     'defaults' => [
         'allowed_extensions' => ['pdf', 'jpg', 'jpeg', 'png'],
