@@ -41,9 +41,18 @@ class ValidateSkImport
         $this->inspectArchive($path);
         $reader = new Xlsx;
         $reader->setReadDataOnly(true);
-        $reader->setLoadSheetsOnly(['Peserta_SK']);
+        $reader->setLoadSheetsOnly(['Peserta_SK', 'Periode_Sumber']);
         $book = $reader->load($path);
         try {
+            $source = $book->getSheetByName('Periode_Sumber');
+            if ($source !== null && (
+                $source->getCell('A1')->getValue() !== 'id_periode'
+                || $source->getCell('A2')->getValue() !== 'kode_periode'
+                || (string) $source->getCell('B1')->getValue() !== (string) $import->admission_period_id
+                || $source->getCell('B2')->getValue() !== $import->period->code
+            )) {
+                throw new InvalidSkImportWorkbook('Periode tujuan tidak sesuai periode sumber file ekspor. Pilih periode yang sama dengan sumber ekspor dan jangan mengubah sheet Periode_Sumber.');
+            }
             $sheet = $book->getSheetByName('Peserta_SK');
             $lastRow = $sheet?->getHighestDataRow() ?? 0;
             if ($sheet === null || $lastRow < 2 || $lastRow > (int) config('pmb.import_max_rows') + 1) {
@@ -57,8 +66,16 @@ class ValidateSkImport
                 $headers[] = 'nomor_hp';
             }
             $headers[$operatorIndex] = $usesEmail ? 'operator_email' : 'id_operator';
-            if (Coordinate::columnIndexFromString($sheet->getHighestDataColumn()) > count($headers)) {
+            $lastColumn = Coordinate::columnIndexFromString($sheet->getHighestDataColumn());
+            $infoHeaders = $legacy ? [] : ['Kota/Kab', 'Provinsi'];
+            if ($lastColumn > count($headers) + count($infoHeaders)) {
                 throw new InvalidSkImportWorkbook('Jumlah kolom tidak sesuai template. Unduh dan gunakan template terbaru.');
+            }
+            for ($column = count($headers) + 1; $column <= $lastColumn; $column++) {
+                $expectedHeader = $infoHeaders[$column - count($headers) - 1] ?? null;
+                if ($expectedHeader === null || $sheet->getCell([$column, 1])->getValue() !== $expectedHeader) {
+                    throw new InvalidSkImportWorkbook('Kolom tambahan hanya boleh Kota/Kab dan Provinsi sesuai file ekspor impor ulang SK.');
+                }
             }
             foreach ($headers as $index => $header) {
                 $value = trim((string) $sheet->getCell([$index + 1, 1])->getValue());

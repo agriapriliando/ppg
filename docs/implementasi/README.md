@@ -8,6 +8,8 @@ Unggah berkas: [validasi frontend bersama, video MP4, antrean serial dan akses v
 
 Impor SK: [impor ulang berdasarkan periode + ID peserta SK, mode pembaruan, diff dan perlindungan konflik](impor-ulang-sk-id.md).
 
+Ekspor SK: [Excel untuk impor ulang dari menu Admin Ekspor, format teks dan pemeriksaan periode sumber](ekspor-impor-ulang-sk.md).
+
 Pengelolaan periode: [unggah beberapa berkas per periode, lihat/unduh, ubah nama, dan hapus](berkas-periode.md).
 
 Informasi peserta: [Informasi SK pribadi dan visibilitas berkas periode di ruang kerja serta homepage](informasi-sk-dan-berkas-publik.md).

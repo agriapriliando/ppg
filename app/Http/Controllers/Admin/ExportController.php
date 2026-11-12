@@ -10,6 +10,7 @@ use App\Models\AdmissionPeriod;
 use App\Models\ExportRun;
 use App\Models\User;
 use App\Support\ParticipantExport;
+use App\Support\SkReimportExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -26,7 +27,12 @@ class ExportController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $data = $request->validate(['period_id' => ['nullable', 'integer', 'exists:admission_periods,id'], 'operator_id' => ['nullable', 'integer', 'exists:users,id'], 'status' => ['nullable', 'in:draf,terkirim,diverifikasi,perbaikan,diterima_lengkap']]);
+        $data = $request->validate(['format' => ['sometimes', 'required', 'in:csv,sk_reimport'], 'period_id' => ['nullable', 'integer', 'exists:admission_periods,id'], 'operator_id' => ['nullable', 'integer', 'exists:users,id'], 'status' => ['nullable', 'in:draf,terkirim,diverifikasi,perbaikan,diterima_lengkap']]);
+        if (($data['format'] ?? 'csv') === 'sk_reimport') {
+            $actor = $request->user();
+            abort_unless($actor !== null, 403);
+            SkReimportExport::validateSelection($actor, $data);
+        }
         $run = ExportRun::create(['requested_by' => $request->user()?->id, 'scope_snapshot' => $data]);
         GenerateParticipantExportJob::dispatch($run->id)->afterCommit();
 
@@ -48,6 +54,12 @@ class ExportController extends Controller
         }
         $audit->handle($actor, 'Mengunduh ekspor peserta', $export, ['row_count' => $export->row_count]);
 
-        return Storage::disk('local')->download($export->private_path, 'peserta-ppg-'.$export->id.'.csv', ['Cache-Control' => 'private, no-store']);
+        $isSk = ($export->scope_snapshot['format'] ?? 'csv') === 'sk_reimport';
+        $filename = $isSk ? 'peserta-sk-periode-'.$export->scope_snapshot['period_id'].'-'.$export->id.'.xlsx' : 'peserta-ppg-'.$export->id.'.csv';
+
+        return Storage::disk('local')->download($export->private_path, $filename, [
+            'Content-Type' => $isSk ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv; charset=UTF-8',
+            'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 }
