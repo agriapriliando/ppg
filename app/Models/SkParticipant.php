@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AccountState;
+use App\Enums\ParticipantAccountStatus;
 use App\Enums\UserRole;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,6 +17,19 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[Fillable(['admission_period_id', 'sk_number', 'sk_date', 'sk_order', 'official_participant_id', 'name_on_sk', 'normalized_name', 'phone_number', 'assigned_operator_id', 'last_import_id', 'internal_note', 'origin_reference_dataset_id', 'origin_city_code', 'origin_city_name', 'origin_province_code', 'origin_province_name'])]
 class SkParticipant extends Model
 {
+    public function accountStatus(): ParticipantAccountStatus
+    {
+        if ($this->claimed_user_id === null) {
+            return ParticipantAccountStatus::NoAccount;
+        }
+
+        return match ($this->claimedUser?->account_state) {
+            AccountState::Disabled => ParticipantAccountStatus::Disabled,
+            AccountState::PendingActivation => ParticipantAccountStatus::PendingActivation,
+            default => ParticipantAccountStatus::Connected,
+        };
+    }
+
     /** @param Builder<SkParticipant> $query */
     #[Scope]
     protected function originCity(Builder $query, string $code): void

@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Support\ApplicantFields;
 use App\Support\ParticipantOrigin;
 use App\Support\ParticipantPhone;
+use App\Support\SkParticipantFilters;
 use App\Support\SubmittedRegistrationData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -166,22 +167,9 @@ class ParticipantsController extends Controller
         $actor = $request->user();
         abort_unless($actor !== null, 403);
 
-        $data = $request->validate([
-            'origin_city' => ['nullable', 'string', 'max:64'],
-            'period_id' => ['nullable', 'integer', 'exists:admission_periods,id'],
-            'operator_id' => ['nullable', 'string'],
-            'search' => ['nullable', 'string', 'max:100'],
-        ]);
+        $data = SkParticipantFilters::validated($request->query());
 
-        $search = $data['search'] ?? '';
-        $operatorId = $data['operator_id'] ?? '';
-
-        $participants = SkParticipant::query()
-            ->originCity($data['origin_city'] ?? '')
-            ->when(! empty($data['period_id']), fn ($q) => $q->where('admission_period_id', $data['period_id']))
-            ->when($operatorId === 'unassigned', fn ($q) => $q->whereNull('assigned_operator_id'))
-            ->when(! empty($operatorId) && $operatorId !== 'unassigned', fn ($q) => $q->where('assigned_operator_id', (int) $operatorId))
-            ->when($search !== '', fn ($q) => $q->where(fn ($sub) => $sub->where('name_on_sk', 'like', '%'.$search.'%')->orWhere('official_participant_id', 'like', '%'.$search.'%')))
+        $participants = SkParticipantFilters::apply(SkParticipant::query(), $data)
             ->with([
                 'assignedOperator',
                 'period',
@@ -297,18 +285,7 @@ class ParticipantsController extends Controller
                 ];
             }
 
-            if ($participant->claimed_user_id) {
-                $accountState = $participant->claimedUser?->account_state;
-                if ($accountState === AccountState::Disabled) {
-                    $accountStatus = 'Nonaktif';
-                } elseif ($accountState === AccountState::PendingActivation) {
-                    $accountStatus = 'Menunggu Aktivasi';
-                } else {
-                    $accountStatus = 'Akun Terhubung';
-                }
-            } else {
-                $accountStatus = 'Belum Ada Akun';
-            }
+            $accountStatus = $participant->accountStatus()->label();
 
             $queueStatus = $app !== null ? $app->status->label() : 'Belum Masuk Antrean';
 

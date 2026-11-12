@@ -1,6 +1,6 @@
 # Rancangan filter status akun dan antrean peserta SK
 
-Status: **rancangan, belum diimplementasikan**. Cakupan: halaman `/peserta-sk` dan ekspor Excel peserta SK. Rancangan ini disusun berdasarkan kode lokal; tidak menyatakan kondisi deployment production.
+Status: **diimplementasikan di kode lokal pada 12 November 2026**. Cakupan: halaman `/peserta-sk` dan ekspor Excel peserta SK. Catatan verifikasi ada di bagian akhir; dokumen ini tidak menyatakan kondisi deployment production.
 
 ## Tujuan dan rekomendasi
 
@@ -72,4 +72,14 @@ Gunakan enum `ApplicationStatus` untuk nilai dan label status aplikasi, serta ni
 6. Uji tampilan ponsel dan desktop, keyboard/label, pesan hasil kosong, penggunaan tombol reset serta tautan ekspor; tidak boleh ada tumpang tindih atau filter terpotong.
 7. Verifikasi bahwa filter tidak mengubah data, hak akses, status peserta, penugasan, jumlah total data, atau isi riwayat. Jalankan tes terkait dan analisis kode sesuai prosedur proyek.
 
-Rancangan ini siap sebagai acuan implementasi. Hasil pengujian dan kesiapan rilis baru dicatat setelah perubahan dibuat dan diuji.
+## Catatan implementasi dan verifikasi lokal
+
+- `SkParticipantFilters` memvalidasi, menormalisasi dan menerapkan seluruh filter pada query daftar Livewire maupun ekspor. Pencarian dipangkas dari whitespace di kedua jalur. Aturan status tidak digandakan di controller.
+- `ParticipantAccountStatus` dan `SkParticipant::accountStatus()` menyatukan label akun pada tabel dan Excel. Referensi akun terisi dengan relasi yang tidak terbaca tetap masuk Akun Terhubung, sesuai aturan tampilan sebelumnya.
+- `account_status` dan `queue_status` mengikuti URL dan langsung mereset pagination ketika diubah. Nilai tidak dikenal atau berbentuk array menampilkan kesalahan yang jelas, daftar kosong dan tombol ekspor nonaktif. Permintaan ekspor langsung dengan nilai tersebut ditolak dengan kesalahan validasi.
+- Tombol Reset filter mengosongkan seluruh filter dan mempertahankan jumlah per halaman. Setelah menambah peserta, pencarian, operator, asal wilayah dan kedua status direset; periode tujuan serta jumlah per halaman dipertahankan. Pesan sukses menerangkan perubahan tersebut.
+- Filter memakai grid Bootstrap: satu kolom pada layar sempit, dua kolom mulai breakpoint `sm`, dan tiga kolom mulai `xl`. Kontrol mempunyai label yang terhubung; panduan memisahkan Draf dari Belum Masuk Antrean dan menjelaskan seluruh filter serta ekspor.
+- Tidak ada migrasi atau perubahan cakupan akses. Pemeriksaan read-only pada 454 peserta lokal tidak menemukan referensi akun yang hilang. `EXPLAIN` kombinasi Akun Terhubung + Draf memakai indeks `claimed_user_id` dan indeks unik aplikasi per peserta; pengurutan tetap dilakukan sesuai urutan SK. Tidak ada dasar untuk menambah indeks pada ukuran data lokal saat ini.
+- `ParticipantStatusFilterTest`: **34 pengujian lulus, 778 assertion**. Cakupan meliputi empat kelompok akun × enam keadaan antrean, kecocokan identitas dan label tabel/Excel untuk admin/operator, seluruh kombinasi filter lama, ekspor 13 hasil dari daftar berukuran 10 per halaman melalui tautan ekspor sebenarnya, hasil kosong, reset, penambahan peserta, klaim tertunda, URL valid/tidak valid/array, akses ditolak, dan fallback label relasi akun yang tidak terbaca.
+- `composer test` lulus: **925 pengujian, 6.714 assertion**, termasuk pemeriksaan format Pint dan analisis tipe PHPStan tanpa kesalahan. `git diff --check` juga lulus.
+- Pengujian visual/interaksi langsung ponsel dan desktop belum selesai: alat Computer Use menghentikan sesi karena tidak dapat memastikan URL browser aktif untuk penegakan kebijakannya. Pemeriksaan ini masih perlu dilakukan pada browser sebelum rilis. Tidak ada deployment production dalam pekerjaan ini.

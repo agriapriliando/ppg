@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\AccountState;
+use App\Enums\ApplicationStatus;
+use App\Enums\ParticipantAccountStatus;
 use App\Enums\UserRole;
 use App\Enums\PeriodState;
 use App\Actions\RecordAudit;
@@ -11,6 +13,7 @@ use App\Models\SkParticipant;
 use App\Models\User;
 use App\Support\ParticipantOrigin;
 use App\Support\ParticipantPhone;
+use App\Support\SkParticipantFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +40,13 @@ new #[Title('Daftar Peserta SK')] class extends Component
 
     #[Url(as: 'origin_city', except: '')]
     public string $originCityCode = '';
+
+    // Validate raw URL values, including malformed arrays, before applying filters.
+    #[Url(as: 'account_status', except: '')]
+    public mixed $accountStatus = '';
+
+    #[Url(as: 'queue_status', except: '')]
+    public mixed $queueStatus = '';
 
     #[Url(as: 'per_page', except: 25)]
     public int $perPage = 25;
@@ -191,9 +201,10 @@ new #[Title('Daftar Peserta SK')] class extends Component
         });
 
         $this->periodId = (string) $data['admission_period_id'];
-        $this->reset('form', 'showCreate', 'search', 'operatorId');
+        $this->reset('form', 'showCreate', 'search', 'operatorId', 'originCityCode', 'accountStatus', 'queueStatus');
+        $this->resetValidation();
         $this->resetPage();
-        $this->message = 'Peserta SK berhasil ditambahkan.';
+        $this->message = 'Peserta SK berhasil ditambahkan. Filter lain dikosongkan agar peserta baru terlihat; periode tujuan dan jumlah per halaman tetap dipertahankan.';
     }
 
     public function updatedSearch(): void
@@ -214,6 +225,43 @@ new #[Title('Daftar Peserta SK')] class extends Component
     public function updatedOriginCityCode(): void
     {
         $this->resetPage();
+    }
+
+    public function updatedAccountStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedQueueStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    public function resetFilters(): void
+    {
+        $this->reset('search', 'operatorId', 'periodId', 'originCityCode', 'accountStatus', 'queueStatus');
+        $this->resetValidation();
+        $this->resetPage();
+    }
+
+    /** @return array<string, mixed>|null */
+    public function getFiltersProperty(): ?array
+    {
+        $input = ['search' => $this->search, 'operator_id' => $this->operatorId, 'period_id' => $this->periodId,
+            'origin_city' => $this->originCityCode, 'account_status' => $this->accountStatus, 'queue_status' => $this->queueStatus];
+        $this->resetValidation(array_keys($input));
+
+        try {
+            return SkParticipantFilters::validated($input);
+        } catch (ValidationException $exception) {
+            foreach ($exception->errors() as $key => $messages) {
+                foreach ($messages as $message) {
+                    $this->addError($key, $message);
+                }
+            }
+
+            return null;
+        }
     }
 
     /** @return Collection<int, SkParticipant> */
@@ -241,16 +289,10 @@ new #[Title('Daftar Peserta SK')] class extends Component
     /** @return LengthAwarePaginator<SkParticipant> */
     public function getParticipantsProperty(): LengthAwarePaginator
     {
-        $search = trim($this->search);
-        $operatorId = $this->operatorId;
-        $periodId = $this->periodId;
+        $filters = $this->filters;
+        $query = $filters === null ? SkParticipant::query()->whereKey([]) : SkParticipantFilters::apply(SkParticipant::query(), $filters);
 
-        return SkParticipant::query()
-            ->originCity($this->originCityCode)
-            ->when(! empty($periodId), fn ($q) => $q->where('admission_period_id', (int) $periodId))
-            ->when($operatorId === 'unassigned', fn ($q) => $q->whereNull('assigned_operator_id'))
-            ->when(! empty($operatorId) && $operatorId !== 'unassigned', fn ($q) => $q->where('assigned_operator_id', (int) $operatorId))
-            ->when($search !== '', fn ($q) => $q->where(fn ($sub) => $sub->where('name_on_sk', 'like', '%'.$search.'%')->orWhere('official_participant_id', 'like', '%'.$search.'%')))
+        return $query
             ->with(['assignedOperator', 'period', 'application', 'claimedUser'])
             ->orderBy('sk_number')
             ->orderBy('sk_order')
@@ -287,10 +329,14 @@ new #[Title('Daftar Peserta SK')] class extends Component
                     <i class="bi bi-person-plus" aria-hidden="true"></i>
                     <span>Tambah Peserta SK</span>
                 </button>
-                <a href="{{ route('participants.export', array_filter(['search' => $search, 'operator_id' => $operatorId, 'period_id' => $periodId, 'origin_city' => $originCityCode])) }}" class="btn btn-outline-success d-inline-flex align-items-center gap-2" title="Ekspor peserta sesuai filter ke Excel">
-                    <i class="bi bi-file-earmark-excel" aria-hidden="true"></i>
-                    <span>Ekspor Excel</span>
-                </a>
+                @if($this->filters !== null)
+                    <a href="{{ route('participants.export', array_filter($this->filters, fn ($value) => $value !== '')) }}" class="btn btn-outline-success d-inline-flex align-items-center gap-2" title="Ekspor seluruh peserta sesuai filter ke Excel">
+                        <i class="bi bi-file-earmark-excel" aria-hidden="true"></i>
+                        <span>Ekspor Excel</span>
+                    </a>
+                @else
+                    <button type="button" class="btn btn-outline-success" disabled>Perbaiki filter untuk ekspor Excel</button>
+                @endif
                 <button type="button" @click="showGuide = true" class="btn btn-outline-purple d-inline-flex align-items-center gap-2">
                     <i class="bi bi-question-circle" aria-hidden="true"></i>
                     <span>Petunjuk</span>
@@ -299,6 +345,14 @@ new #[Title('Daftar Peserta SK')] class extends Component
         </div>
 
         <div class="panel-body pt-3">
+            @if($this->filters === null)
+                <div class="alert alert-danger" role="alert">
+                    <strong>Filter tidak valid. Perbaiki pilihan atau gunakan Reset filter.</strong>
+                    @foreach(['search', 'period_id', 'operator_id', 'origin_city', 'account_status', 'queue_status'] as $filterKey)
+                        @if($filterMessage = $this->getErrorBag()->first($filterKey))<div>{{ $filterMessage }}</div>@endif
+                    @endforeach
+                </div>
+            @endif
             @if($this->periods->isEmpty())
                 <div class="alert alert-info d-flex align-items-center justify-content-between flex-wrap gap-2 p-3 mb-3 rounded-3" role="alert">
                     <div class="d-flex align-items-center gap-2">
@@ -312,14 +366,14 @@ new #[Title('Daftar Peserta SK')] class extends Component
             @endif
 
             <div class="row g-3">
-                <div class="col-sm-6 col-lg-3">
+                <div class="col-sm-6 col-xl-4">
                     <label for="participant-search" class="form-label">Nama atau Peg ID</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
                         <input class="form-control" id="participant-search" wire:model.live.debounce.300ms="search" placeholder="Cari nama atau Peg ID…" maxlength="100">
                     </div>
                 </div>
-                <div class="col-sm-6 col-lg-3">
+                <div class="col-sm-6 col-xl-4">
                     <label for="participant-operator" class="form-label">Operator</label>
                     <select class="form-select" id="participant-operator" wire:model.live="operatorId">
                         <option value="">Semua operator</option>
@@ -329,7 +383,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
                         @endforeach
                     </select>
                 </div>
-                <div class="col-sm-6 col-lg-3">
+                <div class="col-sm-6 col-xl-4">
                     <label for="participant-period" class="form-label">Periode</label>
                     <select class="form-select" id="participant-period" wire:model.live="periodId">
                         <option value="">Semua periode</option>
@@ -338,7 +392,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
                         @endforeach
                     </select>
                 </div>
-                <div class="col-sm-6 col-lg-3">
+                <div class="col-sm-6 col-xl-4">
                     <label for="participant-origin" class="form-label">Asal Wilayah</label>
                     <select id="participant-origin" class="form-select" wire:model.live="originCityCode">
                         <option value="">Semua kota/kabupaten</option>
@@ -347,6 +401,29 @@ new #[Title('Daftar Peserta SK')] class extends Component
                             <option value="{{ $city->origin_city_code }}">{{ $city->origin_city_name ?: $city->origin_city_code }}{{ $city->origin_province_name ? ' - '.$city->origin_province_name : '' }}</option>
                         @endforeach
                     </select>
+                </div>
+                <div class="col-sm-6 col-xl-4">
+                    <label for="participant-account-status" class="form-label">Status Akun</label>
+                    <select id="participant-account-status" class="form-select" wire:model.live="accountStatus">
+                        <option value="">Semua Status Akun</option>
+                        @foreach(ParticipantAccountStatus::cases() as $status)
+                            <option wire:key="account-option-{{ $status->value }}" value="{{ $status->value }}">{{ $status->label() }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-sm-6 col-xl-4">
+                    <label for="participant-queue-status" class="form-label">Status Antrean</label>
+                    <select id="participant-queue-status" class="form-select" wire:model.live="queueStatus">
+                        <option value="">Semua Status Antrean</option>
+                        <option value="not_started">Belum Masuk Antrean</option>
+                        @foreach(ApplicationStatus::cases() as $status)
+                            <option wire:key="queue-option-{{ $status->value }}" value="{{ $status->value }}">{{ $status->label() }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-12 d-flex flex-wrap align-items-center gap-3">
+                    <button type="button" wire:click="resetFilters" class="btn btn-outline-secondary" wire:loading.attr="disabled"><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Reset filter</button>
+                    <small class="text-muted">Semua filter digabung. Ekspor Excel mencakup seluruh hasil yang cocok.</small>
                 </div>
             </div>
 
@@ -408,17 +485,10 @@ new #[Title('Daftar Peserta SK')] class extends Component
                                 <small class="d-block text-muted">{{ $participant->period->name }}</small>
                             </td>
                             <td>
+                                @php($portalStatus = $participant->accountStatus())
+                                <span class="status-pill {{ $portalStatus->badgeClass() }}">{{ $portalStatus->label() }}</span>
                                 @if($participant->claimed_user_id)
-                                    @if($participant->claimedUser?->account_state === App\Enums\AccountState::Disabled)
-                                        <span class="status-pill declined">Nonaktif</span>
-                                    @elseif($participant->claimedUser?->account_state === App\Enums\AccountState::PendingActivation)
-                                        <span class="status-pill perbaikan">Menunggu Aktivasi</span>
-                                    @else
-                                        <span class="status-pill diterima_lengkap">Akun Terhubung</span>
-                                    @endif
                                     <small class="d-block text-muted">{{ $participant->claimedUser?->login_id ?? $participant->claimedUser?->email }}</small>
-                                @else
-                                    <span class="status-pill draf">Belum Ada Akun</span>
                                 @endif
                             </td>
                             <td>
@@ -442,7 +512,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-5">Tidak ada peserta dalam penugasan atau filter ini.</td>
+                            <td colspan="5" class="text-center text-muted py-5">Tidak ada peserta yang sesuai dengan kombinasi filter ini. Ubah pilihan atau gunakan Reset filter.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -656,7 +726,7 @@ new #[Title('Daftar Peserta SK')] class extends Component
                         </div>
                         <div class="guide-status-item">
                             <span class="status-pill draf">Belum Ada Akun</span>
-                            <p><strong>Belum Ada Akun (Abu-abu):</strong> Peserta belum melakukan klaim akun atau permohonan klaimnya masih dalam peninjauan.</p>
+                            <p><strong>Belum Ada Akun (Abu-abu):</strong> Belum ada akun yang terhubung ke peserta. Termasuk permohonan klaim yang masih ditinjau; status ini tidak menentukan apakah klaim pernah diajukan atau ditolak.</p>
                         </div>
                     </div>
                 </div>
@@ -683,7 +753,15 @@ new #[Title('Daftar Peserta SK')] class extends Component
                         </div>
                         <div class="guide-status-item">
                             <span class="status-pill draf">Belum Masuk Antrean</span>
-                            <p><strong>Belum Masuk Antrean (Abu-abu):</strong> Peserta belum mengisi formulir pendaftaran atau masih dalam draf pengerjaan.</p>
+                            <p><strong>Belum Masuk Antrean (Abu-abu):</strong> Peserta belum memiliki data pendaftaran di antrean.</p>
+                        </div>
+                        <div class="guide-status-item">
+                            <span class="status-pill draf">{{ ApplicationStatus::Draft->label() }}</span>
+                            <p><strong>Draf (Abu-abu):</strong> Data pendaftaran sudah ada, namun belum dikirim. Kelompok ini berbeda dari Belum Masuk Antrean.</p>
+                        </div>
+                        <div class="guide-status-item">
+                            <span class="status-pill diverifikasi">{{ ApplicationStatus::Verified->label() }}</span>
+                            <p><strong>Diverifikasi:</strong> Data pendaftaran telah diperiksa oleh pengelola.</p>
                         </div>
                     </div>
                 </div>
@@ -696,7 +774,9 @@ new #[Title('Daftar Peserta SK')] class extends Component
                     </h3>
                     <p class="text-muted small mb-2">Halaman ini telah menggunakan Livewire reaktif tanpa reload halaman:</p>
                     <ul class="text-muted small ps-3 mb-0">
-                        <li class="mb-1"><strong>Filter Real-time:</strong> Pencarian nama/Peg ID, pilihan operator penugasan, dan filter periode langsung memperbarui daftar secara instan.</li>
+                        <li class="mb-1"><strong>Filter otomatis:</strong> Pencarian nama/Peg ID, operator, periode, asal wilayah, Status Akun dan Status Antrean digabung dengan logika DAN. Pilihan disimpan di URL untuk dimuat ulang atau dibagikan.</li>
+                        <li class="mb-1"><strong>Reset filter:</strong> Mengosongkan seluruh filter dan kembali ke halaman pertama. Jumlah per halaman tetap dipertahankan.</li>
+                        <li class="mb-1"><strong>Ekspor Excel:</strong> Mengunduh seluruh peserta sesuai kombinasi filter, termasuk halaman berikutnya. Hasil mengikuti kondisi data saat ekspor dijalankan.</li>
                         <li class="mb-1"><strong>Jumlah Data Per Halaman:</strong> Tombol pilihan <strong>10, 25, 50, 100</strong> diletakkan di atas tabel untuk memudahkan navigasi data sebelum menelusuri tabel.</li>
                         <li><strong>Pindah Halaman Instan:</strong> Berpindah halaman navigasi berlangsung cepat tanpa memuat ulang seluruh halaman browser.</li>
                     </ul>
