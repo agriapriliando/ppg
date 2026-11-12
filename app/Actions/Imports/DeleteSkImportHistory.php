@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use League\Flysystem\UnableToDeleteFile;
 
 class DeleteSkImportHistory
 {
@@ -28,7 +29,13 @@ class DeleteSkImportHistory
             if ($locked->state !== $expectedState) {
                 throw ValidationException::withMessages(['import' => 'Status impor telah berubah. Muat ulang halaman sebelum menghapus riwayat.']);
             }
-            if (! Storage::disk('local')->delete($locked->private_path)) {
+            try {
+                $removed = Storage::disk('local')->delete($locked->private_path);
+            } catch (UnableToDeleteFile $exception) {
+                report($exception);
+                $removed = false;
+            }
+            if (! $removed) {
                 throw ValidationException::withMessages(['import' => 'Berkas sumber belum dapat dihapus. Riwayat tetap tersimpan; coba kembali.']);
             }
             $locked->rows()->delete();

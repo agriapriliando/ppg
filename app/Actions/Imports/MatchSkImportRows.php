@@ -2,14 +2,18 @@
 
 namespace App\Actions\Imports;
 
+use App\Actions\Admissions\SynchronizeApplicantPhone;
 use App\Models\SkImport;
 use App\Models\SkParticipant;
 use App\Support\ParticipantOrigin;
 use App\Support\SkImportIdentity;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class MatchSkImportRows
 {
+    public function __construct(private SynchronizeApplicantPhone $phone) {}
+
     /** @return array<string, int> */
     public function handle(SkImport $import): array
     {
@@ -62,6 +66,13 @@ class MatchSkImportRows
                 }
                 // Preserve the official spelling when the database regards IDs as equal.
                 $data['official_participant_id'] = $target->official_participant_id;
+                if ($target->claimed_user_id !== null && $data['phone_number'] !== $target->phone_number) {
+                    try {
+                        $data['phone_number'] = $this->phone->participantNumber($target, $data['phone_number'], 'nomor_hp');
+                    } catch (ValidationException $exception) {
+                        $errors = array_merge($errors, array_merge(...array_values($exception->errors())));
+                    }
+                }
             }
             $changes = [];
             if ($target !== null) {
@@ -70,19 +81,10 @@ class MatchSkImportRows
                         $changes[$field] = ['old' => $old, 'new' => $data[$field]];
                     }
                 }
-                if ($changes !== [] && ($target->claimed_user_id !== null || ($target->assigned_operator_id !== null && $target->assigned_operator_id !== $data['assigned_operator_id']))) {
-                    $errors[] = 'Data terikat klaim atau perubahan penugasan; gunakan pemeriksaan administratif.';
-                    $conflict = true;
-                }
             }
             $number = $data['sk_number'];
             $skGroups[$number] ??= SkParticipant::query()->where('admission_period_id', $import->admission_period_id)->where('sk_number', $number)->get();
             $occupiedOrders[$number] ??= $skGroups[$number]->keyBy('sk_order');
-            $occupant = $occupiedOrders[$number]->get($data['sk_order']);
-            if ($occupant !== null && $occupant->id !== $target?->id) {
-                $errors[] = 'Nomor SK dan nomor urut tujuan sudah digunakan peserta lain. Baris ini tidak disimpan.';
-                $conflict = true;
-            }
             $result = $conflict ? 'conflict' : ($errors !== [] ? 'error' : ($target === null ? 'new' : ($changes === [] ? 'identical' : 'change')));
             $updates[$row->id] = ['id' => $row->id, 'sk_import_id' => $import->id, 'row_number' => $row->row_number,
                 'normalized_payload' => json_encode($data, JSON_THROW_ON_ERROR), 'result' => $result,
@@ -90,9 +92,52 @@ class MatchSkImportRows
                 'target_participant_id' => $target?->id, 'target_version' => $target?->lock_version,
                 'target_digest' => $target === null ? null : SkImportIdentity::digest($target)];
         }
-        // Compare dates against the effective roster, excluding changes that will be deferred.
+        $accountPhones = [];
+        foreach ($updates as $id => $update) {
+            $participant = $participants->get($update['target_participant_id']);
+            if ($participant?->claimed_user_id !== null && in_array($update['result'], ['change', 'identical'], true)) {
+                $data = json_decode($update['normalized_payload'], true, flags: JSON_THROW_ON_ERROR);
+                $accountPhones[$participant->claimed_user_id][$id] = $data['phone_number'];
+            }
+        }
+        foreach ($accountPhones as $numbers) {
+            if (count(array_unique($numbers)) > 1) {
+                foreach (array_keys($numbers) as $id) {
+                    $invalid = $updates[$id] ?? null;
+                    if ($invalid === null) {
+                        throw new \LogicException('Baris pratinjau nomor HP tidak ditemukan.');
+                    }
+                    $invalid['result'] = 'error';
+                    $invalid['errors'][] = 'Satu akun memiliki beberapa nomor HP berbeda dalam impor. Samakan nomor HP untuk semua peserta yang terhubung ke akun tersebut.';
+                    $updates[$id] = $invalid;
+                }
+            }
+        }
+        // Compare positions and dates against the final roster, propagating any deferred move.
         do {
             $changed = false;
+            $effective = collect($updates)->whereIn('result', ['change', 'identical'])->keyBy('target_participant_id');
+            foreach ($updates as $id => $update) {
+                if (! in_array($update['result'], ['new', 'change', 'identical'], true)) {
+                    continue;
+                }
+                $data = json_decode($update['normalized_payload'], true, flags: JSON_THROW_ON_ERROR);
+                $occupant = $occupiedOrders[$data['sk_number']]->get($data['sk_order']);
+                if ($occupant === null || $occupant->id === $update['target_participant_id']) {
+                    continue;
+                }
+                $replacement = $effective->get($occupant->id);
+                $destination = $replacement === null ? null : json_decode($replacement['normalized_payload'], true, flags: JSON_THROW_ON_ERROR);
+                if ($destination === null || ($destination['sk_number'] === $data['sk_number'] && $destination['sk_order'] === $data['sk_order'])) {
+                    $update['result'] = 'conflict';
+                    if ($update['target_participant_id'] === null) {
+                        $update['errors'][] = 'PEG ID '.$data['official_participant_id'].' belum terdaftar pada periode tujuan; baris ini bukan pembaruan peserta lama.';
+                    }
+                    $update['errors'][] = 'Nomor SK dan nomor urut tujuan masih milik PEG ID '.$occupant->official_participant_id.' yang tidak berpindah melalui baris valid dalam impor ini. Periksa PEG ID sumber, sertakan pembaruan pemilik posisi tersebut, atau perbaiki nomor urut tujuan.';
+                    $updates[$id] = $update;
+                    $changed = true;
+                }
+            }
             $effective = collect($updates)->whereIn('result', ['change', 'identical'])->keyBy('target_participant_id');
             $candidates = [];
             foreach ($updates as $update) {

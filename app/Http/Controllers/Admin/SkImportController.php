@@ -14,6 +14,7 @@ use App\Support\SkImportWorkbook;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -69,6 +70,19 @@ class SkImportController extends Controller
         $delete->handle($request->user(), $import, $data['expected_state']);
 
         return redirect()->route('admin.imports')->with('status', 'Riwayat impor, berkas sumber, dan hasil validasi berhasil dihapus. Data peserta yang sudah diimpor tetap tersimpan.');
+    }
+
+    public function download(Request $request, SkImport $import, RecordAudit $audit): StreamedResponse
+    {
+        Gate::authorize('download', $import);
+        abort_if($import->staging_purged_at !== null || ! Storage::disk('local')->exists($import->private_path), 410, 'Berkas sumber impor sudah tidak tersedia atau telah melewati masa retensi.');
+        $audit->handle($request->user(), 'Mengunduh berkas sumber impor SK', $import);
+
+        return Storage::disk('local')->download($import->private_path, $import->original_filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function commit(Request $request, SkImport $import, CommitSkImport $commit): RedirectResponse

@@ -9,6 +9,11 @@ use App\Models\User;
 
 class SkImportPolicy
 {
+    public function download(User $user, SkImport $import): bool
+    {
+        return $this->delete($user, $import);
+    }
+
     public function delete(User $user, SkImport $import): bool
     {
         return $user->isAdministrator()

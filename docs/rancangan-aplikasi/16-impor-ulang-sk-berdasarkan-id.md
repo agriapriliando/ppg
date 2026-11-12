@@ -1,5 +1,7 @@
 # Rancangan impor ulang peserta SK berdasarkan ID peserta
 
+> Pembaruan implementasi 12 November 2026: pertukaran posisi akhir yang unik, pembaruan peserta terhubung dan pergantian operator kini didukung. Ketentuan lama tentang penundaan pertukaran/seluruh peserta terikat di bawah merupakan riwayat rancangan; lihat [aturan implementasi terbaru](../implementasi/impor-ulang-sk-id.md).
+
 Tanggal: **10 November 2026**, zona waktu **Asia/Jakarta**. Status: **acuan rancangan; implementasi lokal tersedia**. Perilaku aktual dan langkah rilis dijelaskan pada [catatan implementasi](../implementasi/impor-ulang-sk-id.md). Rancangan/matriks penerimaan di bawah tetap menjadi acuan, bukan klaim deployment production.
 
 Halaman tetap `/admin/impor`, dengan alur unggah Excel, pratinjau, dan konfirmasi yang sudah ada. Tujuan: file Excel lama yang telah diperbarui dapat diunggah ulang untuk memperbarui peserta yang sama berdasarkan kolom **`id_peserta_sk`**, tanpa menggandakan peserta saat nomor SK atau nomor urut berubah.

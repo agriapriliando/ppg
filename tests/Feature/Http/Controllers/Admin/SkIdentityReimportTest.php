@@ -2,12 +2,16 @@
 
 use App\Actions\Admissions\ApproveClaim;
 use App\Actions\Admissions\DeleteSkParticipant;
+use App\Actions\Admissions\SaveApplicantForm;
 use App\Actions\Admissions\SubmitSkClaim;
+use App\Actions\Documents\UploadApplicantDocument;
 use App\Actions\Imports\ValidateSkImport;
 use App\Models\AdmissionPeriod;
+use App\Models\ApplicationSubmission;
 use App\Models\SkImport;
 use App\Models\SkParticipant;
 use App\Models\User;
+use App\Models\WhatsappVerification;
 use App\Support\SkImportIdentity;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -152,15 +156,18 @@ it('never updates the same official ID in a different period', function () {
     expect($c['participant']->fresh()->admission_period_id)->toBe($originalPeriod->id);
 });
 
-it('keeps claimed participants unchanged and permits an identical claimed record', function () {
+it('updates claimed participants by PEG ID and permits an identical claimed record', function () {
     $c = registrationContext();
     $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
     app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
     $participant = $c['participant']->fresh();
-    $digest = SkImportIdentity::digest($participant);
-    $conflict = identityImportPreview($c, [identityImportRow($participant, ['nomor_sk' => 'SK-JANGAN-UBAH'])]);
-    expect($conflict->counts['conflict'])->toBe(1);
-    $identical = identityImportPreview($c, [identityImportRow($participant)]);
+    $userId = $participant->claimed_user_id;
+    $updated = identityImportPreview($c, [identityImportRow($participant, ['nomor_sk' => 'SK-DIPERBARUI'])]);
+    expect($updated->counts['change'])->toBe(1);
+    $this->post(route('admin.imports.commit', $updated), ['preview_hash' => $updated->preview_hash])->assertSessionHasNoErrors();
+    expect($participant->fresh()->sk_number)->toBe('SK-DIPERBARUI')->and($participant->fresh()->claimed_user_id)->toBe($userId);
+    $digest = SkImportIdentity::digest($participant->fresh());
+    $identical = identityImportPreview($c, [identityImportRow($participant->fresh())]);
     expect($identical->counts['identical'])->toBe(1);
     $this->post(route('admin.imports.commit', $identical), ['preview_hash' => $identical->preview_hash])->assertSessionHasNoErrors();
     expect(SkImportIdentity::digest($participant->fresh()))->toBe($digest);
@@ -225,14 +232,181 @@ it('updates the date of all participants on the same SK together', function () {
         ->and($second->fresh()->sk_date->format('Y-m-d'))->toBe('2026-11-02');
 });
 
-it('does not transfer an existing operator assignment through reimport', function () {
+it('transfers an existing operator assignment through reimport with an assignment event', function () {
     $c = registrationContext();
     $other = User::factory()->operator()->create(['login_id' => 'operator.baru']);
     $import = identityImportPreview($c, [identityImportRow($c['participant'], ['id_operator' => $other->login_id])]);
-    expect($import->counts['conflict'])->toBe(1);
+    expect($import->counts['change'])->toBe(1);
 
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    expect($c['participant']->fresh()->assigned_operator_id)->toBe($other->id);
+    $this->assertDatabaseHas('assignment_events', ['sk_participant_id' => $c['participant']->id, 'old_operator_id' => $c['operator']->id, 'new_operator_id' => $other->id, 'reason' => 'Penugasan eksplisit dari impor SK']);
+});
+
+it('swaps two or three occupied positions without changing participant identities', function (int $size) {
+    $c = registrationContext();
+    $people = [$c['participant']];
+    for ($index = 2; $index <= $size; $index++) {
+        $person = $c['participant']->replicate();
+        $person->forceFill(['official_participant_id' => '00000'.$index, 'sk_order' => $index])->save();
+        $people[] = $person;
+    }
+    $rows = [];
+    foreach ($people as $index => $person) {
+        $rows[] = identityImportRow($person, ['nomor_urut_sk' => $people[($index + 1) % $size]->sk_order, 'nama_sesuai_sk' => 'Nama Baru '.$person->official_participant_id]);
+    }
+    $import = identityImportPreview($c, $rows);
+    expect($import->counts['change'])->toBe($size)->and($import->counts['conflict'])->toBe(0);
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    foreach ($people as $index => $person) {
+        expect($person->fresh()->sk_order)->toBe($people[($index + 1) % $size]->sk_order)
+            ->and($person->fresh()->official_participant_id)->toBe($person->official_participant_id)
+            ->and($person->fresh()->name_on_sk)->toBe('Nama Baru '.$person->official_participant_id);
+    }
+    expect(SkParticipant::count())->toBe($size);
+    expect(SkParticipant::query()->where('sk_number', 'like', 'IMPORT-%')->exists())->toBeFalse();
+})->with([2, 3]);
+
+it('defers an occupied position and all dependent moves when its occupant cannot move', function () {
+    $c = registrationContext();
+    $second = $c['participant']->replicate();
+    $second->forceFill(['official_participant_id' => '000002', 'sk_order' => 2])->save();
+    $third = $c['participant']->replicate();
+    $third->forceFill(['official_participant_id' => '000003', 'sk_order' => 3])->save();
+    $import = identityImportPreview($c, [
+        identityImportRow($c['participant'], ['nomor_urut_sk' => 2]),
+        identityImportRow($second, ['nomor_urut_sk' => 3]),
+        identityImportRow($third, ['nomor_urut_sk' => 4, 'nama_sesuai_sk' => '']),
+        identityImportRow($c['participant'], ['id_peserta_sk' => 'NEW-ID', 'nomor_sk' => 'SK-NEW']),
+    ], 'upsert');
+    expect($import->counts['conflict'])->toBe(2)->and($import->counts['error'])->toBe(1)->and($import->counts['new'])->toBe(1);
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    expect($c['participant']->fresh()->sk_order)->toBe(1)->and($second->fresh()->sk_order)->toBe(2)->and($third->fresh()->sk_order)->toBe(3);
+});
+
+it('rolls back temporary swap positions when a target changes after preview', function () {
+    $c = registrationContext();
+    $second = $c['participant']->replicate();
+    $second->forceFill(['official_participant_id' => '000002', 'sk_order' => 2])->save();
+    $import = identityImportPreview($c, [identityImportRow($c['participant'], ['nomor_urut_sk' => 2]), identityImportRow($second, ['nomor_urut_sk' => 1])]);
+    $second->forceFill(['internal_note' => 'Perubahan terbaru'])->save();
     $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasErrors('import');
-    expect($c['participant']->fresh()->assigned_operator_id)->toBe($c['operator']->id);
+    expect($c['participant']->fresh()->sk_order)->toBe(1)->and($second->fresh()->sk_order)->toBe(2);
+    expect(SkParticipant::query()->where('sk_number', 'like', 'IMPORT-%')->exists())->toBeFalse();
+});
+
+it('swaps different SK numbers and dates based on the final roster', function () {
+    $c = registrationContext();
+    $second = $c['participant']->replicate();
+    $second->forceFill(['official_participant_id' => '000002', 'sk_number' => 'SK-KEDUA', 'sk_date' => '2026-11-02'])->save();
+    $import = identityImportPreview($c, [
+        identityImportRow($c['participant'], ['nomor_sk' => $second->sk_number, 'tanggal_sk' => $second->sk_date->format('Y-m-d')]),
+        identityImportRow($second, ['nomor_sk' => $c['participant']->sk_number, 'tanggal_sk' => $c['participant']->sk_date->format('Y-m-d')]),
+    ]);
+    expect($import->counts['change'])->toBe(2);
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    expect($c['participant']->fresh()->sk_number)->toBe('SK-KEDUA')->and($second->fresh()->sk_number)->toBe('SK-UJI-001');
+});
+
+it('inserts a new participant into a position freed by a valid update regardless of row order', function () {
+    $c = registrationContext();
+    $import = identityImportPreview($c, [
+        identityImportRow($c['participant'], ['id_peserta_sk' => 'NEW-ID']),
+        identityImportRow($c['participant'], ['nomor_urut_sk' => 2]),
+    ], 'upsert');
+    expect($import->counts['new'])->toBe(1)->and($import->counts['change'])->toBe(1);
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    expect($c['participant']->fresh()->sk_order)->toBe(2);
+    $this->assertDatabaseHas('sk_participants', ['official_participant_id' => 'NEW-ID', 'sk_order' => 1]);
+});
+
+it('rolls back all temporary moves when a selected new operator becomes inactive', function () {
+    $c = registrationContext();
+    $second = $c['participant']->replicate();
+    $second->forceFill(['official_participant_id' => '000002', 'sk_order' => 2])->save();
+    $other = User::factory()->operator()->create(['login_id' => 'operator.baru']);
+    $import = identityImportPreview($c, [
+        identityImportRow($c['participant'], ['nomor_urut_sk' => 2]),
+        identityImportRow($second, ['nomor_urut_sk' => 1, 'id_operator' => $other->login_id]),
+    ]);
+    $other->forceFill(['account_state' => 'disabled'])->save();
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasErrors('import');
+    expect($c['participant']->fresh()->sk_order)->toBe(1)->and($second->fresh()->sk_order)->toBe(2);
+    expect(SkParticipant::query()->where('sk_number', 'like', 'IMPORT-%')->exists())->toBeFalse();
+});
+
+it('updates claimed SK data and contact consistently without changing submissions or document ownership', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
+    $application = app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+    $workspace = $application->workspace;
+    $document = app(UploadApplicantDocument::class)->handle($c['applicant'], $workspace, UploadedFile::fake()->create('ijazah.pdf', 10, 'application/pdf'), 'import-contact');
+    app(SaveApplicantForm::class)->handle($c['applicant'], $c['period']->id, $workspace->fresh()->lock_version, [
+        ...completeApplicantForm($c), 'documents_version' => $workspace->fresh()->documents_version,
+    ], true);
+    $submission = ApplicationSubmission::query()->sole();
+    $snapshot = $submission->encrypted_snapshot;
+    $oldApplication = $application->fresh()->only(['id', 'user_id', 'workspace_id', 'status', 'application_number']);
+    $verification = WhatsappVerification::create(['workspace_id' => $workspace->id, 'number' => '+6281234567890', 'verified_by' => $c['operator']->id, 'verified_at' => now(), 'evidence_summary' => 'Bukti lama']);
+    $operator = User::factory()->operator()->create(['login_id' => 'operator.revisi']);
+    $participant = $c['participant']->fresh();
+    $import = identityImportPreview($c, [identityImportRow($participant, [
+        'nama_sesuai_sk' => 'Nama SK Revisi', 'nomor_hp' => '081355551234', 'id_operator' => $operator->login_id,
+        'kode_kota_kabupaten_asal' => '0101', 'catatan_internal' => 'Catatan Revisi',
+    ])]);
+    expect($import->counts['change'])->toBe(1);
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    expect($participant->fresh()->name_on_sk)->toBe('Nama SK Revisi')
+        ->and($participant->fresh()->claimed_user_id)->toBe($c['applicant']->id)
+        ->and($participant->fresh()->assigned_operator_id)->toBe($operator->id)
+        ->and($participant->fresh()->internal_note)->toBe('Catatan Revisi')
+        ->and($participant->fresh()->origin_city_name)->toBe('Kota Uji')
+        ->and($c['applicant']->fresh()->phone_number)->toBe('6281355551234')
+        ->and($claim->fresh()->whatsapp_number)->toBe('+6281355551234')
+        ->and($workspace->fresh()->biodata->whatsapp_number)->toBe('+6281355551234')
+        ->and($verification->fresh()->invalidated_at)->not->toBeNull();
+    expect($submission->fresh()->encrypted_snapshot)->toBe($snapshot)
+        ->and($application->fresh()->only(array_keys($oldApplication)))->toBe($oldApplication)
+        ->and($document->fresh()->owner_user_id)->toBe($c['applicant']->id)
+        ->and($document->fresh()->workspace_id)->toBe($workspace->id);
+    Storage::disk('local')->assertExists($document->object_key);
+});
+
+it('defers invalid contact changes for linked accounts while allowing another valid update', function () {
+    $c = registrationContext();
+    $claim = app(SubmitSkClaim::class)->handle($c['applicant'], claimInput($c));
+    app(ApproveClaim::class)->handle($c['operator'], $claim, 0);
+    $participant = $c['participant']->fresh();
+    $import = identityImportPreview($c, [
+        identityImportRow($participant, ['nomor_hp' => 'tidak ada nomor']),
+        identityImportRow($participant, ['id_peserta_sk' => 'NEW-ID', 'nomor_sk' => 'SK-BARU']),
+    ], 'upsert');
+    expect($import->counts['error'])->toBe(1)->and($import->counts['new'])->toBe(1);
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    expect($participant->fresh()->phone_number)->toBe($participant->phone_number);
+});
+
+it('preserves an inactive existing operator when the assignment cell is empty', function () {
+    $c = registrationContext();
+    $c['operator']->forceFill(['account_state' => 'disabled'])->save();
+    $import = identityImportPreview($c, [identityImportRow($c['participant'], ['nama_sesuai_sk' => 'Nama Diperbarui'])]);
+    expect($import->counts['change'])->toBe(1);
+    $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash])->assertSessionHasNoErrors();
+    expect($c['participant']->fresh()->name_on_sk)->toBe('Nama Diperbarui')
+        ->and($c['participant']->fresh()->assigned_operator_id)->toBe($c['operator']->id);
+});
+
+it('rejects conflicting phone numbers for the same linked account in one import', function () {
+    $c = registrationContext();
+    $c['participant']->forceFill(['claimed_user_id' => $c['applicant']->id, 'phone_number' => '6281234567890'])->save();
+    $second = $c['participant']->replicate();
+    $second->forceFill(['official_participant_id' => '000002', 'sk_order' => 2])->save();
+    $import = identityImportPreview($c, [
+        identityImportRow($c['participant'], ['nomor_hp' => '081355551234']),
+        identityImportRow($second, ['nomor_hp' => '081355559999']),
+    ]);
+    expect($import->counts['error'])->toBe(2)->and($import->counts['change'])->toBe(0);
+    expect($import->rows()->first()->errorMessages())->toContain('Satu akun memiliki beberapa nomor HP berbeda dalam impor. Samakan nomor HP untuk semua peserta yang terhubung ke akun tersebut.');
 });
 
 it('does not let an invalid fractional order block an unrelated valid integer order', function () {

@@ -21,7 +21,7 @@ class SkImport extends Model
 {
     use SoftDeletes;
 
-    public const MATCHING_VERSION = 2;
+    public const MATCHING_VERSION = 3;
 
     public function modeLabel(): string
     {

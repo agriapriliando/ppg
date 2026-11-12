@@ -87,7 +87,7 @@ class SkReimportExport
                     'ID operator dikosongkan bila akun operator tidak aktif/tidak tersedia; isian kosong mempertahankan penugasan lama.',
                     'Referensi wilayah mengikuti dataset aktif. Kode lama yang tidak lagi berlaku dapat ditandai untuk perbaikan saat pratinjau.',
                     'Kolom J Kota/Kab dan K Provinsi adalah informasi nama wilayah berdasarkan kode asal. Impor hanya memakai kode_kota_kabupaten_asal; perubahan pada kedua kolom nama tidak mengubah wilayah peserta.',
-                    'Peserta terikat klaim dan perubahan penugasan tetap mengikuti perlindungan impor. File ekspor tidak melewati pemeriksaan konflik.',
+                    'Peserta terikat klaim dan operator aktif dapat diperbarui melalui impor. Nomor SK + urut akhir tetap unik; sertakan seluruh peserta yang bertukar posisi sebagai baris valid.',
                 ] as $text) {
                     $guide->setCellValueExplicit('A'.$row++, $text, DataType::TYPE_STRING);
                 }

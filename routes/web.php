@@ -141,6 +141,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::get('/template-sk', [SkImportController::class, 'template'])->name('imports.template');
         Route::get('/impor/{import}', [SkImportController::class, 'show'])->name('imports.show');
         Route::delete('/impor/{import}', [SkImportController::class, 'destroy'])->name('imports.destroy');
+        Route::get('/impor/{import}/unduh', [SkImportController::class, 'download'])->name('imports.download');
         Route::get('/impor/{import}/kesalahan', [SkImportController::class, 'errors'])->name('imports.errors');
         Route::post('/impor/{import}/konfirmasi', [SkImportController::class, 'commit'])->name('imports.commit');
         Route::get('/penugasan', [AssignmentController::class, 'index'])->name('assignments');

@@ -6,6 +6,7 @@ use App\Models\SkParticipant;
 use App\Models\User;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
+use League\Flysystem\UnableToDeleteFile;
 
 function deletableSkImport(User $uploader, string $state = 'invalid'): SkImport
 {
@@ -122,4 +123,22 @@ it('can delete expired history after its source has already been pruned', functi
     $this->actingAs($admin)->delete(route('admin.imports.destroy', $import), ['confirmed' => 1, 'expected_state' => 'expired'])->assertRedirect(route('admin.imports'))->assertSessionHasNoErrors();
 
     $this->assertSoftDeleted($import);
+});
+
+it('shows a recoverable error when storage throws during deletion', function () {
+    $admin = User::factory()->administrator()->create();
+    $import = deletableSkImport($admin);
+    $disk = Storage::disk('local');
+    $failingDisk = Mockery::mock(FilesystemAdapter::class);
+    $failingDisk->shouldReceive('delete')->once()->with($import->private_path)
+        ->andThrow(UnableToDeleteFile::atLocation($import->private_path));
+    Storage::partialMock()->shouldReceive('disk')->with('local')->andReturn($failingDisk);
+
+    $this->actingAs($admin)->delete(route('admin.imports.destroy', $import), ['confirmed' => 1, 'expected_state' => 'invalid'])
+        ->assertSessionHasErrors(['import' => 'Berkas sumber belum dapat dihapus. Riwayat tetap tersimpan; coba kembali.']);
+
+    $this->assertNotSoftDeleted($import);
+    $this->assertDatabaseCount('sk_import_rows', 1);
+    $this->assertDatabaseCount('audit_events', 0);
+    expect($disk->exists($import->private_path))->toBeTrue();
 });

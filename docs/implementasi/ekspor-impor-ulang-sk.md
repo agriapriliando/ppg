@@ -27,7 +27,7 @@ Ekspor Excel memerlukan 1–5.000 peserta dan PEG ID terisi. Pilihan kosong, per
 
 `id_operator` adalah ID login operator aktif. Jika operator tidak aktif atau tidak tersedia, kolom ini dikosongkan; isian kosong pada impor mempertahankan penugasan lama. Kode wilayah mengikuti nilai yang tersimpan; referensi yang sudah tidak aktif dapat memerlukan perbaikan saat pratinjau.
 
-File ini memperbarui data resmi peserta SK. Akun, biodata formulir, status pendaftaran, berkas unggahan dan kata sandi tidak menjadi kolom impor. Peserta terikat klaim, konflik nomor SK/urut, perubahan penugasan dan data yang berubah setelah pratinjau tetap diperiksa oleh perlindungan impor. File hasil ekspor tidak menjamin semua baris dapat diperbarui jika kondisi tersebut ditemukan.
+File ini memperbarui seluruh kolom template data resmi peserta SK, termasuk peserta yang sudah terhubung ke akun dan operator aktif. Nomor WhatsApp peserta terhubung ikut diselaraskan dengan kontak akun dan formulir; biodata lain, status pendaftaran, riwayat pengiriman, berkas dan kata sandi tidak menjadi kolom impor. Pertukaran nomor SK/urut diperbolehkan jika seluruh peserta yang berpindah disertakan dan hasil akhir tetap unik. Baris duplikat, posisi akhir berbenturan, kontak akun tidak valid dan target yang berubah setelah pratinjau tetap diperiksa.
 
 Pilihan **Laporan administrasi (CSV)** tetap tersedia dan merupakan laporan; file CSV tersebut tidak dapat langsung digunakan di menu Impor SK. File ekspor lama tanpa penanda jenis tetap dikenali sebagai CSV.
 

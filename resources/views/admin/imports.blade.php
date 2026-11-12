@@ -40,7 +40,7 @@
                                 <div class="form-text">Untuk unggah ulang, pilih Perbarui saja. Peserta dicocokkan berdasarkan periode dan id_peserta_sk (Peg ID), bukan nomor SK atau nomor urut. Pilih Tambah dan perbarui untuk memasukkan peserta baru.</div>
                                 <x-field-error name="import_mode" />
                             </div>
-                            <div class="alert alert-info small">Kolom <code>id_peserta_sk</code> wajib diisi sebagai teks agar nol awal tetap utuh. Isian opsional kosong mempertahankan data lama. Perubahan peserta terikat klaim diperiksa melalui jalur administratif.</div>
+                            <div class="alert alert-info small">Kolom <code>id_peserta_sk</code> (PEG ID) menjadi patokan pembaruan, termasuk peserta yang sudah memiliki akun. Isian opsional kosong mempertahankan data lama. Nomor SK dan urut boleh dipertukarkan jika seluruh peserta yang berpindah disertakan sebagai baris valid; hasil akhir tetap harus unik.</div>
                             <label class="upload-zone" for="sk-file">
                                 <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
                                 <strong>Pilih berkas Excel SK</strong>
@@ -91,20 +91,46 @@
                                         <small class="d-block text-muted">{{ $import->period->name }} · {{ $import->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</small>
                                     </td>
                                     <td>{{ $import->state === 'committed' && (($import->counts['error'] ?? 0) + ($import->counts['conflict'] ?? 0)) > 0 ? 'Selesai sebagian' : (['uploaded'=>'Antre validasi','validating'=>'Divalidasi','ready'=>'Siap ditinjau','invalid'=>'Perlu koreksi','failed'=>'Validasi gagal','committed'=>'Selesai','expired'=>'Kedaluwarsa'][$import->state] ?? $import->state) }}</td>
-                                    <td>
+                                    <td x-data="{ confirming: false, busy: false }">
                                         <div class="d-flex flex-wrap gap-2">
                                             <a class="btn btn-sm btn-outline-purple" href="{{ route('admin.imports.show', $import) }}">Lihat Hasil</a>
+                                            @can('download', $import)
+                                                @if($import->staging_purged_at === null)
+                                                    <a class="btn btn-sm btn-outline-purple" href="{{ route('admin.imports.download', $import) }}"><i class="bi bi-download me-1" aria-hidden="true"></i>Unduh Excel</a>
+                                                @else
+                                                    <span class="small text-muted">Berkas sumber sudah dibersihkan.</span>
+                                                @endif
+                                            @endcan
                                             @can('delete', $import)
                                                 @if(in_array($import->state, ['uploaded', 'validating'], true))
                                                     <button type="button" class="btn btn-sm btn-outline-danger" disabled title="Tunggu validasi selesai"><i class="bi bi-trash me-1" aria-hidden="true"></i>Hapus</button>
+                                                    <small class="text-muted">Riwayat dapat dihapus setelah validasi selesai.</small>
                                                 @else
-                                                    <form method="post" action="{{ route('admin.imports.destroy', $import) }}" onsubmit="return confirm('Hapus riwayat impor ini beserta berkas sumber dan hasil validasinya? Data peserta yang sudah diimpor tetap tersimpan.');">
-                                                        @csrf
-                                                        @method('delete')
-                                                        <input type="hidden" name="confirmed" value="1">
-                                                        <input type="hidden" name="expected_state" value="{{ $import->state }}">
-                                                        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1" aria-hidden="true"></i>Hapus</button>
-                                                    </form>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" @click="confirming = true"><i class="bi bi-trash me-1" aria-hidden="true"></i>Hapus</button>
+                                                    <template x-teleport="body">
+                                                    <div class="ui-modal-backdrop" x-show="confirming" x-cloak style="display: none;" x-trap.inert.noscroll="confirming" @keydown.escape.window="if (!busy) confirming = false" @click.self="if (!busy) confirming = false" role="dialog" aria-modal="true" aria-labelledby="delete-import-title-{{ $import->id }}">
+                                                        <div class="ui-modal" style="max-width: 560px;">
+                                                            <div class="ui-modal-header d-flex justify-content-between align-items-center gap-3">
+                                                                <h2 id="delete-import-title-{{ $import->id }}" class="h6 fw-bold text-danger mb-0">Hapus riwayat impor?</h2>
+                                                                <button type="button" class="btn-close" @click="confirming = false" :disabled="busy" aria-label="Tutup"></button>
+                                                            </div>
+                                                            <form method="post" action="{{ route('admin.imports.destroy', $import) }}" @submit="busy = true">
+                                                                @csrf
+                                                                @method('delete')
+                                                                <input type="hidden" name="expected_state" value="{{ $import->state }}">
+                                                                <div class="ui-modal-body">
+                                                                    <strong class="d-block mb-3">{{ $import->original_filename }}</strong>
+                                                                    <p>Riwayat, berkas Excel sumber, dan hasil validasi akan dihapus. Data peserta yang sudah diimpor tetap tersimpan.</p>
+                                                                    <label class="d-flex align-items-start gap-2"><input type="checkbox" name="confirmed" value="1" class="form-check-input" required><span>Saya menyetujui penghapusan riwayat ini.</span></label>
+                                                                </div>
+                                                                <div class="p-3 border-top d-flex justify-content-end gap-2">
+                                                                    <button type="button" class="btn btn-light border" @click="confirming = false" :disabled="busy">Batal</button>
+                                                                    <button type="submit" class="btn btn-danger" :disabled="busy" x-text="busy ? 'Menghapus…' : 'Hapus Riwayat'">Hapus Riwayat</button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                    </template>
                                                 @endif
                                             @endcan
                                         </div>

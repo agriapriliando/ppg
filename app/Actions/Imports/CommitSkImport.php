@@ -2,6 +2,7 @@
 
 namespace App\Actions\Imports;
 
+use App\Actions\Admissions\SynchronizeApplicantPhone;
 use App\Actions\RecordAudit;
 use App\Enums\AccountState;
 use App\Enums\PeriodState;
@@ -13,11 +14,12 @@ use App\Models\User;
 use App\Support\ParticipantOrigin;
 use App\Support\SkImportIdentity;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class CommitSkImport
 {
-    public function __construct(private RecordAudit $audit) {}
+    public function __construct(private RecordAudit $audit, private SynchronizeApplicantPhone $phone) {}
 
     public function handle(User $actor, SkImport $import, string $previewHash): void
     {
@@ -43,7 +45,7 @@ class CommitSkImport
             // Lock in ID order so imports in different periods cannot race staff changes.
             $operators = User::query()->whereIn('id', $operatorIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $targets = SkParticipant::query()->where('admission_period_id', $period->id)->whereIn('id', $rows->pluck('target_participant_id')->filter())->orderBy('id')->lockForUpdate()->get()->keyBy('id');
-            $origins = [];
+            // Check every original target before moving any SK position or updating contact data.
             foreach ($rows as $row) {
                 $data = $row->normalized_payload;
                 $participant = $row->target_participant_id === null ? null : $targets->get($row->target_participant_id);
@@ -54,7 +56,36 @@ class CommitSkImport
                     if ($locked->import_mode !== 'upsert' || $row->result !== 'new' || ($data['official_participant_id'] === null || $data['official_participant_id'] === '') || SkParticipant::query()->where('admission_period_id', $period->id)->where('official_participant_id', $data['official_participant_id'])->exists()) {
                         throw ValidationException::withMessages(['import' => 'ID peserta pada pratinjau tidak lagi sesuai. Unggah ulang untuk pemeriksaan terbaru.']);
                     }
-                    $participant = new SkParticipant;
+                }
+            }
+            $moving = [];
+            foreach ($rows->where('result', 'change') as $row) {
+                $participant = $targets->get($row->target_participant_id);
+                $data = $row->normalized_payload;
+                if ($participant !== null && ($participant->sk_number !== $data['sk_number'] || $participant->sk_order !== $data['sk_order'])) {
+                    $moving[$participant->id] = $participant;
+                }
+            }
+            // Unique temporary positions make swaps and longer cycles safe on MySQL's immediate unique index.
+            // They are only visible within this transaction and are rolled back on any failure.
+            if ($moving !== []) {
+                do {
+                    $prefix = 'IMPORT-'.Str::uuid().'-';
+                } while (SkParticipant::query()->where('admission_period_id', $period->id)->where('sk_number', 'like', $prefix.'%')->exists());
+                foreach ($moving as $participant) {
+                    $temporary = $prefix.$participant->id;
+                    SkParticipant::query()->whereKey($participant->id)->update(['sk_number' => $temporary]);
+                    $participant->sk_number = $temporary;
+                    $participant->syncOriginalAttribute('sk_number');
+                }
+            }
+            $origins = [];
+            $phones = [];
+            foreach ($rows as $row) {
+                $data = $row->normalized_payload;
+                $participant = $row->target_participant_id === null ? new SkParticipant : $targets->get($row->target_participant_id);
+                if ($participant === null) {
+                    throw ValidationException::withMessages(['import' => 'Peserta pada pratinjau tidak tersedia. Unggah ulang untuk pemeriksaan terbaru.']);
                 }
                 if ($row->result === 'identical') {
                     continue;
@@ -74,21 +105,29 @@ class CommitSkImport
                         }
                     }
                 }
-                if ($participant->exists && $participant->claimed_user_id !== null) {
-                    throw ValidationException::withMessages(['import' => 'Peserta sudah terikat klaim. Perubahan harus diperiksa secara administratif.']);
+                if ($participant->claimed_user_id !== null && $data['phone_number'] !== $participant->phone_number) {
+                    if ($data['phone_number'] !== null && ! is_string($data['phone_number'])) {
+                        throw ValidationException::withMessages(['import' => 'Nomor HP pada pratinjau tidak valid. Unggah ulang untuk pemeriksaan terbaru.']);
+                    }
+                    $number = $this->phone->participantNumber($participant, $data['phone_number'], 'import');
+                    if ($number !== null) {
+                        $userId = $participant->claimed_user_id;
+                        if (isset($phones[$userId]) && $phones[$userId] !== $number) {
+                            throw ValidationException::withMessages(['import' => 'Satu akun memiliki beberapa nomor HP berbeda dalam impor. Samakan nomor HP sebelum mengunggah ulang.']);
+                        }
+                        $phones[$userId] = $number;
+                        $data['phone_number'] = $number;
+                    }
                 }
                 $operatorId = $data['assigned_operator_id'];
                 if ($operatorId !== null && ! is_int($operatorId)) {
                     throw ValidationException::withMessages(['import' => 'Data operator pada pratinjau tidak valid. Unggah ulang untuk validasi terbaru.']);
                 }
                 $operator = $operators->get($operatorId);
-                if ($operatorId !== null && ($operator === null || $operator->role !== UserRole::Operator || $operator->account_state !== AccountState::Active)) {
+                if ($operatorId !== null && (! $participant->exists || $operatorId !== $participant->assigned_operator_id) && ($operator === null || $operator->role !== UserRole::Operator || $operator->account_state !== AccountState::Active)) {
                     throw ValidationException::withMessages(['import' => 'Operator pada pratinjau tidak lagi aktif. Unggah ulang untuk validasi terbaru.']);
                 }
                 $oldOperator = $participant->assigned_operator_id;
-                if ($oldOperator !== null && $oldOperator !== $data['assigned_operator_id']) {
-                    throw ValidationException::withMessages(['import' => 'Penugasan peserta berubah sejak pratinjau. Gunakan menu penugasan.']);
-                }
                 $participant->fill($data);
                 $participant->fill(['last_import_id' => $locked->id]);
                 if ($participant->exists) {
@@ -99,6 +138,9 @@ class CommitSkImport
                 if ($oldOperator !== $participant->assigned_operator_id) {
                     DB::table('assignment_events')->insert(['sk_participant_id' => $participant->id, 'old_operator_id' => $oldOperator, 'new_operator_id' => $participant->assigned_operator_id, 'actor_id' => $actor->id, 'mode' => 'explicit', 'reason' => 'Penugasan eksplisit dari impor SK', 'created_at' => now()]);
                 }
+            }
+            foreach ($phones as $userId => $number) {
+                $this->phone->handle(User::query()->whereKey($userId)->firstOrFail(), $number);
             }
             $changedNumbers = $rows->whereIn('result', ['new', 'change'])->pluck('normalized_payload.sk_number')->unique();
             if (SkParticipant::query()->where('admission_period_id', $period->id)->whereIn('sk_number', $changedNumbers)->select('sk_number')->groupBy('sk_number')->havingRaw('COUNT(DISTINCT sk_date) > 1')->exists()) {
@@ -114,6 +156,6 @@ class CommitSkImport
             $period->lock_version++;
             $period->save();
             $this->audit->handle($actor, 'Mengonfirmasi impor SK', $locked, ['period_id' => $period->id, 'saved_rows' => $saved, 'identical_rows' => $identical, 'deferred_rows' => $deferred]);
-        });
+        }, attempts: 3);
     }
 }

@@ -19,6 +19,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+beforeEach(function () {
+    Storage::fake('local');
+    Storage::fake('public');
+});
+
 it('cancels reset process when confirmation is declined', function () {
     $this->artisan('pmb:reset-data')
         ->expectsConfirmation('Apakah Anda yakin ingin melanjutkan proses reset ini?', 'no')

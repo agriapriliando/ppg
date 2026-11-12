@@ -91,7 +91,7 @@ it('reports phone values exceeding storage capacity without preventing valid row
     $this->assertDatabaseMissing('sk_participants', ['sk_number' => 'SK-PHONE']);
 });
 
-it('detects phone changes on reimport and protects claimed participant records', function (bool $claimed) {
+it('updates phone changes on reimport and synchronizes claimed participant accounts', function (bool $claimed) {
     Storage::fake('local');
     $c = registrationContext();
     $participant = $c['participant'];
@@ -100,15 +100,14 @@ it('detects phone changes on reimport and protects claimed participant records',
 
     $this->actingAs($c['admin'])->post(route('admin.imports.store'), ['period_id' => $c['period']->id, 'file' => skWorkbook([$row], ValidateSkImport::HEADERS)])->assertRedirect();
     $import = SkImport::query()->latest('id')->first();
-    expect($import->rows()->sole()->result)->toBe($claimed ? 'conflict' : 'change');
+    expect($import->rows()->sole()->result)->toBe('change');
     $response = $this->post(route('admin.imports.commit', $import), ['preview_hash' => $import->preview_hash]);
+    $response->assertSessionHasNoErrors();
+    expect($participant->fresh()->phone_number)->toBe('6289876543210');
+    expect($participant->fresh()->lock_version)->toBe($participant->lock_version + 1);
     if ($claimed) {
-        $response->assertSessionHasErrors('import');
-    } else {
-        $response->assertSessionHasNoErrors();
+        expect($c['applicant']->fresh()->phone_number)->toBe('6289876543210');
     }
-    expect($participant->fresh()->phone_number)->toBe($claimed ? '081234567890' : '6289876543210');
-    expect($participant->fresh()->lock_version)->toBe($claimed ? $participant->lock_version : $participant->lock_version + 1);
 })->with([false, true]);
 
 it('includes origin lookup in the latest template and imports it without clearing it on legacy reimport', function () {
@@ -359,7 +358,7 @@ it('skips conflicts while committing independent valid rows and keeps a filterab
     $c = registrationContext();
     $participant = $c['participant'];
     $participant->forceFill(['claimed_user_id' => $c['applicant']->id])->save();
-    $rows = [[$participant->sk_number, $participant->sk_date->format('Y-m-d'), $c['period']->code, $participant->sk_order, 'Perubahan Terikat Klaim', $participant->official_participant_id]];
+    $rows = [[$participant->sk_number, $participant->sk_date->format('Y-m-d'), $c['period']->code, $participant->sk_order, 'Posisi Tetap Terpakai', 'NEW-CONFLICT']];
     foreach (range(1, 51) as $order) {
         $rows[] = ['SK-PARTIAL', '2026-11-06', $c['period']->code, $order, 'Peserta Valid '.$order, 'VALID-'.str_pad((string) $order, 4, '0', STR_PAD_LEFT)];
     }
@@ -373,7 +372,7 @@ it('skips conflicts while committing independent valid rows and keeps a filterab
     $this->assertDatabaseCount('sk_participants', 52);
     expect($participant->fresh()->name_on_sk)->toBe($participant->name_on_sk);
     $this->get(route('admin.imports.show', ['import' => $import, 'rows' => 'problems']))
-        ->assertOk()->assertSee('Perubahan Terikat Klaim')->assertSee('table-warning')->assertSee('table-danger')
+        ->assertOk()->assertSee('Posisi Tetap Terpakai')->assertSee('table-warning')->assertSee('table-danger')
         ->assertDontSee('Peserta Valid 1')->assertDontSee('Simpan Baris Valid');
     $this->get(route('admin.imports.errors', $import))->assertOk();
     $this->assertDatabaseHas('audit_events', ['actor_id' => $c['admin']->id, 'action' => 'Mengonfirmasi impor SK']);

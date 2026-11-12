@@ -44,7 +44,9 @@ class SkImportWorkbook
             ['Untuk file yang diperbarui, gunakan mode Perbarui saja. ID tidak ditemukan akan ditunda, bukan membuat peserta baru.'],
             ['Gunakan Tambah dan perbarui untuk impor awal atau file campuran peserta baru dan pembaruan.'],
             ['Sel opsional kosong mempertahankan nomor HP, penugasan, asal, dan catatan internal yang tersimpan.'],
-            ['Peserta terikat klaim atau transfer operator ditandai konflik. Gunakan pemeriksaan administratif/menu penugasan.'],
+            ['Seluruh kolom template dapat diperbarui berdasarkan PEG ID, termasuk peserta yang sudah memiliki akun dan pergantian operator aktif. Akun dan riwayat tetap terhubung ke peserta yang sama.'],
+            ['Pertukaran nomor SK/urut diperbolehkan jika seluruh peserta yang berpindah disertakan sebagai baris valid. Hasil akhir nomor SK + urut tetap harus unik.'],
+            ['Perubahan nomor HP peserta yang sudah memiliki akun diselaraskan dengan kontak akun, klaim dan formulir. Gunakan nomor WhatsApp valid untuk peserta terhubung.'],
             ['Periksa seluruh hasil validasi dan nilai lama-baru sebelum mengonfirmasi impor.'],
             ['Baris valid dapat disimpan meskipun ada baris error atau konflik. Baris bermasalah ditunda; perbaiki dan unggah ulang.'],
         ]);
