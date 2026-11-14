@@ -3,6 +3,7 @@
     "private": true,
     "type": "module",
     "scripts": {
+        "test:statistics": "node --test tests/JavaScript/public-sk-statistics.test.js",
         "build": "vite build",
         "dev": "vite",
         "test:uploads": "node --test tests/JavaScript/file-upload.test.js",
@@ -13,6 +14,7 @@
         "bootstrap": "5.3.3",
         "bootstrap-icons": "1.11.3",
         "concurrently": "^10.0.3",
+        "highcharts": "13.1.1",
         "laravel-vite-plugin": "^3.1",
         "vite": "^8.0.0"
     },

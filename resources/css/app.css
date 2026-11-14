@@ -34,5 +34,21 @@ h1,h2,h3,h4,h5,h6 { font-family: inherit; }
 }
 @media print { .operator-contact, .operator-contact-space { display: none !important; } }
 .auth-section { min-height: calc(100vh - 200px); }
+.sk-statistics { background: #f7f4fa; }
+.sk-statistics-intro { max-width: 640px; }
+.sk-statistics-controls { width: 100%; max-width: 470px; }
+.sk-statistics-controls select { min-width: 0; }
+.sk-statistics-metric { display: flex; flex-direction: column; gap: .35rem; padding: 1.25rem 1.5rem; border: 1px solid #e6dfed; border-radius: 15px; background: #fff; }
+.sk-statistics-metric strong { color: #4a154b; font-size: clamp(1.8rem, 4vw, 2.5rem); line-height: 1.2; }
+.sk-statistics-metric span { color: #67536e; font-size: .9rem; }
+.sk-statistics-card .panel-heading h3 { font-size: 1.05rem; }
+.sk-statistics-chart { height: 400px; min-width: 0; }
+.sk-statistics-chart[hidden], .sk-statistics [hidden] { display: none !important; }
+.sk-statistics-table summary { cursor: pointer; font-size: .85rem; }
+.sk-statistics-table-scroll { max-height: 420px; }
+.sk-statistics-table th, .sk-statistics-table td { font-size: .8rem; overflow-wrap: anywhere; }
+.sk-statistics-table thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
+.sk-statistics [data-statistics-status] { overflow-wrap: anywhere; }
+@media (max-width: 575.98px) { .sk-statistics-controls > .d-flex { flex-wrap: wrap; } .sk-statistics-controls select { flex-basis: 100%; } .sk-statistics-chart { height: 360px; } .sk-statistics-card .panel-body { padding: 16px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
 @media print { .no-print, .portal-sidebar, .portal-topbar, .workspace-footer { display: none !important; } .portal-main { margin-left: 0 !important; } .workspace-content { padding: 0 !important; } }

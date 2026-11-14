@@ -26,6 +26,7 @@ Tujuan aplikasi adalah menangani peserta yang telah ditetapkan dalam SK: mempero
 | 15 | [Validasi frontend seluruh unggahan](15-validasi-frontend-unggahan.md) | Rancangan 10 November 2026: dokumen/gambar/video pada area unggah lama, validasi sebelum transfer, antrean campuran, kuota, retry dan pengujian |
 | 16 | [Impor ulang SK berdasarkan ID](16-impor-ulang-sk-berdasarkan-id.md) | Rancangan 10 November 2026: pembaruan berdasarkan periode + id_peserta_sk, diff, penundaan konflik, perlindungan data terikat dan commit |
 | 17 | [Filter status peserta SK](17-filter-status-peserta-sk.md) | Rancangan filter status akun dan antrean, konsistensi daftar dan ekspor Excel, serta pengujian |
+| 18 | [Statistik peserta SK di beranda](18-statistik-peserta-sk-beranda.md) | Rancangan 14 November 2026: grafik Highcharts per provinsi, kabupaten/kota dan periode; cakupan publik, filter, cache, aksesibilitas, lisensi dan pengujian |
 
 ## Cara menggunakan
 

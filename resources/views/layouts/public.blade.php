@@ -121,5 +121,6 @@
 <main id="main-content">{{ $slot }}</main>
 <footer class="py-4 text-center text-muted border-top"><div class="container"><strong>PPG IAKN Palangka Raya</strong><div class="small mt-1">Penerimaan berdasarkan SK resmi · Tanggal dan jadwal menggunakan WIB</div></div></footer>
 @if($interactive) @livewireScripts @endif
+@stack('scripts')
 </body>
 </html>

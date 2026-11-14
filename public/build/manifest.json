@@ -7,8 +7,23 @@
     "file": "assets/bootstrap-icons-BtvjY1KL.woff2",
     "src": "node_modules/bootstrap-icons/font/fonts/bootstrap-icons.woff2"
   },
+  "node_modules/highcharts/esm/highcharts.js": {
+    "file": "assets/highcharts-D6f_Ms5Z.js",
+    "name": "highcharts",
+    "src": "node_modules/highcharts/esm/highcharts.js",
+    "isDynamicEntry": true
+  },
+  "node_modules/highcharts/esm/modules/accessibility.js": {
+    "file": "assets/accessibility-oedAjswz.js",
+    "name": "accessibility",
+    "src": "node_modules/highcharts/esm/modules/accessibility.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "node_modules/highcharts/esm/highcharts.js"
+    ]
+  },
   "resources/css/app.css": {
-    "file": "assets/app-ZftE_CFi.css",
+    "file": "assets/app-DaGUbIWC.css",
     "name": "app",
     "names": [
       "app.css"
@@ -25,5 +40,15 @@
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true
+  },
+  "resources/js/public-sk-statistics.js": {
+    "file": "assets/public-sk-statistics-B1UGIYe9.js",
+    "name": "public-sk-statistics",
+    "src": "resources/js/public-sk-statistics.js",
+    "isEntry": true,
+    "dynamicImports": [
+      "node_modules/highcharts/esm/highcharts.js",
+      "node_modules/highcharts/esm/modules/accessibility.js"
+    ]
   }
 }

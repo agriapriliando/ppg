@@ -35,12 +35,14 @@ use App\Http\Controllers\ParticipantsController;
 use App\Http\Controllers\PeriodDocumentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicPortalController;
+use App\Http\Controllers\PublicSkParticipantStatisticsController;
 use App\Http\Controllers\ReferenceLookupController;
 use App\Http\Controllers\SeoController;
 use App\Http\Controllers\StaffDocumentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', PublicPortalController::class)->name('home');
+Route::get('/statistik-peserta-sk', PublicSkParticipantStatisticsController::class)->middleware('throttle:60,1')->name('public.sk-statistics');
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('robots');
 Route::get('/periode/{period}/berkas', [PeriodDocumentController::class, 'index'])->name('public.period-documents.index');

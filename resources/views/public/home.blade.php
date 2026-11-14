@@ -120,6 +120,7 @@
             </div>
         </div>
     </section>
+    @include('public.partials.sk-statistics', ['skStatistics' => $skStatistics])
     <section id="alur-pendaftaran" class="py-5 bg-white">
         <div class="container">
             <div class="text-center mb-5"><span class="section-badge">ALUR PENDAFTARAN</span>
