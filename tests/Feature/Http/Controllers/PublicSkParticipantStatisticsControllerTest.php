@@ -45,7 +45,7 @@ it('publishes consistent public active membership aggregates without personal fi
     foreach ([1, 2] as $order) {
         publicStatisticsParticipant($second, $dataset, $order, ['origin_province_code' => '02', 'origin_city_code' => '0201']);
     }
-    $private = AdmissionPeriod::factory()->published()->create(['is_public' => false, 'name' => 'Periode Privat Tersembunyi']);
+    $private = AdmissionPeriod::factory()->create(['is_public' => false, 'name' => 'Periode Privat Tersembunyi']);
     publicStatisticsParticipant($private, $dataset, 1, ['origin_province_code' => '03', 'origin_city_code' => '0301']);
     $before = SkParticipant::query()->get()->toArray();
 
@@ -84,11 +84,11 @@ it('refreshes cached data immediately for bulk updates deletion and publication 
     // Deliberately bypass Eloquent events and updated_at to exercise bulk write paths.
     DB::table('sk_participants')->where('id', $participant->id)->update(['origin_city_code' => '0102']);
     $this->getJson(route('public.sk-statistics'))->assertOk()->assertJsonPath('cities.0.code', '0102');
-    DB::table('admission_periods')->where('id', $period->id)->update(['is_public' => false]);
+    DB::table('admission_periods')->where('id', $period->id)->update(['state' => 'draft']);
     $this->getJson(route('public.sk-statistics'))->assertOk()->assertJsonPath('summary.total', 0)->assertJsonCount(0, 'periods')->assertJsonCount(0, 'cities');
     $this->getJson(route('public.sk-statistics', ['period_id' => $period->id]))->assertNotFound();
     $this->get(route('home'))->assertOk()->assertDontSee('Periode Dapat Disembunyikan');
-    DB::table('admission_periods')->where('id', $period->id)->update(['is_public' => true]);
+    DB::table('admission_periods')->where('id', $period->id)->update(['state' => 'published']);
     $this->getJson(route('public.sk-statistics'))->assertOk()->assertJsonPath('summary.total', 1);
     DB::table('sk_participants')->where('id', $participant->id)->update(['roster_state' => 'withdrawn']);
     $this->getJson(route('public.sk-statistics'))->assertOk()->assertJsonPath('summary.total', 0);
@@ -129,7 +129,6 @@ it('returns indistinguishable not found responses for inaccessible or malformed 
     $period = AdmissionPeriod::factory()->published()->create();
     $value = (string) $period->id;
     match ($condition) {
-        'private' => $period->update(['is_public' => false]),
         'draft' => $period->update(['state' => 'draft']),
         'archived' => $period->update(['state' => 'archived']),
         'missing' => $value = '999999',
@@ -139,7 +138,23 @@ it('returns indistinguishable not found responses for inaccessible or malformed 
     };
 
     $this->getJson(route('public.sk-statistics', ['period_id' => $value]))->assertNotFound();
-})->with(['private', 'draft', 'archived', 'missing', 'malformed', 'zero', 'array']);
+})->with(['draft', 'archived', 'missing', 'malformed', 'zero', 'array']);
+
+it('counts all published periods even when no homepage primary period is selected', function () {
+    $dataset = publicStatisticsReference();
+    $first = AdmissionPeriod::factory()->published()->create(['is_public' => false, 'name' => 'Periode Bukan Utama Pertama']);
+    $second = AdmissionPeriod::factory()->published()->create(['is_public' => false, 'name' => 'Periode Bukan Utama Kedua']);
+    publicStatisticsParticipant($first, $dataset, 1);
+    publicStatisticsParticipant($second, $dataset, 1);
+
+    $this->getJson(route('public.sk-statistics'))->assertOk()->assertJsonPath('summary.total', 2)
+        ->assertJsonCount(2, 'periods')->assertJsonPath('scope.period_state', 'published');
+    $this->getJson(route('public.sk-statistics', ['period_id' => $second->id]))->assertOk()->assertJsonPath('summary.total', 1);
+    $this->get(route('home'))->assertOk()->assertSee('Periode penerimaan belum diumumkan')
+        ->assertSee('Periode Bukan Utama Pertama')->assertSee('Periode Bukan Utama Kedua');
+    $first->update(['is_public' => true]);
+    $this->getJson(route('public.sk-statistics'))->assertOk()->assertJsonPath('summary.total', 2)->assertJsonCount(2, 'periods');
+});
 
 it('uses one consistent latest snapshot label when a known reference has no name', function () {
     $dataset = publicStatisticsReference();

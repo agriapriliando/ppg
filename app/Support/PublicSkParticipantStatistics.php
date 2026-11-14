@@ -20,8 +20,9 @@ class PublicSkParticipantStatistics
         [$rows, $regions, $activeDatasetId] = DB::transaction(function (): array {
             $columns = ['ap.id', 'ap.name', 'ap.code', 'ap.academic_year', 'ap.wave', 'ap.opens_at',
                 'sp.origin_reference_dataset_id', 'sp.origin_province_code', 'sp.origin_province_name', 'sp.origin_city_code', 'sp.origin_city_name'];
+            // is_public chooses the homepage primary period, not statistics eligibility.
             $rows = AdmissionPeriod::query()->from('admission_periods as ap')
-                ->where('ap.is_public', true)->where('ap.state', PeriodState::Published)
+                ->where('ap.state', PeriodState::Published)
                 ->leftJoin('sk_participants as sp', function (JoinClause $join): void {
                     $join->on('sp.admission_period_id', '=', 'ap.id')->where('sp.roster_state', 'active');
                 })
@@ -43,7 +44,7 @@ class PublicSkParticipantStatistics
         abort_if($periodId !== null && ! collect($rows)->contains(fn ($row) => (int) $row['id'] === $periodId), 404);
         $revision = hash('sha256', serialize([$rows, $regions, $activeDatasetId, $periodId]));
 
-        return Cache::remember('public-sk-statistics:v1:'.$revision, max(1, (int) config('pmb.public_statistics_cache_seconds', 300)),
+        return Cache::remember('public-sk-statistics:v2:'.$revision, max(1, (int) config('pmb.public_statistics_cache_seconds', 300)),
             fn () => $this->aggregate($rows, $regions, $activeDatasetId === null ? null : (int) $activeDatasetId, $periodId));
     }
 
@@ -62,7 +63,7 @@ class PublicSkParticipantStatistics
         $provinces = [];
         $cities = [];
         $total = $missingProvince = $missingCity = 0;
-        $selectedLabel = 'Semua periode publik';
+        $selectedLabel = 'Semua periode dipublikasikan';
         foreach ($rows as $row) {
             $id = (int) $row['id'];
             $count = (int) $row['participant_count'];
@@ -109,7 +110,7 @@ class PublicSkParticipantStatistics
 
         return [
             'generated_at' => now()->toIso8601String(),
-            'scope' => ['period_id' => $periodId, 'label' => $selectedLabel, 'roster_state' => 'active'],
+            'scope' => ['period_id' => $periodId, 'label' => $selectedLabel, 'roster_state' => 'active', 'period_state' => 'published'],
             'summary' => ['total' => $total, 'provinces' => count($provinces), 'cities' => count($cities), 'missing_province' => $missingProvince, 'missing_city' => $missingCity],
             'periods' => array_values(array_filter($periods, fn ($period) => $period['count'] > 0)),
             'provinces' => $this->sortedRegions($provinces),

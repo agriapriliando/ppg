@@ -25,15 +25,15 @@ Hasil pemeriksaan read-only tanggal penyusunan:
 | Seluruh baris peserta SK | 454 |
 | Peserta pada periode `published`, `is_public = true` | 350 |
 | Peserta pada periode `published`, `is_public = false` | 104 |
-| Provinsi pada periode publik tersebut | 9 |
-| Kabupaten/kota pada periode publik tersebut | 71 |
+| Provinsi pada periode Dipublikasikan tersebut | 9 |
+| Kabupaten/kota pada periode Dipublikasikan tersebut | 71 |
 | Peserta publik tanpa kode provinsi / tanpa kode kabupaten/kota | 0 / 0 |
 
 Seluruh 454 baris tersebut saat diperiksa mempunyai `roster_state = active`. Angka ini merupakan snapshot lokal, bukan angka yang ditulis permanen ke halaman atau target pengujian production.
 
-Beranda saat ini memuat informasi periode dengan `is_public = true` dan `state = published`. **Rekomendasi awal: statistik mengikuti batas publikasi yang sama.** Dengan data lokal saat telaah, dasar statistik publik adalah 350 kepesertaan, bukan 454. Jangan mengekspos 104 kepesertaan dari periode tersembunyi melalui total, grafik, nama periode, filter, tabel, atau respons JSON.
+Kartu informasi beranda memilih `is_public = true` dan `state = published`. Telaah lanjutan menemukan bahwa `is_public` sebenarnya memilih **satu periode utama beranda**; saat satu periode dipilih, aplikasi menghapus penanda tersebut dari periode lain. Pengguna menetapkan bahwa statistik harus menghitung **seluruh periode berstatus Dipublikasikan**, terlepas dari `is_public`. Dengan data lokal saat verifikasi perbaikan, cakupan ini menghasilkan **454 kepesertaan dari 2 periode, 10 provinsi dan 75 kabupaten/kota**. Angka 350, 9 provinsi dan 71 kabupaten/kota pada tabel di atas adalah snapshot periode utama pada telaah awal.
 
-Periode yang pendaftarannya sudah ditutup tetap boleh dihitung selama masih `published` dan publik. Penutupan waktu pendaftaran berbeda dari `archived`. Periode draf, privat dan arsip tidak masuk versi awal. Jika kampus menghendaki statistik historis arsip atau seluruh periode, tetapkan cakupan publikasinya secara eksplisit sebelum implementasi; jangan menganggap semua data administratif otomatis boleh tampil di beranda.
+Periode yang pendaftarannya sudah ditutup tetap dihitung selama masih `published`. Penutupan waktu pendaftaran berbeda dari `archived`. Periode Draf dan Arsip tidak masuk statistik. Data pribadi peserta tetap tidak dikirim ke beranda; yang ditampilkan adalah jumlah agregat dan nama periode/wilayah.
 
 ## 3. Definisi jumlah dan sumber data
 
@@ -60,10 +60,10 @@ Rekonsiliasi untuk cakupan periode yang sama: jumlah seluruh batang provinsi + j
 Urutan komponen dari atas ke bawah:
 
 1. Judul **Sebaran Peserta SK**, penjelasan sumber, cakupan periode dan waktu snapshot data.
-2. Filter **Periode untuk sebaran wilayah**, default **Semua periode publik**, serta tombol **Reset statistik**.
+2. Filter **Periode untuk sebaran wilayah**, default **Semua periode Dipublikasikan**, serta tombol **Reset statistik**.
 3. Tiga kartu: **Total kepesertaan SK aktif**, **Provinsi terwakili**, **Kabupaten/kota terwakili**. Ketiganya mengikuti filter periode, sebelum filter/pencarian kabupaten/kota.
 4. Grafik provinsi dan grafik kabupaten/kota, berdampingan pada layar lebar dan bertumpuk pada ponsel. Filter provinsi dan pencarian berada di kartu kabupaten/kota.
-5. Grafik **Perbandingan peserta per periode publik** selebar area konten. Grafik ini tetap membandingkan seluruh periode publik yang memenuhi syarat, meskipun filter sebaran wilayah sedang memilih satu periode. Periode terpilih diberi penanda dan keterangan agar perbedaan cakupan tidak membingungkan.
+5. Grafik **Perbandingan peserta per periode Dipublikasikan** selebar area konten. Grafik ini tetap membandingkan seluruh periode Dipublikasikan yang memenuhi syarat, meskipun filter sebaran wilayah sedang memilih satu periode. Periode terpilih diberi penanda dan keterangan agar perbedaan cakupan tidak membingungkan.
 6. Tombol **Lihat tabel data** pada masing-masing grafik, catatan data belum lengkap bila ada, dan keterangan hitungan kepesertaan lintas periode.
 
 Grafik provinsi diurutkan jumlah menurun, lalu nama dan kode untuk urutan stabil. Kabupaten/kota mengikuti aturan yang sama. Grafik periode diurutkan `opens_at`, lalu ID; label menampilkan nama, tahun akademik dan gelombang bila diperlukan untuk membedakan periode bernama sama. Periode dengan nol peserta tidak dijadikan batang atau pilihan filter pada versi awal.
@@ -84,11 +84,11 @@ Grafik provinsi diurutkan jumlah menurun, lalu nama dan kode untuk urutan stabil
 | Mengeklik batang provinsi | Memilih provinsi pada kartu kabupaten/kota. Tersedia dropdown yang melakukan tindakan identik untuk keyboard/ponsel. |
 | Memilih provinsi di kartu kabupaten/kota | Memperbarui grafik/tabel kabupaten/kota saja dan membersihkan pencarian. Ada pilihan **Semua provinsi**. |
 | Mengeklik batang periode | Melakukan tindakan yang sama dengan memilih periode pada filter sebaran wilayah. |
-| Reset statistik | Kembali ke semua periode publik, semua provinsi dan pencarian kosong; tidak mereset bagian beranda lain. |
+| Reset statistik | Kembali ke semua periode Dipublikasikan, semua provinsi dan pencarian kosong; tidak mereset bagian beranda lain. |
 | Tidak ada data | Tampilkan penjelasan **Belum ada data peserta SK yang dapat ditampilkan**; jangan menampilkan batang nol atau angka contoh. |
 | Tidak ada hasil pencarian | Tampilkan **Wilayah tidak ditemukan pada pilihan ini**, tombol hapus pencarian, dan pertahankan ringkasan cakupan. |
 
-Untuk versi awal, filter bersifat lokal pada bagian statistik, tidak perlu mengubah query parameter beranda. Daftar periode/wilayah dan validasi server berasal dari kumpulan publik yang sama; ID periode privat, draf, arsip atau tidak ada memberikan respons 404 yang sama, tanpa beralih diam-diam ke semua periode. Periode publik yang kehilangan seluruh peserta setelah halaman dimuat memberikan keadaan kosong yang wajar dan pilihan dapat direset.
+Filter bersifat lokal pada bagian statistik, tidak perlu mengubah query parameter beranda. Daftar periode/wilayah dan validasi server berasal dari kumpulan periode Dipublikasikan yang sama; ID periode draf, arsip atau tidak ada memberikan respons 404 yang sama, tanpa beralih diam-diam ke semua periode. Periode Dipublikasikan yang bukan periode utama tetap dapat dipilih. Periode yang kehilangan seluruh peserta setelah halaman dimuat memberikan keadaan kosong yang wajar dan pilihan dapat direset.
 
 Tampilkan indikator pemuatan dan cegah respons permintaan lama menimpa pilihan terbaru. Gunakan pembatalan permintaan atau nomor urut respons. Jika permintaan gagal, tampilkan tombol **Coba lagi** dan tandai bahwa data sebelumnya belum diperbarui; jangan memasangkan label filter baru dengan grafik lama seolah-olah cocok.
 
@@ -114,9 +114,9 @@ Pasang paket `highcharts` melalui npm dan kunci versi dalam lockfile. Impor High
 Satu respons statistik memuat:
 
 - `generated_at`: waktu snapshot dalam format ISO 8601, ditampilkan dalam WIB; tidak mengklaim waktu impor terakhir.
-- `scope`: periode untuk sebaran wilayah, `roster_state = active`, dan penjelasan periode publik.
+- `scope`: periode untuk sebaran wilayah, `roster_state = active`, dan penjelasan periode Dipublikasikan.
 - `summary`: total kepesertaan, jumlah provinsi/kabupaten terwakili, serta jumlah peserta tanpa wilayah pada masing-masing tingkat.
-- `periods`: agregat semua periode publik yang boleh tampil, masing-masing berisi ID, label dan jumlah.
+- `periods`: agregat semua periode Dipublikasikan yang boleh tampil, masing-masing berisi ID, label dan jumlah.
 - `provinces`: kode, label, jumlah peserta pada lingkup periode yang dipilih.
 - `cities`: kode provinsi, kode kabupaten/kota, label dan jumlah pada lingkup periode yang sama, sebelum pemilihan provinsi dan pencarian di browser.
 
@@ -129,7 +129,7 @@ Dengan ukuran lokal 71 kabupaten/kota publik, semua agregat kabupaten/kota dapat
 - Hindari join ke aplikasi, klaim atau referensi multi-versi yang dapat menggandakan jumlah. Penghitungan tidak membutuhkan relasi tersebut. Penyelesaian nama dilakukan dengan peta referensi tunggal yang tidak menambah baris agregat.
 - Gunakan snapshot baca konsisten untuk ringkasan dan seri pada satu respons agar impor bersamaan tidak menyebabkan total berbeda. Data awal controller dan endpoint menggunakan layanan yang sama.
 - Cache agregat selama sekitar 5 menit sebagai batas awal yang dapat dikonfigurasi. Grafik diberi waktu snapshot sebenarnya, bukan waktu setiap cache dibaca.
-- Perubahan publikasi/periode harus segera menutup akses data yang baru disembunyikan. Periksa ulang daftar ID periode publik di server sebelum menggunakan cache, dan masukkan daftar tersebut ke identitas cache. Jangan menyajikan daftar periode atau agregat privat dari payload cache lama.
+- Perubahan status periode menjadi Draf/Arsip harus segera mengeluarkan datanya. Periksa ulang daftar ID periode Dipublikasikan sebelum menggunakan cache, dan masukkan daftar tersebut ke identitas cache. Jangan menyajikan periode Draf/Arsip dari payload cache lama. Perubahan pilihan periode utama `is_public` tidak mengubah cakupan statistik.
 - Implementasi lokal membentuk revisi cache dari isi agregat dan referensi yang dibaca ulang sebelum mengakses cache. Perubahan peserta, asal, roster, penghapusan, impor terkonfirmasi dan publikasi akan menghasilkan identitas cache baru, termasuk bulk update/delete yang melewati observer. Query agregat tetap dijalankan pada setiap permintaan; lihat [tradeoff cache](../implementasi/statistik-peserta-sk-beranda.md#query-dan-cache-penyesuaian-dari-rancangan). TTL menjadi batas cadangan, bukan pengganti pemeriksaan cakupan publik.
 - Untuk halaman/endpoint publik gunakan kebijakan cache browser yang memvalidasi kembali cakupan akses; jangan membiarkan CDN menyimpan payload lama setelah periode disembunyikan. Tentukan ETag dan revalidation bila dipakai.
 - Belum diperlukan migrasi. Ukur agregasi dan `EXPLAIN` pada data lokal serta dataset representatif sebelum mengusulkan indeks baru. Target awal: respons cache hangat di bawah 300 ms pada lingkungan uji yang dicatat; ini target penerimaan, bukan hasil ukur saat penyusunan.
@@ -151,10 +151,10 @@ Rancangan tetap menggunakan Highcharts sesuai permintaan; paket 13.1.1 telah dip
 ## 9. Tahapan implementasi dan kriteria penerimaan
 
 1. Tetapkan cakupan publik dan definisi peserta aktif yang disarankan di dokumen ini; catat bila kampus memilih cakupan lain. Konfirmasikan lisensi untuk situs publik.
-2. Buat layanan agregasi bersama dan pengujian backend sebelum memasang grafik. Uji variasi kode/nama, asal kosong, penamaan sama pada daerah berbeda, serta periode publik/privat/draf/arsip.
+2. Buat layanan agregasi bersama dan pengujian backend sebelum memasang grafik. Uji variasi kode/nama, asal kosong, penamaan sama pada daerah berbeda, seluruh periode Dipublikasikan dengan/tanpa penanda periode utama, serta periode Draf/Arsip.
 3. Tambahkan ringkasan dan tabel server-rendered ke beranda, lalu integrasikan Highcharts melalui Vite dan endpoint pergantian periode.
 4. Tambahkan filter provinsi, pencarian kabupaten/kota, pemilihan batang, reset, area gulir dan keadaan gagal/memuat/kosong.
-5. Verifikasi pembaruan data/cache setelah setiap jalur perubahan; uji perubahan periode menjadi privat setelah cache terisi.
+5. Verifikasi pembaruan data/cache setelah setiap jalur perubahan; uji perubahan periode menjadi Draf/Arsip setelah cache terisi, serta pergantian periode utama yang tidak boleh mengurangi statistik.
 6. Jalankan pemeriksaan format, analisis tipe, tes relevan, build frontend, serta pengujian browser desktop/ponsel dan keyboard. Catat hasil aktual dalam dokumen implementasi terpisah.
 
 Kriteria selesai:
@@ -164,7 +164,7 @@ Kriteria selesai:
 - Label, angka, persentase dan urutan grafik/tabel sesuai query; jumlah dapat direkonsiliasi dengan data wilayah yang belum tersedia.
 - Peserta tanpa akun tetap terhitung; peserta mundur tidak terhitung; penahanan administratif tidak menghilangkan peserta aktif.
 - Satu orang dalam dua periode terhitung sebagai dua kepesertaan dan penjelasan lintas periode terlihat.
-- Periode tersembunyi tidak bocor melalui angka total, nama, endpoint langsung, cache atau ekspor; angka nol tidak membocorkan keberadaan periode privat.
+- Periode Draf/Arsip tidak muncul melalui angka total, nama, endpoint langsung, cache atau ekspor. Semua periode Dipublikasikan tetap dihitung meskipun tidak ada periode utama beranda yang dipilih.
 - Pilihan periode tidak mengubah cakupan grafik perbandingan periode secara diam-diam; pencarian kabupaten/kota tidak mengubah total ringkasan.
 - Pergantian filter cepat tidak menghasilkan grafik dari respons lama. Kegagalan JavaScript/jaringan tetap menyediakan informasi yang jelas dan tabel awal yang dapat dibaca.
 - Tidak ada label terpotong/tumpang tindih pada layar 360 px, tablet dan desktop; akses keyboard dan pengurangan animasi berfungsi.
@@ -172,6 +172,6 @@ Kriteria selesai:
 
 ## 10. Keputusan yang perlu dicatat saat implementasi
 
-Rekomendasi dasar dokumen ini adalah **kepesertaan SK aktif pada periode publik berstatus published**, semua periode publik sebagai pilihan awal, dan data asal wilayah SK. Jika yang diinginkan adalah seluruh 454 baris lokal, termasuk periode privat, batas publikasinya perlu direvisi secara sadar. Statistik ini tidak menyatakan peserta telah lolos pemeriksaan atau menyelesaikan pendaftaran.
+Keputusan pengguna setelah pemeriksaan production adalah **kepesertaan SK aktif pada seluruh periode berstatus published**, dengan semua periode Dipublikasikan sebagai pilihan awal dan asal wilayah dari data SK. `is_public` tetap menjadi pemilih satu periode utama pada kartu informasi beranda, tanpa membatasi statistik. Statistik ini tidak menyatakan peserta telah lolos pemeriksaan atau menyelesaikan pendaftaran.
 
 Sumber daring di atas ditelaah pada tanggal penyusunan. Catatan implementasi menjelaskan pemakaian revisi cache berdasarkan isi agregat sebagai penyesuaian dari usulan hook invalidasi, serta hasil pengujian lokal. Cakupan lisensi production dan verifikasi visual sebelum rilis tetap perlu diselesaikan; lihat [catatan implementasi](../implementasi/statistik-peserta-sk-beranda.md).

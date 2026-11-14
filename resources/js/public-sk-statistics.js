@@ -181,7 +181,7 @@ export function mountStatistics(root) {
                 render();
             });
             draw('cities', city.rows, city.denominator, 'Sebaran kabupaten/kota', '', () => {});
-            draw('periods', data.periods, data.periods.reduce((sum, item) => sum + item.count, 0), 'Perbandingan seluruh periode publik', String(data.scope.period_id ?? ''), loadPeriod);
+            draw('periods', data.periods, data.periods.reduce((sum, item) => sum + item.count, 0), 'Perbandingan seluruh periode dipublikasikan', String(data.scope.period_id ?? ''), loadPeriod);
         } catch {
             chartUnavailable();
         }
@@ -223,7 +223,7 @@ export function mountStatistics(root) {
             },
             success(next) {
                 data = next;
-                options(period, data.periods, 'Semua periode publik', String(data.scope.period_id ?? ''));
+                options(period, data.periods, 'Semua periode dipublikasikan', String(data.scope.period_id ?? ''));
                 if (data.scope.period_id !== null && period.value === '') {
                     period.add(new Option(data.scope.label, String(data.scope.period_id), true, true));
                 }

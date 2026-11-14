@@ -12,7 +12,7 @@
                 <label for="sk-statistics-period" class="form-label fw-semibold">Periode untuk sebaran wilayah</label>
                 <div class="d-flex gap-2 align-items-start">
                     <select id="sk-statistics-period" class="form-select" data-statistics-period>
-                        <option value="">Semua periode publik</option>
+                        <option value="">Semua periode dipublikasikan</option>
                         @foreach($skStatistics['periods'] as $item)
                             <option value="{{ $item['id'] }}">{{ $item['label'] }}</option>
                         @endforeach
@@ -21,7 +21,7 @@
                 </div>
             </div>
         </div>
-        <p class="small text-muted mb-3">Snapshot data: <time data-statistics-time datetime="{{ $skStatistics['generated_at'] }}">{{ Carbon\CarbonImmutable::parse($skStatistics['generated_at'])->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</time>. Hanya kepesertaan aktif pada periode publik yang dipublikasikan.</p>
+        <p class="small text-muted mb-3">Snapshot data: <time data-statistics-time datetime="{{ $skStatistics['generated_at'] }}">{{ Carbon\CarbonImmutable::parse($skStatistics['generated_at'])->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</time>. Hanya kepesertaan aktif pada periode berstatus Dipublikasikan.</p>
         <div class="alert alert-info" role="status" aria-live="polite" data-statistics-status hidden></div>
         <button type="button" class="btn btn-outline-purple mb-3" data-statistics-retry hidden>Coba lagi</button>
         <div class="row g-3 mb-4">
@@ -41,7 +41,7 @@
         </p>
         <p class="alert alert-light border" data-statistics-empty @if($skStatistics['summary']['total'] > 0) hidden @endif>Belum ada data peserta SK yang dapat ditampilkan.</p>
         <div class="row g-4">
-            @foreach(['provinces' => 'Jumlah peserta per provinsi', 'cities' => 'Jumlah peserta per kabupaten/kota', 'periods' => 'Perbandingan peserta per periode publik'] as $key => $title)
+            @foreach(['provinces' => 'Jumlah peserta per provinsi', 'cities' => 'Jumlah peserta per kabupaten/kota', 'periods' => 'Perbandingan peserta per periode dipublikasikan'] as $key => $title)
                 <div class="{{ $key === 'periods' ? 'col-12' : 'col-lg-6' }}">
                     <section class="workspace-card sk-statistics-card h-100" aria-labelledby="sk-statistics-{{ $key }}-title">
                         <div class="panel-heading">
@@ -49,7 +49,7 @@
                             @if($key === 'provinces')
                                 <p>Klik provinsi atau gunakan pilihan provinsi untuk melihat kabupaten/kotanya.</p>
                             @elseif($key === 'periods')
-                                <p>Seluruh periode publik dengan peserta aktif. Klik batang untuk memilih sebaran wilayah; pilihan ditandai emas.</p>
+                                <p>Seluruh periode dipublikasikan dengan peserta aktif. Klik batang untuk memilih sebaran wilayah; pilihan ditandai emas.</p>
                             @else
                                 <p>Semua daerah dengan peserta tersedia melalui gulir, pencarian, dan tabel.</p>
                             @endif

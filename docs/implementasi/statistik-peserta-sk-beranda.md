@@ -7,8 +7,8 @@ Tanggal implementasi lokal: **14 November 2026**. Acuan: [rancangan 18](../ranca
 Beranda `/` menampilkan bagian **Sebaran Peserta SK** setelah informasi periode penerimaan, sebelum alur pendaftaran:
 
 - Ringkasan total kepesertaan SK aktif, jumlah provinsi, dan jumlah kabupaten/kota terwakili.
-- Grafik batang horizontal per provinsi, per kabupaten/kota, dan per periode publik.
-- Filter periode untuk ringkasan dan sebaran wilayah; perbandingan periode tetap mencakup semua periode publik dengan peserta aktif. Periode terpilih diberi warna emas.
+- Grafik batang horizontal per provinsi, per kabupaten/kota, dan per periode Dipublikasikan.
+- Filter periode untuk ringkasan dan sebaran wilayah; perbandingan periode tetap mencakup semua periode Dipublikasikan dengan peserta aktif. Periode terpilih diberi warna emas.
 - Pilihan provinsi, pencarian nama/kode kabupaten/kota, klik batang provinsi/periode, dan Reset statistik.
 - Area gulir untuk seluruh kategori; tidak ada batas top-10 atau penggabungan wilayah menjadi “Lainnya”. Nama periode yang panjang mendapat jarak antarkategori lebih besar.
 - Tabel HTML untuk setiap grafik. Tanpa JavaScript tabel tetap tersedia dan kontrol interaktif disembunyikan. Setelah grafik berhasil dimuat, tabel dapat dibuka melalui **Lihat tabel data**.
@@ -18,7 +18,7 @@ Ringkasan tidak berubah saat hanya provinsi atau pencarian kabupaten/kota diubah
 
 ## Cakupan dan sumber data
 
-Sumber adalah baris `sk_participants` dengan `roster_state = active` pada periode `is_public = true` dan `state = published`. Periode yang waktunya sudah ditutup tetap termasuk selama memenuhi syarat tersebut. Draf, periode privat dan arsip dikecualikan.
+Sumber adalah baris `sk_participants` dengan `roster_state = active` pada **seluruh periode `state = published`**. Pengaturan `is_public` hanya memilih satu periode utama pada kartu informasi beranda; pengaturan tersebut tidak membatasi statistik. Periode yang waktunya sudah ditutup tetap termasuk selama masih Dipublikasikan. Draf dan Arsip dikecualikan.
 
 Peserta belum mempunyai akun, akun nonaktif dan penahanan administratif tidak mengubah hitungan kepesertaan aktif. Peserta yang mundur tidak dihitung. Staging impor, klaim, biodata dan antrean aplikasi bukan sumber penghitungan. Penghapusan riwayat impor tidak mengurangi statistik selama peserta masih tersimpan.
 
@@ -30,9 +30,9 @@ Kode tidak dikenal, pasangan wilayah tidak cocok atau wilayah yang belum dapat d
 
 `GET /statistik-peserta-sk` menerima `period_id` opsional dan mengembalikan `generated_at`, `scope`, `summary`, `periods`, `provinces` serta `cities`.
 
-- Tanpa periode: ringkasan dan wilayah mencakup seluruh periode publik yang memenuhi syarat.
+- Tanpa periode: ringkasan dan wilayah mencakup seluruh periode Dipublikasikan yang memenuhi syarat.
 - Periode publik yang masih memenuhi syarat tetapi kehilangan seluruh peserta aktif: respons kosong HTTP 200 yang bisa direset.
-- Periode privat, draf, arsip, tidak ada, atau parameter cacat/array: HTTP 404 tanpa pengalihan ke seluruh periode.
+- Periode draf, arsip, tidak ada, atau parameter cacat/array: HTTP 404 tanpa pengalihan ke seluruh periode. Periode Dipublikasikan dengan `is_public = false` tetap dapat dipilih dan dihitung.
 - Daftar pilihan normal hanya berisi periode/wilayah dengan jumlah positif.
 - Respons tidak berisi nama orang, PEG ID, nomor HP, email, status akun, penugasan operator atau data pemeriksaan.
 - Endpoint dibatasi 60 permintaan per menit melalui middleware proyek. Homepage dan endpoint memakai `Cache-Control: no-store, private` agar browser/proxy tidak menyajikan statistik lama setelah publikasi diubah.
@@ -45,7 +45,7 @@ Payload awal beranda dienkode dengan `Js::encode`, tabel menggunakan escaping Bl
 
 Cache hasil normalisasi berlaku **300 detik**, diatur dalam `config/pmb.php` melalui `public_statistics_cache_seconds`. Implementasi memakai **revisi berdasarkan isi agregat**, menggantikan usulan hook invalidasi pada tiap jalur tulis:
 
-1. Baca cakupan periode publik dan seluruh masukan agregat/referensi dalam transaksi baca.
+1. Baca cakupan periode Dipublikasikan dan seluruh masukan agregat/referensi dalam transaksi baca.
 2. Validasi periode terhadap cakupan terkini sebelum mengakses cache.
 3. Bentuk identitas cache dari isi agregat, metadata periode, referensi dan pilihan periode.
 4. Gunakan kembali hasil cache hanya apabila semua masukan tersebut masih sama.
@@ -62,16 +62,26 @@ Pergantian periode memakai AbortController dan nomor urut permintaan. Respons la
 
 ## Verifikasi lokal
 
-- `PublicSkParticipantStatisticsControllerTest` dan `PublicPortalControllerTest`: **23 pengujian lulus, 155 assertion**. Mencakup agregasi, akun belum terhubung/nonaktif, penahanan, pengunduran diri, data pribadi, periode privat/draf/arsip, keadaan kosong, kode tidak valid, referensi multi-versi, fallback nama, escaping, cache dan perubahan massal/publikasi.
+- `PublicSkParticipantStatisticsControllerTest` dan `PublicPortalControllerTest`: **23 pengujian lulus, 167 assertion**. Mencakup agregasi, akun belum terhubung/nonaktif, penahanan, pengunduran diri, data pribadi, periode draf/arsip, periode Dipublikasikan yang bukan periode utama, keadaan tanpa periode utama, kode tidak valid, referensi multi-versi, fallback nama, escaping, cache dan perubahan massal/publikasi.
 - `npm run test:statistics`: **6 pengujian JavaScript lulus**. Mencakup pilihan kota, penyebut persentase, seluruh 71 kategori, konfigurasi gulir, reduced motion, pemilihan periode, escaping tooltip, pembagian nol, reset, respons cacat dan balapan permintaan.
-- `composer test`: **939 pengujian PHP lulus, 6.841 assertion**. Pemeriksaan format Pint dan analisis tipe PHPStan juga lulus tanpa kesalahan. `git diff --check` lulus.
+- `composer test` setelah perbaikan cakupan: **939 pengujian PHP lulus, 6.853 assertion**. Pemeriksaan format Pint dan analisis tipe PHPStan juga lulus tanpa kesalahan. `git diff --check` lulus.
 - `npm run build` berhasil. Entry statistik sekitar 9,6 kB sebelum gzip; Core sekitar 278 kB dan Accessibility sekitar 137 kB dimuat terpisah saat diperlukan.
 - Pemeriksaan impor ESM mengonfirmasi Core dan Accessibility memakai instance Highcharts 13.1.1 yang sama; factory grafik dan komponen aksesibilitas tersedia.
-- HTTP nyata ke `http://ppg.test/` dan entry JavaScript menghasilkan 200. Endpoint lokal mengembalikan **350 kepesertaan, 9 provinsi, 71 kabupaten/kota**, tanpa wilayah tidak tersedia, sesuai cakupan publik pada waktu pemeriksaan.
-- Pengukuran sederhana endpoint melalui PowerShell mencatat 365 ms pada permintaan awal rangkaian dan **74 ms / 76 ms** pada dua permintaan berikutnya. Ini hasil lokal, bukan SLA production atau hasil benchmark beban.
+- HTTP nyata ke `http://ppg.test/` dan entry JavaScript menghasilkan 200. Setelah cakupan diperbaiki, endpoint lokal mengembalikan **454 kepesertaan dari 2 periode, 10 provinsi, 75 kabupaten/kota**, tanpa wilayah tidak tersedia. Sebelum perbaikan, filter periode utama membatasi hasil lokal menjadi 350 kepesertaan.
+- Pengukuran tahap awal endpoint melalui PowerShell mencatat 365 ms pada permintaan awal rangkaian dan **74 ms / 76 ms** pada dua permintaan berikutnya, sebelum perluasan cakupan menjadi seluruh periode Dipublikasikan. Ini hasil lokal, bukan SLA production atau hasil benchmark beban.
 - Verifikasi visual desktop/ponsel dan interaksi browser belum selesai: Computer Use menghentikan sesi karena tidak dapat memastikan URL aktif untuk penegakan kebijakan. Tidak ada klaim bahwa tampilan sudah diperiksa melalui screenshot atau seluruh navigasi keyboard telah diuji langsung.
 
 ## Pemeriksaan sebelum rilis production
+
+### Perbaikan angka nol di production
+
+Pemeriksaan read-only production pada 14 November 2026 menunjukkan endpoint merespons HTTP 200 dengan total nol dan beranda menampilkan “Periode penerimaan belum diumumkan”. Angka nol berasal dari server, bukan dari Highcharts. Penyebab implementasinya adalah filter `is_public = true`, sedangkan aplikasi memakai kolom itu sebagai pemilih **satu periode utama beranda**, bukan penanda cakupan statistik.
+
+Sesuai keputusan pengguna, statistik sekarang mencakup seluruh periode Dipublikasikan, terlepas dari `is_public`. Kartu informasi periode utama di beranda tetap memakai pilihan administrator yang sudah ada. Versi cache statistik dinaikkan ke `public-sk-statistics:v2` agar payload cakupan lama tidak dipakai kembali.
+
+Deploy `app/Support/PublicSkParticipantStatistics.php`, partial statistik, serta seluruh `public/build` termasuk manifest dan entry JavaScript terbaru. Jika membangun aset di server, deploy sumber JavaScript dan jalankan build di sana. Setelah kode/view diperbarui, jalankan `php artisan optimize:clear` sesuai prosedur deployment. Tidak perlu mengubah `is_public` untuk membuat statistik muncul, dan tidak diperlukan migrasi.
+
+Setelah deployment, periksa `/statistik-peserta-sk`: `scope.label` harus **Semua periode dipublikasikan**, `scope.period_state` harus `published`, dan jumlah harus sesuai data peserta aktif pada periode Dipublikasikan di database production. Angka lokal 454 bukan jaminan jumlah yang sama di production. Perbaikan lokal ini tidak melakukan deployment atau perubahan data production secara langsung.
 
 Jalankan `composer test`, `npm run test:statistics`, dan `npm run build` pada lingkungan rilis. Sertakan manifest serta seluruh aset build baru. Tidak ada migrasi database baru untuk fitur ini.
 
